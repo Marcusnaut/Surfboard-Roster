@@ -46,6 +46,7 @@
   }
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; }
 body {
   background: var(--bg); color: var(--ink);
@@ -301,7 +302,7 @@ table.bt td { padding: 2px 0; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 5 (fin tracker)';
+const BUILD = 'Build 5.1 (fin tracker)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -1006,8 +1007,8 @@ function viewBoardForm(id) {
           </div>
         </div>
       </div>
-      <div class="field"><label for="model">Model</label><input type="text" name="model" id="model" value="${esc(v.model)}" maxlength="80" placeholder="e.g. Seaside" enterkeyhint="next"></div>
-      <div class="field"><label for="shaper">Shaper</label><input type="text" name="shaper" id="shaper" value="${esc(v.shaper)}" maxlength="80" list="shaperList" placeholder="e.g. Firewire" enterkeyhint="next">
+      <div class="field"><label for="model">Model</label><input type="text" name="model" id="model" value="${esc(v.model)}" maxlength="80" placeholder="e.g. Shred Stick 2.0" enterkeyhint="next"></div>
+      <div class="field"><label for="shaper">Shaper</label><input type="text" name="shaper" id="shaper" value="${esc(v.shaper)}" maxlength="80" list="shaperList" placeholder="e.g. Johnny Shapenstein" enterkeyhint="next">
         <datalist id="shaperList">${shapers.map(s => `<option value="${esc(s)}">`).join('')}</datalist></div>
       <div class="err" id="boardErr" role="alert"></div>
       <h2 class="sec">Size</h2>
@@ -1217,7 +1218,7 @@ function viewFinForm(id) {
           <div class="btns"><label class="btn">${cur ? 'Change photo' : 'Add photo'}<input type="file" id="photoInput" accept="image/*"></label>
             <button type="button" data-act="removeFinPhoto" ${cur ? '' : 'hidden'} id="removePhotoBtn">Remove photo</button></div>
         </div></div>
-      <div class="field"><label for="finName">Name or model</label><input type="text" name="name" id="finName" value="${esc(v.name)}" maxlength="80" placeholder="e.g. AM2, Rasta Keel" enterkeyhint="next"></div>
+      <div class="field"><label for="finName">Name or model</label><input type="text" name="name" id="finName" value="${esc(v.name)}" maxlength="80" placeholder="e.g. Fin Diesel Keels" enterkeyhint="next"></div>
       <div class="err" id="finErr" role="alert"></div>
       <h2 class="sec">Details</h2>
       ${finListsOn().map(k => `<div class="field"><label for="f_${k}">${esc(listByKey(k).name.replace(/^Fin /, '').replace(/^./, c => c.toUpperCase()))}</label>${pickerHTML(k, v[k], k, 'f_' + k)}</div>`).join('')}
