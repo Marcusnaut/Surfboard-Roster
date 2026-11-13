@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Surfboard Tracker</title>
+<meta name="theme-color" content="#0b3a4a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Quiver">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+:root {
+  --bg: #f4f1ea;
+  --surface: #ffffff;
+  --ink: #12262d;
+  --muted: #5d7279;
+  --line: #e2ddd2;
+  --brand: #0b3a4a;
+  --brand-ink: #ffffff;
+  --accent: #0f7f8c;
+  --danger: #b3372b;
+  --tag: #ece7db;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0c1a1f;
+    --surface: #14272e;
+    --ink: #e8f0f1;
+    --muted: #93a8ad;
+    --line: #223a42;
+    --brand: #0b3a4a;
+    --accent: #4fc3cf;
+    --danger: #ff8a7a;
+    --tag: #1d353d;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+header.top {
+  position: sticky; top: 0; z-index: 5;
+  background: var(--brand); color: var(--brand-ink);
+  padding: calc(env(safe-area-inset-top) + 12px) 16px 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+header.top h1 { font-size: 19px; margin: 0; font-weight: 650; flex: 1; }
+header.top .back {
+  color: var(--brand-ink); text-decoration: none; font-size: 16px;
+  padding: 6px 10px 6px 0; min-height: 44px; display: flex; align-items: center;
+}
+main {
+  padding: 16px 16px calc(env(safe-area-inset-bottom) + 96px);
+  max-width: 720px; margin: 0 auto;
+}
+nav.tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+  background: var(--surface); border-top: 1px solid var(--line);
+  display: flex; padding-bottom: env(safe-area-inset-bottom);
+}
+nav.tabs a {
+  flex: 1; text-align: center; text-decoration: none; color: var(--muted);
+  padding: 8px 0 6px; font-size: 11px; min-height: 52px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+nav.tabs a svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+nav.tabs a.on { color: var(--accent); font-weight: 600; }
+h2.sec { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 22px 4px 8px; font-weight: 600; }
+h2.sec:first-child { margin-top: 4px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 12px 0 16px; min-height: 52px;
+  border-bottom: 1px solid var(--line); color: inherit; text-decoration: none;
+}
+.row:last-child { border-bottom: 0; }
+.row .grow { flex: 1; min-width: 0; padding: 10px 0; }
+.row .label { overflow-wrap: anywhere; }
+.row .sub { color: var(--muted); font-size: 13px; }
+.row .chev { color: var(--muted); font-size: 20px; }
+.row.hidden-opt .label { color: var(--muted); text-decoration: line-through; }
+.tag { background: var(--tag); color: var(--muted); font-size: 11px; border-radius: 999px; padding: 2px 8px; margin-left: 6px; white-space: nowrap; }
+button, .btn {
+  font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 10px;
+  min-height: 44px; padding: 0 14px; cursor: pointer;
+}
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+@media (prefers-color-scheme: dark) { button.primary { color: #06232a; } }
+button.danger { color: var(--danger); }
+button.icon { width: 44px; padding: 0; font-size: 16px; color: var(--muted); border-color: transparent; background: transparent; }
+button.icon:disabled { opacity: .25; }
+button.rowbtn { flex: 1; text-align: left; border: 0; background: transparent; padding: 10px 0; min-height: 52px; border-radius: 0; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input[type=text], select {
+  font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 10px;
+  min-height: 44px; padding: 0 12px; width: 100%;
+}
+.addbar { display: flex; gap: 8px; margin-top: 12px; }
+.addbar input { flex: 1; }
+.field { margin: 0 0 14px; }
+.field label { display: block; font-size: 13px; color: var(--muted); margin: 0 4px 6px; }
+.empty { text-align: center; color: var(--muted); padding: 48px 20px; }
+.empty .big { font-size: 18px; color: var(--ink); font-weight: 600; margin-bottom: 6px; }
+.note { color: var(--muted); font-size: 13px; margin: 8px 4px 0; }
+.stack { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; }
+dialog {
+  border: 0; border-radius: 18px; padding: 20px; width: min(92vw, 420px);
+  background: var(--surface); color: var(--ink);
+}
+dialog::backdrop { background: rgba(0,0,0,.45); }
+dialog h3 { margin: 0 0 12px; font-size: 18px; }
+dialog p { margin: 0 0 14px; color: var(--muted); }
+dialog .actions { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.err { color: var(--danger); font-size: 13px; min-height: 18px; margin: 4px 4px 0; }
+#toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(env(safe-area-inset-bottom) + 76px); z-index: 20;
+  background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 999px;
+  font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s; max-width: 90vw; text-align: center;
+}
+#toast.show { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+</style>
+</head>
+<body>
+<header class="top" id="top"></header>
+<main id="main"></main>
+<nav class="tabs" id="tabs" aria-label="Sections">
+  <a href="#/boards" data-tab="boards"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c3 3 4.5 7 4.5 10.500S15 20 12 22c-3-2-4.500-6-4.500-9.500S9 5 12 2z"/><path d="M12 5v14"/></svg>Boards</a>
+  <a href="#/sessions" data-tab="sessions"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 16c2.500 0 2.500-2 5-2s2.500 2 5 2 2.500-2 5-2 2.500 2 5 2"/><path d="M2 10c2.500 0 2.500-2 5-2s2.500 2 5 2 2.500-2 5-2 2.500 2 5 2"/></svg>Sessions</a>
+  <a href="#/map" data-tab="map"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.500-6-10a6 6 0 0 1 12 0c0 4.500-6 10-6 10z"/><circle cx="12" cy="11" r="2.200"/></svg>Map</a>
+  <a href="#/settings" data-tab="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>Settings</a>
+</nav>
+<dialog id="dlg"></dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+<input type="file" id="importFile" accept="application/json,.json" hidden>
+
+<script>
+'use strict';
+const APP_ID = 'surfboard-tracker';
+const BUILD = 'Build 1 (Phase 1: lists and backup)';
+const SCHEMA = 1;
+const DB_NAME = 'surfboard-tracker';
+const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta'];
+
+/* Each list's key is also the field name on the record that uses it:
+   board.type, board.finConfig, session.waveSize and so on hold an option id. */
+const LISTS = [
+  { key: 'type', name: 'Board type', store: 'boards', values: ['Shortboard', 'Groveler', 'Fish', 'Hybrid', 'Step-up', 'Gun', 'Mid-length', 'Egg', 'Funboard', 'Longboard', 'Log', 'Soft-top', 'SUP'] },
+  { key: 'finConfig', name: 'Fin configuration', store: 'boards', values: ['Single', 'Twin', 'Twin + trailer', 'Thruster', 'Quad', '5-fin convertible', '2+1', 'Bonzer', 'Finless'] },
+  { key: 'finSystem', name: 'Fin system', store: 'boards', values: ['FCS II', 'FCS (plugs)', 'Futures', 'Glass-on', 'US box (single)', 'Box + side bites', 'Soft-top screw-through'] },
+  { key: 'rocker', name: 'Rocker profile', store: 'boards', values: ['Flat', 'Low', 'Medium', 'High', 'Low entry / high exit', 'High entry / low exit'] },
+  { key: 'rails', name: 'Rails', store: 'boards', values: ['Soft (50/50)', 'Medium', 'Hard (down)', 'Boxy', 'Pinched', 'Tucked edge'] },
+  { key: 'waveSize', name: 'Wave size', store: 'sessions', values: ['Flat', '1-2 ft (ankle to knee)', '2-3 ft (knee to waist)', '3-4 ft (waist to chest)', '4-5 ft (chest to head)', '5-6 ft (head high)', '6-8 ft (overhead)', '8-10 ft (well overhead)', '10 ft+ (double overhead+)'] },
+  { key: 'waveDesc', name: 'Wave description', store: 'sessions', values: ['Glassy', 'Clean', 'Lined up', 'Peaky', 'Hollow', 'Mushy', 'Choppy', 'Blown out', 'Closed out'] }
+];
+const listByKey = k => LISTS.find(l => l.key === k);
+
+/* ---------- database ---------- */
+let db;
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, SCHEMA);
+    req.onupgradeneeded = () => {
+      const d = req.result;
+      for (const s of STORES) {
+        if (!d.objectStoreNames.contains(s)) d.createObjectStore(s, { keyPath: s === 'meta' ? 'key' : 'id' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function tx(stores, mode, work) {
+  return new Promise((resolve, reject) => {
+    const t = db.transaction(stores, mode);
+    let out;
+    t.oncomplete = () => resolve(out);
+    t.onerror = () => reject(t.error);
+    t.onabort = () => reject(t.error || new Error('Transaction aborted'));
+    out = work(t);
+  });
+}
+function getAll(store) {
+  return new Promise((resolve, reject) => {
+    const r = db.transaction(store).objectStore(store).getAll();
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+}
+const putMany = (store, recs) => tx([store], 'readwrite', t => { recs.forEach(r => t.objectStore(store).put(r)); });
+const del = (store, id) => tx([store], 'readwrite', t => { t.objectStore(store).delete(id); });
+async function getMeta(key) {
+  const all = await getAll('meta');
+  const m = all.find(x => x.key === key);
+  return m ? m.value : undefined;
+}
+const setMeta = (key, value) => putMany('meta', [{ key, value }]);
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+/* Seed each list once. Tracked per list so lists added in later builds get seeded too. */
+async function seed() {
+  const meta = await getAll('meta');
+  const done = new Set(meta.filter(m => m.key.startsWith('seeded:')).map(m => m.key.slice(7)));
+  for (const l of LISTS) {
+    if (done.has(l.key)) continue;
+    const recs = l.values.map((v, i) => ({ id: l.key + ':' + slug(v), list: l.key, value: v, order: i, builtIn: true, hidden: false }));
+    await putMany('options', recs);
+    await setMeta('seeded:' + l.key, true);
+  }
+}
+
+/* ---------- state ---------- */
+let options = [];
+async function loadOptions() { options = await getAll('options'); }
+const optionsFor = key => options.filter(o => o.list === key).sort((a, b) => a.order - b.order);
+async function usedCount(list, id) {
+  const recs = await getAll(list.store);
+  return recs.filter(r => r[list.key] === id).length;
+}
+function nameError(key, value, exceptId) {
+  const v = value.trim();
+  if (!v) return 'Enter a name.';
+  if (v.length > 60) return 'Keep it under 60 characters.';
+  const clash = optionsFor(key).some(o => o.id !== exceptId && o.value.toLowerCase() === v.toLowerCase());
+  return clash ? 'That value is already in the list.' : '';
+}
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let toastTimer;
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+function openDialog(html) {
+  const d = $('#dlg');
+  d.innerHTML = html;
+  if (!d.open) d.showModal();
+  return d;
+}
+function closeDialog() { const d = $('#dlg'); if (d.open) d.close(); }
+
+/* ---------- views ---------- */
+function setTop(title, backHref) {
+  $('#top').innerHTML = (backHref ? `<a class="back" href="${backHref}" aria-label="Back">&#8249; Back</a>` : '') + `<h1>${esc(title)}</h1>`;
+  document.title = title + ' · Surfboard Tracker';
+}
+function placeholder(title, big, small) {
+  setTop(title);
+  $('#main').innerHTML = `<div class="empty"><div class="big">${esc(big)}</div><div>${esc(small)}</div></div>`;
+}
+async function viewSettings() {
+  setTop('Settings');
+  const last = await getMeta('lastBackup');
+  const rows = LISTS.map(l => {
+    const all = optionsFor(l.key), shown = all.filter(o => !o.hidden).length;
+    const sub = shown === all.length ? `${shown} values` : `${shown} values, ${all.length - shown} hidden`;
+    return `<a class="row" href="#/settings/list/${l.key}"><span class="grow"><span class="label">${esc(l.name)}</span><br><span class="sub">${sub}</span></span><span class="chev" aria-hidden="true">&#8250;</span></a>`;
+  }).join('');
+  $('#main').innerHTML = `
+    <h2 class="sec">Lists</h2>
+    <div class="card">${rows}</div>
+    <p class="note">These are the choices offered when you add a board or log a session.</p>
+    <h2 class="sec">Backup</h2>
+    <div class="card"><div class="stack">
+      <button class="primary" data-act="export">Export backup</button>
+      <button data-act="import">Restore from backup</button>
+      <div class="sub" style="color:var(--muted);font-size:13px">${last ? 'Last export: ' + esc(new Date(last).toLocaleString()) : 'No backup exported yet.'}</div>
+    </div></div>
+    <p class="note">Everything is stored only on this device. Export a backup now and then, and keep the file somewhere safe.</p>
+    <h2 class="sec">About</h2>
+    <div class="card"><div class="row"><span class="grow"><span class="label">Surfboard Tracker</span><br><span class="sub">${esc(BUILD)}</span></span></div></div>`;
+}
+function viewList(key) {
+  const list = listByKey(key);
+  if (!list) { location.hash = '#/settings'; return; }
+  setTop(list.name, '#/settings');
+  const all = optionsFor(key);
+  const rows = all.map((o, i) => `
+    <div class="row ${o.hidden ? 'hidden-opt' : ''}">
+      <button class="rowbtn" data-act="edit" data-id="${esc(o.id)}"><span class="label">${esc(o.value)}</span>${o.hidden ? '<span class="tag">Hidden</span>' : ''}${o.builtIn ? '' : '<span class="tag">Added</span>'}</button>
+      <button class="icon" data-act="up" data-id="${esc(o.id)}" aria-label="Move ${esc(o.value)} up" ${i === 0 ? 'disabled' : ''}>&#9650;</button>
+      <button class="icon" data-act="down" data-id="${esc(o.id)}" aria-label="Move ${esc(o.value)} down" ${i === all.length - 1 ? 'disabled' : ''}>&#9660;</button>
+    </div>`).join('');
+  const preview = all.filter(o => !o.hidden).map(o => `<option>${esc(o.value)}</option>`).join('');
+  $('#main').innerHTML = `
+    <div class="field"><label for="preview">How it will look in a form</label>
+      <select id="preview"><option value="">Choose…</option>${preview}</select></div>
+    <h2 class="sec">Values</h2>
+    <div class="card">${rows || '<div class="stack sub">No values yet.</div>'}</div>
+    <form class="addbar" data-form="add" data-key="${esc(key)}" autocomplete="off">
+      <input type="text" id="addValue" placeholder="Add a value" aria-label="New value" maxlength="60" enterkeyhint="done">
+      <button class="primary" type="submit">Add</button>
+    </form>
+    <div class="err" id="addErr" role="alert"></div>
+    <p class="note">Tap a value to rename, hide or delete it. Arrows change the order.</p>`;
+}
+
+function editDialog(id) {
+  const o = options.find(x => x.id === id);
+  if (!o) return;
+  openDialog(`
+    <form data-form="rename" data-id="${esc(o.id)}" autocomplete="off">
+      <h3>Edit value</h3>
+      <div class="field"><label for="renameValue">Name</label>
+        <input type="text" id="renameValue" value="${esc(o.value)}" maxlength="60" enterkeyhint="done"></div>
+      <div class="err" id="renameErr" role="alert"></div>
+      <div class="actions">
+        <button class="primary" type="submit">Save</button>
+        <button type="button" data-act="toggleHide" data-id="${esc(o.id)}">${o.hidden ? 'Show in pickers' : 'Hide from pickers'}</button>
+        <button type="button" class="danger" data-act="delete" data-id="${esc(o.id)}">Delete</button>
+        <button type="button" data-act="close">Cancel</button>
+      </div>
+    </form>`);
+}
+
+/* ---------- list actions ---------- */
+async function addOption(key, value) {
+  const all = optionsFor(key);
+  const order = all.length ? Math.max(...all.map(o => o.order)) + 1 : 0;
+  await putMany('options', [{ id: key + ':' + newId(), list: key, value: value.trim(), order, builtIn: false, hidden: false }]);
+  await loadOptions();
+}
+async function moveOption(id, dir) {
+  const o = options.find(x => x.id === id);
+  const all = optionsFor(o.list);
+  const i = all.findIndex(x => x.id === id), j = i + dir;
+  if (j < 0 || j >= all.length) return;
+  [all[i], all[j]] = [all[j], all[i]];
+  all.forEach((x, n) => { x.order = n; });
+  await putMany('options', all);
+  await loadOptions();
+}
+async function deleteOption(id) {
+  const o = options.find(x => x.id === id);
+  const list = listByKey(o.list);
+  const n = await usedCount(list, id);
+  if (n > 0) {
+    openDialog(`<h3>In use</h3><p>"${esc(o.value)}" is used by ${n} ${n === 1 ? 'record' : 'records'}, so it can't be deleted. Hide it instead and it stops showing in pickers.</p>
+      <div class="actions"><button class="primary" data-act="toggleHide" data-id="${esc(id)}" ${o.hidden ? 'hidden' : ''}>Hide from pickers</button><button data-act="close">Close</button></div>`);
+    return;
+  }
+  await del('options', id);
+  await loadOptions();
+  closeDialog();
+  toast('Deleted');
+  route();
+}
+
+/* ---------- backup ---------- */
+const blobToDataURL = blob => new Promise((resolve, reject) => {
+  const r = new FileReader();
+  r.onload = () => resolve(r.result); r.onerror = () => reject(r.error);
+  r.readAsDataURL(blob);
+});
+async function dataURLToBlob(url) { return (await fetch(url)).blob(); }
+
+async function buildBackup() {
+  const data = {};
+  for (const s of STORES) data[s] = await getAll(s);
+  data.photos = await Promise.all(data.photos.map(async p =>
+    p.blob instanceof Blob ? { ...p, blob: { __blob: await blobToDataURL(p.blob) } } : p));
+  return { app: APP_ID, schema: SCHEMA, exportedAt: new Date().toISOString(), data };
+}
+async function exportBackup() {
+  const backup = await buildBackup();
+  const name = `surfboard-tracker-backup-${backup.exportedAt.slice(0, 10)}.json`;
+  const text = JSON.stringify(backup);
+  let shared = false;
+  try {
+    const file = new File([text], name, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'Surfboard Tracker backup' });
+      shared = true;
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;   // user closed the share sheet
+  }
+  if (!shared) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+  await setMeta('lastBackup', backup.exportedAt);
+  toast('Backup exported');
+  route();
+}
+function checkBackup(b) {
+  if (!b || b.app !== APP_ID || !b.data) return 'This file is not a Surfboard Tracker backup.';
+  if (typeof b.schema !== 'number' || b.schema > SCHEMA) return 'This backup comes from a newer version of the app.';
+  for (const s of STORES) if (b.data[s] !== undefined && !Array.isArray(b.data[s])) return 'The backup file is damaged.';
+  return '';
+}
+let pendingImport = null;
+async function readImport(file) {
+  let b;
+  try { b = JSON.parse(await file.text()); } catch (e) { b = null; }
+  const problem = checkBackup(b);
+  if (problem) { openDialog(`<h3>Can't restore</h3><p>${esc(problem)}</p><div class="actions"><button data-act="close">Close</button></div>`); return; }
+  pendingImport = b;
+  const n = s => (b.data[s] || []).length;
+  openDialog(`<h3>Restore this backup?</h3>
+    <p>Exported ${esc(new Date(b.exportedAt).toLocaleString())}. It holds ${plural(n('boards'), 'board')}, ${plural(n('sessions'), 'session')} and ${plural(n('options'), 'list value')}.</p>
+    <p>Everything currently on this device will be replaced.</p>
+    <div class="actions"><button class="primary" data-act="confirmImport">Replace and restore</button><button data-act="close">Cancel</button></div>`);
+}
+async function applyImport(b) {
+  const data = {};
+  for (const s of STORES) data[s] = b.data[s] || [];
+  data.photos = await Promise.all(data.photos.map(async p =>
+    p.blob && p.blob.__blob ? { ...p, blob: await dataURLToBlob(p.blob.__blob) } : p));
+  await tx(STORES, 'readwrite', t => {
+    for (const s of STORES) {
+      const st = t.objectStore(s);
+      st.clear();
+      data[s].forEach(r => st.put(r));
+    }
+  });
+  await seed();          // seeds any list the backup predates
+  await loadOptions();
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click', async e => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  const act = el.dataset.act, id = el.dataset.id;
+  try {
+    if (act === 'close') closeDialog();
+    else if (act === 'edit') editDialog(id);
+    else if (act === 'up' || act === 'down') {
+      await moveOption(id, act === 'up' ? -1 : 1); route();
+      const again = document.querySelector(`[data-act="${act}"][data-id="${CSS.escape(id)}"]`);
+      if (again && !again.disabled) again.focus();
+    }
+    else if (act === 'toggleHide') {
+      const o = options.find(x => x.id === id);
+      o.hidden = !o.hidden;
+      await putMany('options', [o]); await loadOptions();
+      closeDialog(); toast(o.hidden ? 'Hidden from pickers' : 'Showing in pickers'); route();
+    }
+    else if (act === 'delete') await deleteOption(id);
+    else if (act === 'export') await exportBackup();
+    else if (act === 'import') $('#importFile').click();
+    else if (act === 'confirmImport') {
+      const b = pendingImport; pendingImport = null;
+      await applyImport(b);
+      closeDialog(); toast('Backup restored'); route();
+    }
+  } catch (err) {
+    console.error(err);
+    toast('Something went wrong: ' + (err && err.message ? err.message : 'unknown error'));
+  }
+});
+document.addEventListener('submit', async e => {
+  const f = e.target.closest('[data-form]');
+  if (!f) return;
+  e.preventDefault();
+  try {
+    if (f.dataset.form === 'add') {
+      const input = $('#addValue'), key = f.dataset.key;
+      const problem = nameError(key, input.value);
+      if (problem) { $('#addErr').textContent = problem; return; }
+      await addOption(key, input.value);
+      route();
+      toast('Added');
+      $('#addValue').focus();
+    } else if (f.dataset.form === 'rename') {
+      const o = options.find(x => x.id === f.dataset.id);
+      const input = $('#renameValue');
+      const problem = nameError(o.list, input.value, o.id);
+      if (problem) { $('#renameErr').textContent = problem; return; }
+      o.value = input.value.trim();
+      await putMany('options', [o]); await loadOptions();
+      closeDialog(); toast('Saved'); route();
+    }
+  } catch (err) {
+    console.error(err);
+    toast('Something went wrong: ' + (err && err.message ? err.message : 'unknown error'));
+  }
+});
+$('#importFile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (file) await readImport(file);
+});
+
+/* ---------- router ---------- */
+function route() {
+  const parts = (location.hash || '#/boards').slice(2).split('/');
+  const tab = ['boards', 'sessions', 'map', 'settings'].includes(parts[0]) ? parts[0] : 'boards';
+  document.querySelectorAll('#tabs a').forEach(a => {
+    const on = a.dataset.tab === tab;
+    a.classList.toggle('on', on);
+    if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  });
+  if (tab === 'settings') return parts[1] === 'list' ? viewList(parts[2]) : viewSettings();
+  if (tab === 'boards') return placeholder('Boards', 'No boards yet', 'Adding boards comes in the next build. For now, set up your lists in Settings.');
+  if (tab === 'sessions') return placeholder('Sessions', 'No sessions yet', 'Session logging comes after boards.');
+  return placeholder('Map', 'Nothing to map yet', 'Your surf spots will show here once sessions are logged.');
+}
+window.addEventListener('hashchange', () => { closeDialog(); route(); window.scrollTo(0, 0); });
+
+/* ---------- start ---------- */
+(async function start() {
+  try {
+    db = await openDB();
+    await seed();
+    await loadOptions();
+    route();
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    if ('serviceWorker' in navigator && location.protocol === 'https:') {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+  } catch (err) {
+    console.error(err);
+    setTop('Surfboard Tracker');
+    $('#main').innerHTML = `<div class="empty"><div class="big">Storage isn't available</div><div>The app needs on-device storage. Private browsing can block it; open the page in a normal tab.</div></div>`;
+  }
+})();
+</script>
+</body>
+</html>
