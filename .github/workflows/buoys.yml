@@ -1,0 +1,42 @@
+# Fetches the latest NOAA buoy readings near Ventura every 30 minutes and publishes
+# them as buoys.json on the `data` branch, which the app reads for the map's buoy layer.
+# GitHub may run scheduled jobs a few minutes late, and pauses them if the repository
+# has no activity for 60 days (re-enable under Actions if that happens).
+name: Update buoy data
+
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: buoys
+  cancel-in-progress: true
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Fetch buoys
+        run: |
+          mkdir -p out
+          python3 tools/fetch_buoys.py out/buoys.json
+      - name: Publish to the data branch
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          cd out
+          git init -q -b data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add buoys.json
+          git commit -q -m "Buoy data $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${REPO}.git" data

@@ -242,6 +242,7 @@ label.btn input { display: none; }
 /* maps */
 #bigmap { height: var(--avail); width: 100%; }
 .leaflet-container { font: inherit; background: var(--tag); }
+.leaflet-container.imagery { background: #1d2a2f; }
 .map-legend { position: absolute; z-index: 500; left: 10px; bottom: 26px; right: 10px; background: var(--surface); color: var(--ink); border-radius: 12px; padding: 8px 12px; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,.18); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .map-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 3px; vertical-align: middle; }
 .leaflet-popup-content { font-size: 14px; line-height: 1.4; margin: 12px 14px; }
@@ -251,6 +252,22 @@ label.btn input { display: none; }
 .popup-links { display: flex; gap: 12px; margin-top: 8px; }
 .pin { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
 .addspot { display: flex; gap: 8px; margin-top: 8px; }
+.buoy-icon { background: none; border: 0; }
+.buoy { position: relative; width: 24px; height: 24px; }
+.buoy .bdot { position: absolute; inset: 0; border-radius: 50%; background: #ffc531; border: 2px solid #0b3a4a; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
+.buoy .bdot svg { width: 16px; height: 16px; fill: #0b3a4a; }
+.buoy .blbl { position: absolute; left: 28px; top: 50%; transform: translateY(-50%); white-space: nowrap; background: rgba(11,58,74,.92); color: #fff; font-size: 12px; font-weight: 650; padding: 2px 7px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.3); pointer-events: none; }
+.buoy.stale .bdot { background: #c9d1d3; }
+.buoy.stale .blbl { background: rgba(80,95,100,.85); }
+table.bt { border-collapse: collapse; margin: 8px 0 4px; font-size: 13px; width: 100%; }
+table.bt th { text-align: left; color: var(--muted); font-weight: 500; padding: 2px 10px 2px 0; vertical-align: top; white-space: nowrap; }
+table.bt td { padding: 2px 0; }
+.spark { color: var(--accent); margin-top: 6px; }
+.leaflet-control-layers { border-radius: 10px !important; }
+.leaflet-control-layers-toggle { width: 44px !important; height: 44px !important; }
+.leaflet-control-layers-expanded { padding: 8px 12px; font-size: 15px; background: var(--surface); color: var(--ink); }
+.leaflet-control-layers label { min-height: 36px; display: flex; align-items: center; }
+.leaflet-control-layers-selector { width: 18px; height: 18px; margin-right: 6px; accent-color: var(--accent); }
 .addspot input { flex: 1; }
 </style>
 </head>
@@ -270,13 +287,25 @@ label.btn input { display: none; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 2 (boards, sessions, swell, map, stats)';
+const BUILD = 'Build 3 (base maps, imagery, buoys)';
 const SCHEMA = 1;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta'];
 const DEFAULT_VIEW = { center: [34.27, -119.30], zoom: 11 };
-const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-const TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+const BASEMAPS = {
+  map: { label: 'Map', url: 'https://{s}.basemaps.cartocdn.com/{style}/{z}/{x}/{y}{r}.png', subdomains: 'abcd', maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>' },
+  imagery: { label: 'Imagery', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', maxZoom: 19,
+    attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics' }
+};
+const BUOY_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/buoys.json';
+/* NOAA buoys near Ventura. Positions here are a fallback; the data file carries NDBC's current positions. */
+const BUOYS = [
+  ['46053', 'East Santa Barbara', 34.241, -119.839], ['46217', 'Anacapa Passage', 34.167, -119.435],
+  ['46216', 'Goleta Point', 34.334, -119.803], ['46054', 'West Santa Barbara', 34.265, -120.477],
+  ['46218', 'Harvest', 34.454, -120.782], ['46025', 'Santa Monica Basin', 33.749, -119.053],
+  ['46221', 'Santa Monica Bay', 33.860, -118.641], ['46219', 'San Nicolas Island', 33.221, -119.882]
+].map(([id, name, lat, lon]) => ({ id, name, lat, lon }));
 const MARINE_URL = 'https://marine-api.open-meteo.com/v1/marine';
 const BOARD_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c3 3 4.5 7 4.5 10.5S15 20 12 22c-3-2-4.5-6-4.5-9.5S9 5 12 2z"/><path d="M12 5v14"/></svg>';
 
@@ -360,7 +389,7 @@ async function seed() {
 
 /* ---------- in-memory state ---------- */
 const S = { options: [], boards: [], sessions: [], spots: [], photos: new Map(), meta: {} };
-const PREF_DEFAULTS = { boardsView: 'tiles', boardSort: 'model', filterType: '', filterShaper: '', showRetired: false, pagerIndex: 0, units: 'ft', sessionSort: 'newest', showAllSpots: false, disabledLists: [] };
+const PREF_DEFAULTS = { boardsView: 'tiles', boardSort: 'model', filterType: '', filterShaper: '', showRetired: false, pagerIndex: 0, units: 'ft', sessionSort: 'newest', showAllSpots: false, disabledLists: [], baseMap: 'map', showBuoys: true };
 let prefs = { ...PREF_DEFAULTS };
 async function loadAll() {
   const [options, boards, sessions, spots, photos, meta] = await Promise.all(STORES.map(getAll));
@@ -484,11 +513,35 @@ function measure() {
   const h = window.innerHeight - $('#top').offsetHeight - $('#tabs').offsetHeight;
   document.documentElement.style.setProperty('--avail', Math.max(300, h) + 'px');
 }
+function baseLayer(key) {
+  const b = BASEMAPS[key];
+  const dark = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches;
+  return L.tileLayer(b.url, { maxZoom: b.maxZoom, subdomains: b.subdomains || 'abc', attribution: b.attribution, style: dark ? 'dark_all' : 'light_all', detectRetina: false });
+}
 function makeMap(el, opts = {}) {
   if (typeof L === 'undefined') { el.innerHTML = '<div class="empty">Map unavailable.</div>'; return null; }
-  const map = L.map(el, { attributionControl: true, ...opts, zoomControl: false });
+  const { buoys, layersControl, ...mapOpts } = opts;
+  const map = L.map(el, { attributionControl: true, ...mapOpts, zoomControl: false });
   if (opts.zoomControl !== false) L.control.zoom({ position: 'topright' }).addTo(map);
-  L.tileLayer(TILE_URL, { maxZoom: 18, attribution: TILE_ATTR }).addTo(map);
+  const bases = { map: baseLayer('map'), imagery: baseLayer('imagery') };
+  const cur = bases[prefs.baseMap] ? prefs.baseMap : 'map';
+  bases[cur].addTo(map);
+  el.classList.toggle('imagery', cur === 'imagery');
+  const overlays = {};
+  if (buoys) {
+    const layer = buoyLayer();
+    overlays['Buoys'] = layer;
+    if (prefs.showBuoys) layer.addTo(map);
+  }
+  if (layersControl !== false) {
+    L.control.layers({ [BASEMAPS.map.label]: bases.map, [BASEMAPS.imagery.label]: bases.imagery }, overlays, { position: 'topright', collapsed: true }).addTo(map);
+    map.on('baselayerchange', e => {
+      const key = e.layer === bases.imagery ? 'imagery' : 'map';
+      el.classList.toggle('imagery', key === 'imagery');
+      savePrefs({ baseMap: key });
+    });
+    map.on('overlayadd overlayremove', e => { if (e.name === 'Buoys') savePrefs({ showBuoys: e.type === 'overlayadd' }); });
+  }
   map.setView(DEFAULT_VIEW.center, DEFAULT_VIEW.zoom);
   mounted.maps.push(map);
   setTimeout(() => { try { if (map._container && map._container.isConnected) map.invalidateSize(); } catch (e) {} }, 50);
@@ -504,6 +557,116 @@ function makeChart(canvas, cfg) {
   const c = new Chart(canvas, cfg);
   mounted.charts.push(c);
   return c;
+}
+
+/* ---------- buoys ---------- */
+const COMPASS_DEG = Object.fromEntries(COMPASS.map((c, i) => [c, i * 22.5]));
+let buoyFetch = null;
+async function loadBuoyData() {
+  const cached = S.buoyData || S.meta.buoys || null;
+  if (S.buoyData && Date.now() - S.buoyLoadedAt < 10 * 60 * 1000) return S.buoyData;
+  if (!buoyFetch) {
+    buoyFetch = (async () => {
+      try {
+        const res = await fetch(`${BUOY_URL}?t=${Math.floor(Date.now() / 300000)}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        if (!data || !Array.isArray(data.buoys)) throw new Error('Bad buoy file');
+        S.buoyData = data; S.buoyLoadedAt = Date.now();
+        setMeta('buoys', data).catch(() => {});
+        return data;
+      } catch (e) {
+        S.buoyError = e.message;
+        return cached;
+      } finally { buoyFetch = null; }
+    })();
+  }
+  return buoyFetch;
+}
+function ago(iso) {
+  if (!iso) return '';
+  const mins = Math.round((Date.now() - new Date(iso)) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  const h = Math.round(mins / 60);
+  return h < 48 ? `${h} hr ago` : new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+const isStale = iso => !iso || Date.now() - new Date(iso) > 3 * 3600 * 1000;
+/* Primary swell from NDBC (SwH/SwD), falling back to combined waves (WVHT/MWD). */
+function primarySwell(r) {
+  if (!r) return null;
+  if (r.swH != null) return { h: r.swH, p: r.swP, dir: r.swD || (r.mwd != null ? compass(r.mwd) : null), deg: r.swD ? COMPASS_DEG[r.swD] : r.mwd, kind: 'swell' };
+  if (r.wvht != null) return { h: r.wvht, p: r.dpd ?? r.apd, dir: r.mwd != null ? compass(r.mwd) : null, deg: r.mwd, kind: 'waves' };
+  return null;
+}
+function buoyIcon(b, r) {
+  const ps = primarySwell(r);
+  const stale = r && isStale(r.time);
+  const label = ps ? `${ps.dir ? ps.dir + ' ' : ''}${fmtHeight(ps.h)}` : 'No data';
+  const arrow = ps && ps.deg != null
+    ? `<svg viewBox="0 0 20 20" style="transform:rotate(${(ps.deg + 180) % 360}deg)" aria-hidden="true"><path d="M10 2 L15 15 L10 12 L5 15 Z"/></svg>`
+    : '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3"/></svg>';
+  return L.divIcon({
+    className: 'buoy-icon', iconSize: [24, 24], iconAnchor: [12, 12], popupAnchor: [0, -12],
+    html: `<div class="buoy ${stale || !ps ? 'stale' : ''}"><span class="bdot">${arrow}</span><span class="blbl">${esc(label)}</span></div>`
+  });
+}
+function sparkline(hist) {
+  const pts = (hist || []).map(h => ({ t: new Date(h.t).getTime(), v: h.swH ?? h.wvht })).filter(p => p.v != null);
+  if (pts.length < 2) return '';
+  const W = 220, H = 48, t0 = pts[0].t, t1 = pts[pts.length - 1].t;
+  const vmax = Math.max(...pts.map(p => p.v)), vmin = Math.min(...pts.map(p => p.v));
+  const span = Math.max(0.2, vmax - vmin);
+  const x = t => ((t - t0) / Math.max(1, t1 - t0)) * (W - 4) + 2;
+  const y = v => H - 4 - ((v - vmin) / span) * (H - 10);
+  const d = pts.map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(1)} ${y(p.v).toFixed(1)}`).join(' ');
+  return `<div class="spark"><div class="sub">Last 24 hours, ${pts[0].v === pts[pts.length - 1].v ? 'steady' : pts[pts.length - 1].v > pts[0].v ? 'building' : 'dropping'} (${fmtHeight(vmin)} to ${fmtHeight(vmax)})</div>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="Swell height over the last 24 hours"><path d="${d}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></div>`;
+}
+const fmtTemp = c => c == null ? '' : prefs.units === 'm' ? `${c.toFixed(1)}°C` : `${(c * 9 / 5 + 32).toFixed(0)}°F`;
+const fmtWind = ms => ms == null ? '' : `${Math.round(ms * 1.944)} kt`;
+function buoyPopup(b, r, data) {
+  if (!r || !r.time) return `<div class="popup-title">${esc(b.name)} <span class="sub">#${esc(b.id)}</span></div>
+    <div class="sub">${data ? 'No recent reading from this buoy.' : "Buoy readings haven't loaded yet. They need a connection, and the data job has to have run at least once."}</div>
+    <div class="popup-links"><a href="https://www.ndbc.noaa.gov/station_page.php?station=${encodeURIComponent(b.id)}" target="_blank" rel="noopener">NOAA page</a></div>`;
+  const ps = primarySwell(r);
+  const row = (k, v) => v ? `<tr><th>${k}</th><td>${v}</td></tr>` : '';
+  const swell = (h, p, d) => h == null ? '' : `${fmtHeight(h)}${p != null ? ` @ ${Math.round(p)} s` : ''}${d ? ` from ${esc(d)}` : ''}`;
+  return `<div class="popup-title">${esc(b.name)} <span class="sub">#${esc(b.id)}</span></div>
+    <div class="sub">${isStale(r.time) ? '<strong>Old reading</strong> · ' : ''}Observed ${esc(ago(r.time))}</div>
+    <table class="bt">
+      ${row(ps && ps.kind === 'swell' ? 'Primary swell' : 'Waves', ps ? `<strong>${swell(ps.h, ps.p, ps.dir)}</strong>` : '')}
+      ${row('Wind swell', swell(r.wwH, r.wwP, r.wwD))}
+      ${row('Combined', r.wvht != null ? `${fmtHeight(r.wvht)}${r.dpd != null ? `, dominant ${Math.round(r.dpd)} s` : ''}${r.apd != null ? `, average ${r.apd.toFixed(1)} s` : ''}` : '')}
+      ${row('Mean direction', r.mwd != null ? `${compass(r.mwd)} (${Math.round(r.mwd)}°)` : '')}
+      ${row('Wind', r.wspd != null ? `${fmtWind(r.wspd)}${r.wdir != null ? ` from ${compass(r.wdir)}` : ''}${r.gst != null ? `, gusts ${fmtWind(r.gst)}` : ''}` : '')}
+      ${row('Water', fmtTemp(r.wtmp))}
+      ${row('Air', fmtTemp(r.atmp))}
+      ${row('Steepness', r.steep ? esc(r.steep.toLowerCase().replace('_', ' ')) : '')}
+    </table>
+    ${sparkline(r.history)}
+    <div class="popup-links"><a href="https://www.ndbc.noaa.gov/station_page.php?station=${encodeURIComponent(b.id)}" target="_blank" rel="noopener">NOAA page</a></div>`;
+}
+function buoyLayer() {
+  const group = L.layerGroup();
+  const markers = new Map();
+  const draw = data => {
+    const readings = new Map(((data && data.buoys) || []).map(r => [r.id, r]));
+    for (const b of BUOYS) {
+      const r = readings.get(b.id);
+      const pos = r && r.lat != null && r.lon != null ? [r.lat, r.lon] : [b.lat, b.lon];
+      let m = markers.get(b.id);
+      if (!m) {
+        m = L.marker(pos, { icon: buoyIcon(b, r), keyboard: true, title: b.name, zIndexOffset: 500, bubblingMouseEvents: false }).addTo(group);
+        m.on('click', e => L.DomEvent.stopPropagation(e));
+        markers.set(b.id, m);
+      } else { m.setLatLng(pos); m.setIcon(buoyIcon(b, r)); }
+      m.bindPopup(buoyPopup(b, r, data), { maxWidth: 280, autoPanPaddingTopLeft: [12, 12], autoPanPaddingBottomRight: [12, 110] });
+    }
+  };
+  draw(S.buoyData || S.meta.buoys || null);
+  loadBuoyData().then(d => { if (d) draw(d); });
+  return group;
 }
 
 /* ---------- photos ---------- */
@@ -1026,7 +1189,7 @@ function openSpotPicker() {
     <div class="dhead"><h3>Pick a spot</h3><button data-act="close" aria-label="Close">Done</button></div>
     <div class="dbody"><div id="pickMap" style="position:absolute;inset:0"></div></div>
     <div class="dfoot" id="pickFoot"><div class="sub">Tap a spot to choose it, or tap the map to add a new one.</div></div>`, true);
-  const map = makeMap($('#pickMap'));
+  const map = makeMap($('#pickMap'), { buoys: true });
   if (!map) return;
   const local = mounted.maps.pop();
   dialogCleanup = () => { try { local.stop(); local.off(); local.remove(); } catch (e) {} };
@@ -1085,7 +1248,7 @@ function spotSummary(sp, list) {
     <div class="popup-links">${st.count ? `<a href="#/sessions?spot=${encodeURIComponent(sp.id)}">Sessions</a>` : ''}<a href="#/sessions/new?spot=${encodeURIComponent(sp.id)}">Log here</a></div>`;
 }
 function spotsMap(el, sessions, { small, showAll } = {}) {
-  const map = makeMap(el, small ? { zoomControl: false, scrollWheelZoom: false } : {});
+  const map = makeMap(el, small ? { zoomControl: false, scrollWheelZoom: false, layersControl: false } : { buoys: true });
   if (!map) return;
   const bySpot = new Map();
   for (const s of sessions) if (s.spotId) { const g = bySpot.get(s.spotId) || []; g.push(s); bySpot.set(s.spotId, g); }
@@ -1148,7 +1311,7 @@ function viewSettings() {
     <p class="note">Everything is stored only on this device. Export a backup now and then, and keep the file somewhere safe. CSV files open in Numbers, Excel or Google Sheets.</p>
     <h2 class="sec">About</h2>
     <div class="card"><div class="row"><span class="grow"><span class="label">Surfboard Tracker</span><br><span class="sub">${esc(BUILD)}</span></span></div>
-      <div class="row"><span class="grow sub">Swell data: Open-Meteo Marine API. Map: © OpenStreetMap contributors.</span></div></div>`);
+      <div class="row"><span class="grow sub">Swell data: Open-Meteo Marine API. Buoys: NOAA National Data Buoy Center, updated about every 30 minutes. Maps: © OpenStreetMap contributors, CARTO; imagery © Esri.</span></div></div>`);
 }
 function viewList(key) {
   const list = listByKey(key);
@@ -1256,7 +1419,7 @@ function viewSpotForm(id) {
       <div class="actions-row"><button type="button" class="danger" data-act="deleteSpot" data-id="${esc(sp.id)}">Delete spot</button></div>
       <p class="note">${n ? `Used by ${plural(n, 'session')}.` : 'No sessions here yet.'}</p>` : ''}
     </form>`);
-  const map = makeMap($('#spotMap'));
+  const map = makeMap($('#spotMap'), { buoys: true });
   if (!map) return;
   map.setView([spotEdit.lat, spotEdit.lon], sp ? 15 : 11, { animate: false });
   const pin = L.marker([spotEdit.lat, spotEdit.lon], { draggable: true, icon: L.divIcon({ className: '', html: '<div class="pin"></div>', iconSize: [24, 24], iconAnchor: [12, 12] }) }).addTo(map);
