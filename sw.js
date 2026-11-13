@@ -1,8 +1,13 @@
 /* Surfboard Tracker service worker.
-   Network first so a newly uploaded build shows up on the next open;
-   falls back to the cached copy when offline or the network is slow. */
-const CACHE = 'surfboard-tracker-v2';
-const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
+   Network first so a newly pushed build shows up on the next open;
+   falls back to the cached copy when offline or the network is slow.
+   Only the app's own files are cached; map tiles and swell lookups go straight to the network. */
+const CACHE = 'surfboard-tracker-v3';
+const ASSETS = [
+  './', './index.html', './manifest.json',
+  './icon-192.png', './icon-512.png', './apple-touch-icon.png',
+  './vendor/leaflet.js', './vendor/leaflet.css', './vendor/chart.umd.min.js'
+];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));

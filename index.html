@@ -12,6 +12,9 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="icon-192.png">
+<link rel="stylesheet" href="vendor/leaflet.css">
+<script src="vendor/leaflet.js"></script>
+<script src="vendor/chart.umd.min.js"></script>
 <style>
 :root {
   --bg: #f4f1ea;
@@ -22,9 +25,12 @@
   --brand: #0b3a4a;
   --brand-ink: #ffffff;
   --accent: #0f7f8c;
+  --accent-ink: #ffffff;
   --danger: #b3372b;
   --tag: #ece7db;
+  --star: #e0a526;
   --radius: 14px;
+  --avail: 600px;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -33,8 +39,8 @@
     --ink: #e8f0f1;
     --muted: #93a8ad;
     --line: #223a42;
-    --brand: #0b3a4a;
     --accent: #4fc3cf;
+    --accent-ink: #06232a;
     --danger: #ff8a7a;
     --tag: #1d353d;
   }
@@ -42,29 +48,28 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 body {
-  background: var(--bg);
-  color: var(--ink);
+  background: var(--bg); color: var(--ink);
   font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  -webkit-text-size-adjust: 100%;
-  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent;
 }
 header.top {
-  position: sticky; top: 0; z-index: 5;
+  position: sticky; top: 0; z-index: 1000;
   background: var(--brand); color: var(--brand-ink);
-  padding: calc(env(safe-area-inset-top) + 12px) 16px 12px;
-  display: flex; align-items: center; gap: 8px;
+  padding: calc(env(safe-area-inset-top) + 8px) 8px 8px 16px;
+  display: flex; align-items: center; gap: 4px; min-height: 56px;
 }
-header.top h1 { font-size: 19px; margin: 0; font-weight: 650; flex: 1; }
-header.top .back {
-  color: var(--brand-ink); text-decoration: none; font-size: 16px;
-  padding: 6px 10px 6px 0; min-height: 44px; display: flex; align-items: center;
+header.top h1 { font-size: 19px; margin: 0; font-weight: 650; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+header.top .back, header.top .hact {
+  color: var(--brand-ink); text-decoration: none; font: inherit; font-size: 16px;
+  background: none; border: 0; padding: 0 10px; min-height: 44px; min-width: 44px;
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 10px;
 }
-main {
-  padding: 16px 16px calc(env(safe-area-inset-bottom) + 96px);
-  max-width: 720px; margin: 0 auto;
-}
+header.top .back { padding-left: 0; }
+header.top .hact.plus { font-size: 28px; font-weight: 300; }
+main { padding: 16px 16px calc(env(safe-area-inset-bottom) + 96px); max-width: 720px; margin: 0 auto; }
+main.full { padding: 0; max-width: none; }
 nav.tabs {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000;
   background: var(--surface); border-top: 1px solid var(--line);
   display: flex; padding-bottom: env(safe-area-inset-bottom);
 }
@@ -86,35 +91,42 @@ h2.sec:first-child { margin-top: 4px; }
 .row:last-child { border-bottom: 0; }
 .row .grow { flex: 1; min-width: 0; padding: 10px 0; }
 .row .label { overflow-wrap: anywhere; }
-.row .sub { color: var(--muted); font-size: 13px; }
+.sub { color: var(--muted); font-size: 13px; }
 .row .chev { color: var(--muted); font-size: 20px; }
 .row.hidden-opt .label { color: var(--muted); text-decoration: line-through; }
 .tag { background: var(--tag); color: var(--muted); font-size: 11px; border-radius: 999px; padding: 2px 8px; margin-left: 6px; white-space: nowrap; }
 button, .btn {
   font: inherit; color: var(--ink); background: var(--surface);
   border: 1px solid var(--line); border-radius: 10px;
-  min-height: 44px; padding: 0 14px; cursor: pointer;
+  min-height: 44px; padding: 0 14px; cursor: pointer; text-decoration: none;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
 }
-button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-@media (prefers-color-scheme: dark) { button.primary { color: #06232a; } }
+button.primary, .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 button.danger { color: var(--danger); }
 button.icon { width: 44px; padding: 0; font-size: 16px; color: var(--muted); border-color: transparent; background: transparent; }
 button.icon:disabled { opacity: .25; }
-button.rowbtn { flex: 1; text-align: left; border: 0; background: transparent; padding: 10px 0; min-height: 52px; border-radius: 0; }
-button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-input[type=text], select {
+button.rowbtn { flex: 1; text-align: left; justify-content: flex-start; border: 0; background: transparent; padding: 10px 0; min-height: 52px; border-radius: 0; flex-wrap: wrap; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input[type=text], input[type=number], input[type=datetime-local], select, textarea {
   font: inherit; color: var(--ink); background: var(--surface);
   border: 1px solid var(--line); border-radius: 10px;
   min-height: 44px; padding: 0 12px; width: 100%;
 }
+input[type=datetime-local] { padding: 8px 12px; }
+textarea { padding: 10px 12px; min-height: 96px; resize: vertical; }
 .addbar { display: flex; gap: 8px; margin-top: 12px; }
 .addbar input { flex: 1; }
 .field { margin: 0 0 14px; }
-.field label { display: block; font-size: 13px; color: var(--muted); margin: 0 4px 6px; }
+.field > label, .field > .lbl { display: block; font-size: 13px; color: var(--muted); margin: 0 4px 6px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 10px; }
 .empty { text-align: center; color: var(--muted); padding: 48px 20px; }
 .empty .big { font-size: 18px; color: var(--ink); font-weight: 600; margin-bottom: 6px; }
+.empty .btn { margin-top: 16px; }
 .note { color: var(--muted); font-size: 13px; margin: 8px 4px 0; }
 .stack { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; }
+.actions-row { display: flex; gap: 8px; margin-top: 18px; }
+.actions-row > * { flex: 1; }
 dialog {
   border: 0; border-radius: 18px; padding: 20px; width: min(92vw, 420px);
   background: var(--surface); color: var(--ink);
@@ -123,24 +135,132 @@ dialog::backdrop { background: rgba(0,0,0,.45); }
 dialog h3 { margin: 0 0 12px; font-size: 18px; }
 dialog p { margin: 0 0 14px; color: var(--muted); }
 dialog .actions { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+dialog.full { width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; border-radius: 0; padding: 0; }
+dialog.full[open] { display: flex; flex-direction: column; }
+dialog.full .dhead { background: var(--brand); color: var(--brand-ink); padding: calc(env(safe-area-inset-top) + 8px) 8px 8px 16px; display: flex; align-items: center; min-height: 56px; }
+dialog.full .dhead h3 { margin: 0; flex: 1; font-size: 18px; }
+dialog.full .dhead button { color: var(--brand-ink); background: none; border: 0; }
+dialog.full .dbody { flex: 1; position: relative; }
+dialog.full .dfoot { padding: 12px 16px calc(env(safe-area-inset-bottom) + 12px); border-top: 1px solid var(--line); }
 .err { color: var(--danger); font-size: 13px; min-height: 18px; margin: 4px 4px 0; }
 #toast {
   position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: calc(env(safe-area-inset-bottom) + 76px); z-index: 20;
+  bottom: calc(env(safe-area-inset-bottom) + 76px); z-index: 2000;
   background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 999px;
   font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s; max-width: 90vw; text-align: center;
 }
 #toast.show { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+
+/* toolbar + segmented control */
+.toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.seg { display: inline-flex; background: var(--tag); border-radius: 10px; padding: 3px; flex: 1; min-width: 220px; }
+.seg button { flex: 1; border: 0; background: transparent; min-height: 38px; border-radius: 8px; font-size: 14px; color: var(--muted); }
+.seg button[aria-pressed=true] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.filters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.filters select { min-height: 40px; font-size: 14px; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); min-height: 44px; }
+.check input { width: 20px; height: 20px; accent-color: var(--accent); }
+
+/* tables */
+table.list { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.list th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 8px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.list td { padding: 8px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+table.list tr:last-child td { border-bottom: 0; }
+table.list tr.click { cursor: pointer; }
+table.list tr.click:active { background: var(--tag); }
+table.list .thumb { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; display: block; background: var(--tag); }
+table.list .num { text-align: right; white-space: nowrap; }
+table.list .nowrap { white-space: nowrap; }
+table.list a { color: inherit; text-decoration: none; display: block; }
+.retired { opacity: .55; }
+
+/* tiles */
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; color: inherit; text-decoration: none; display: flex; flex-direction: column; }
+.tile .ph { aspect-ratio: 3 / 4; background: var(--tag); position: relative; }
+.tile .ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tile .meta { padding: 8px 10px 10px; }
+.tile .name { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.noph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+.noph svg { width: 40%; height: 40%; stroke: currentColor; fill: none; stroke-width: 1.2; opacity: .6; }
+
+/* full-page pager */
+.pager { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; height: var(--avail); scrollbar-width: none; overscroll-behavior-x: contain; }
+.pager::-webkit-scrollbar { display: none; }
+.page { flex: 0 0 100%; scroll-snap-align: start; scroll-snap-stop: always; height: 100%; display: flex; flex-direction: column; overflow-y: auto; }
+.page .ph { flex: 0 0 58%; background: var(--tag); position: relative; }
+.page .ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.page .body { padding: 14px 18px 18px; max-width: 720px; width: 100%; margin: 0 auto; }
+.page .name { font-size: 22px; font-weight: 700; margin: 0; }
+.pager-dots { position: absolute; top: 10px; right: 12px; background: rgba(0,0,0,.55); color: #fff; font-size: 12px; padding: 3px 9px; border-radius: 999px; }
+.pagewrap { position: relative; }
+.pager-hint { position: absolute; bottom: 8px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--muted); pointer-events: none; }
+
+/* chips + specs */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.chip { background: var(--tag); color: var(--ink); font-size: 13px; border-radius: 999px; padding: 4px 10px; }
+dl.specs { display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; margin: 0; padding: 14px 16px; font-size: 15px; }
+dl.specs dt { color: var(--muted); }
+dl.specs dd { margin: 0; }
+
+/* detail */
+.hero { margin: -16px -16px 14px; aspect-ratio: 4 / 3; max-height: 55vh; background: var(--tag); position: relative; }
+.hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.title-block h2 { margin: 0; font-size: 24px; }
+.title-block .sub { font-size: 15px; }
+.stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.stat .v { font-size: 18px; font-weight: 650; overflow-wrap: anywhere; }
+.stat .k { font-size: 12px; color: var(--muted); }
+.chartbox { padding: 12px; height: 220px; position: relative; }
+.minimap { height: 220px; }
+.notes { padding: 14px 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* photo field */
+.photo-field { display: flex; gap: 12px; align-items: center; }
+.photo-field .prev { width: 84px; height: 112px; border-radius: 10px; background: var(--tag); object-fit: cover; flex: none; position: relative; overflow: hidden; }
+.photo-field .prev img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-field .btns { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+label.btn input { display: none; }
+
+/* stars */
+.stars { display: flex; gap: 4px; }
+.stars button { width: 48px; min-height: 48px; padding: 0; font-size: 28px; color: var(--line); border: 0; background: transparent; }
+.stars button.on { color: var(--star); }
+.fun { color: var(--star); letter-spacing: 1px; white-space: nowrap; }
+.fun .off { color: var(--line); }
+
+/* swell box */
+.swell { border: 1px dashed var(--line); border-radius: 12px; padding: 10px 12px; font-size: 14px; margin: 0 0 14px; background: var(--surface); }
+.swell .h { font-weight: 600; }
+.swell .row2 { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.swell .row2 button { min-height: 36px; font-size: 14px; }
+.spotpick { display: flex; gap: 8px; }
+.spotpick select { flex: 1; }
+
+/* maps */
+#bigmap { height: var(--avail); width: 100%; }
+.leaflet-container { font: inherit; background: var(--tag); }
+.map-legend { position: absolute; z-index: 500; left: 10px; bottom: 26px; right: 10px; background: var(--surface); color: var(--ink); border-radius: 12px; padding: 8px 12px; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,.18); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.map-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 3px; vertical-align: middle; }
+.leaflet-popup-content { font-size: 14px; line-height: 1.4; margin: 12px 14px; }
+.leaflet-popup-content a { color: var(--accent); }
+.leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--surface); color: var(--ink); }
+.popup-title { font-weight: 650; font-size: 15px; margin-bottom: 4px; }
+.popup-links { display: flex; gap: 12px; margin-top: 8px; }
+.pin { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+.addspot { display: flex; gap: 8px; margin-top: 8px; }
+.addspot input { flex: 1; }
 </style>
 </head>
 <body>
 <header class="top" id="top"></header>
 <main id="main"></main>
 <nav class="tabs" id="tabs" aria-label="Sections">
-  <a href="#/boards" data-tab="boards"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c3 3 4.5 7 4.5 10.500S15 20 12 22c-3-2-4.500-6-4.500-9.500S9 5 12 2z"/><path d="M12 5v14"/></svg>Boards</a>
-  <a href="#/sessions" data-tab="sessions"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 16c2.500 0 2.500-2 5-2s2.500 2 5 2 2.500-2 5-2 2.500 2 5 2"/><path d="M2 10c2.500 0 2.500-2 5-2s2.500 2 5 2 2.500-2 5-2 2.500 2 5 2"/></svg>Sessions</a>
-  <a href="#/map" data-tab="map"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.500-6-10a6 6 0 0 1 12 0c0 4.500-6 10-6 10z"/><circle cx="12" cy="11" r="2.200"/></svg>Map</a>
+  <a href="#/boards" data-tab="boards"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c3 3 4.5 7 4.5 10.5S15 20 12 22c-3-2-4.5-6-4.5-9.5S9 5 12 2z"/><path d="M12 5v14"/></svg>Boards</a>
+  <a href="#/sessions" data-tab="sessions"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 16c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/><path d="M2 10c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/></svg>Sessions</a>
+  <a href="#/map" data-tab="map"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.5-6-10a6 6 0 0 1 12 0c0 4.5-6 10-6 10z"/><circle cx="12" cy="11" r="2.2"/></svg>Map</a>
   <a href="#/settings" data-tab="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>Settings</a>
 </nav>
 <dialog id="dlg"></dialog>
@@ -150,23 +270,43 @@ dialog .actions { display: flex; flex-direction: column; gap: 8px; margin-top: 6
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 1 (Phase 1: lists and backup)';
+const BUILD = 'Build 2 (boards, sessions, swell, map, stats)';
 const SCHEMA = 1;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta'];
+const DEFAULT_VIEW = { center: [34.27, -119.30], zoom: 11 };
+const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+const MARINE_URL = 'https://marine-api.open-meteo.com/v1/marine';
+const BOARD_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c3 3 4.5 7 4.5 10.5S15 20 12 22c-3-2-4.5-6-4.5-9.5S9 5 12 2z"/><path d="M12 5v14"/></svg>';
 
-/* Each list's key is also the field name on the record that uses it:
-   board.type, board.finConfig, session.waveSize and so on hold an option id. */
+/* Each list's key is also the field name on the record that uses it. */
 const LISTS = [
   { key: 'type', name: 'Board type', store: 'boards', values: ['Shortboard', 'Groveler', 'Fish', 'Hybrid', 'Step-up', 'Gun', 'Mid-length', 'Egg', 'Funboard', 'Longboard', 'Log', 'Soft-top', 'SUP'] },
   { key: 'finConfig', name: 'Fin configuration', store: 'boards', values: ['Single', 'Twin', 'Twin + trailer', 'Thruster', 'Quad', '5-fin convertible', '2+1', 'Bonzer', 'Finless'] },
   { key: 'finSystem', name: 'Fin system', store: 'boards', values: ['FCS II', 'FCS (plugs)', 'Futures', 'Glass-on', 'US box (single)', 'Box + side bites', 'Soft-top screw-through'] },
   { key: 'rocker', name: 'Rocker profile', store: 'boards', values: ['Flat', 'Low', 'Medium', 'High', 'Low entry / high exit', 'High entry / low exit'] },
   { key: 'rails', name: 'Rails', store: 'boards', values: ['Soft (50/50)', 'Medium', 'Hard (down)', 'Boxy', 'Pinched', 'Tucked edge'] },
+  { key: 'tail', name: 'Tail shape', store: 'boards', values: ['Squash', 'Round', 'Rounded pin', 'Pin', 'Swallow', 'Fish', 'Diamond', 'Square', 'Bat'] },
   { key: 'waveSize', name: 'Wave size', store: 'sessions', values: ['Flat', '1-2 ft (ankle to knee)', '2-3 ft (knee to waist)', '3-4 ft (waist to chest)', '4-5 ft (chest to head)', '5-6 ft (head high)', '6-8 ft (overhead)', '8-10 ft (well overhead)', '10 ft+ (double overhead+)'] },
   { key: 'waveDesc', name: 'Wave description', store: 'sessions', values: ['Glassy', 'Clean', 'Lined up', 'Peaky', 'Hollow', 'Mushy', 'Choppy', 'Blown out', 'Closed out'] }
 ];
 const listByKey = k => LISTS.find(l => l.key === k);
+const BOARD_LISTS = ['type', 'finConfig', 'finSystem', 'rocker', 'rails', 'tail'];
+const listOn = k => !(prefs.disabledLists || []).includes(k);
+const boardListsOn = () => BOARD_LISTS.filter(listOn);
+
+/* Ventura-area spots, north to south. Coordinates are approximate; adjust in Settings > Spots. */
+const SEED_SPOTS = [
+  ['Rincon', 34.3735, -119.4768], ['La Conchita', 34.3637, -119.4466], ['Mussel Shoals (Little Rincon)', 34.3557, -119.4389],
+  ['Oil Piers', 34.3478, -119.4262], ['Hobson', 34.3315, -119.4030], ['Pitas Point', 34.3173, -119.3899],
+  ['Mondos', 34.3195, -119.3835], ['Faria', 34.3199, -119.3776], ['Solimar', 34.3108, -119.3615],
+  ['Emma Wood', 34.2853, -119.3257], ['Ventura Overhead', 34.2810, -119.3150], ['C Street (Surfers Point)', 34.2752, -119.3010],
+  ['Ventura Pier', 34.2741, -119.2914], ['Ventura Harbor (South Jetty)', 34.2445, -119.2695], ['Santa Clara Rivermouth', 34.2337, -119.2640],
+  ['McGrath', 34.2268, -119.2595], ['Mandalay', 34.2100, -119.2530], ['Oxnard Shores', 34.1985, -119.2490],
+  ['Hollywood Beach', 34.1660, -119.2350], ['Silver Strand', 34.1575, -119.2250], ['Port Hueneme', 34.1440, -119.2050],
+  ['County Line', 34.0510, -118.9640]
+];
 
 /* ---------- database ---------- */
 let db;
@@ -175,9 +315,7 @@ function openDB() {
     const req = indexedDB.open(DB_NAME, SCHEMA);
     req.onupgradeneeded = () => {
       const d = req.result;
-      for (const s of STORES) {
-        if (!d.objectStoreNames.contains(s)) d.createObjectStore(s, { keyPath: s === 'meta' ? 'key' : 'id' });
-      }
+      for (const s of STORES) if (!d.objectStoreNames.contains(s)) d.createObjectStore(s, { keyPath: s === 'meta' ? 'key' : 'id' });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -202,47 +340,113 @@ function getAll(store) {
 }
 const putMany = (store, recs) => tx([store], 'readwrite', t => { recs.forEach(r => t.objectStore(store).put(r)); });
 const del = (store, id) => tx([store], 'readwrite', t => { t.objectStore(store).delete(id); });
-async function getMeta(key) {
-  const all = await getAll('meta');
-  const m = all.find(x => x.key === key);
-  return m ? m.value : undefined;
-}
 const setMeta = (key, value) => putMany('meta', [{ key, value }]);
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-/* Seed each list once. Tracked per list so lists added in later builds get seeded too. */
 async function seed() {
   const meta = await getAll('meta');
   const done = new Set(meta.filter(m => m.key.startsWith('seeded:')).map(m => m.key.slice(7)));
   for (const l of LISTS) {
     if (done.has(l.key)) continue;
-    const recs = l.values.map((v, i) => ({ id: l.key + ':' + slug(v), list: l.key, value: v, order: i, builtIn: true, hidden: false }));
-    await putMany('options', recs);
+    await putMany('options', l.values.map((v, i) => ({ id: l.key + ':' + slug(v), list: l.key, value: v, order: i, builtIn: true, hidden: false })));
     await setMeta('seeded:' + l.key, true);
+  }
+  if (!done.has('spots')) {
+    await putMany('spots', SEED_SPOTS.map(([name, lat, lon], i) => ({ id: 'spot:' + slug(name), name, lat, lon, order: i, builtIn: true, hidden: false })));
+    await setMeta('seeded:spots', true);
   }
 }
 
-/* ---------- state ---------- */
-let options = [];
-async function loadOptions() { options = await getAll('options'); }
-const optionsFor = key => options.filter(o => o.list === key).sort((a, b) => a.order - b.order);
-async function usedCount(list, id) {
-  const recs = await getAll(list.store);
-  return recs.filter(r => r[list.key] === id).length;
+/* ---------- in-memory state ---------- */
+const S = { options: [], boards: [], sessions: [], spots: [], photos: new Map(), meta: {} };
+const PREF_DEFAULTS = { boardsView: 'tiles', boardSort: 'model', filterType: '', filterShaper: '', showRetired: false, pagerIndex: 0, units: 'ft', sessionSort: 'newest', showAllSpots: false, disabledLists: [] };
+let prefs = { ...PREF_DEFAULTS };
+async function loadAll() {
+  const [options, boards, sessions, spots, photos, meta] = await Promise.all(STORES.map(getAll));
+  S.options = options; S.boards = boards; S.sessions = sessions; S.spots = spots;
+  S.meta = Object.fromEntries(meta.map(m => [m.key, m.value]));
+  prefs = { ...PREF_DEFAULTS, ...(S.meta.prefs || {}) };
+  const keep = new Set(photos.map(p => p.id));
+  for (const [id, urls] of S.photos) if (!keep.has(id)) { URL.revokeObjectURL(urls.full); URL.revokeObjectURL(urls.thumb); S.photos.delete(id); }
+  for (const p of photos) {
+    if (S.photos.has(p.id) || !(p.blob instanceof Blob)) continue;
+    S.photos.set(p.id, { full: URL.createObjectURL(p.blob), thumb: URL.createObjectURL(p.thumb instanceof Blob ? p.thumb : p.blob) });
+  }
 }
-function nameError(key, value, exceptId) {
-  const v = value.trim();
-  if (!v) return 'Enter a name.';
-  if (v.length > 60) return 'Keep it under 60 characters.';
-  const clash = optionsFor(key).some(o => o.id !== exceptId && o.value.toLowerCase() === v.toLowerCase());
-  return clash ? 'That value is already in the list.' : '';
+async function savePrefs(patch) { Object.assign(prefs, patch); await setMeta('prefs', prefs); }
+const optionsFor = key => S.options.filter(o => o.list === key).sort((a, b) => a.order - b.order);
+const optLabel = id => { const o = S.options.find(x => x.id === id); return o ? o.value : ''; };
+const shortSize = id => optLabel(id).split('(')[0].trim();
+const boardById = id => S.boards.find(b => b.id === id);
+const spotById = id => S.spots.find(s => s.id === id);
+const spotsSorted = () => [...S.spots].sort((a, b) => (a.order ?? 999) - (b.order ?? 999) || a.name.localeCompare(b.name));
+const sessionsFor = (field, id) => S.sessions.filter(s => s[field] === id);
+const photoUrl = (id, thumb) => { const u = id && S.photos.get(id); return u ? (thumb ? u.thumb : u.full) : ''; };
+
+/* ---------- formatting ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const pad = n => String(n).padStart(2, '0');
+const fmtLen = inches => inches ? `${Math.floor(inches / 12)}'${inches % 12}"` : '';
+function fmtFrac(x) {
+  if (x == null || x === '') return '';
+  const whole = Math.floor(x + 1e-9);
+  let num = Math.round((x - whole) * 16), den = 16;
+  if (num === 0) return `${whole}"`;
+  while (num % 2 === 0) { num /= 2; den /= 2; }
+  return `${whole} ${num}/${den}"`;
+}
+const boardName = b => b ? (b.model || 'Untitled board') : 'Deleted board';
+const boardFull = b => b ? [b.shaper, b.model].filter(Boolean).join(' ') || 'Untitled board' : 'Deleted board';
+const toLocalInput = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const parseLocal = s => { const [d, t = '00:00'] = (s || '').split('T'); const [y, m, dd] = d.split('-').map(Number); const [h, mi] = t.split(':').map(Number); return new Date(y, m - 1, dd, h, mi); };
+const fmtDate = s => s ? parseLocal(s).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+const fmtDateShort = s => { if (!s) return ''; const d = parseLocal(s); const y = d.getFullYear() === new Date().getFullYear(); return d.toLocaleDateString(undefined, y ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: '2-digit' }); };
+const fmtTime = s => s ? parseLocal(s).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : '';
+function funStars(n) {
+  if (!n) return '<span class="sub">–</span>';
+  const r = Math.round(n);
+  return `<span class="fun" aria-label="${n} out of 5">${'★'.repeat(r)}<span class="off">${'★'.repeat(5 - r)}</span></span>`;
+}
+const avg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+const fmtAvg = n => n == null ? '–' : n.toFixed(1);
+const COMPASS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+const compass = deg => deg == null ? '' : COMPASS[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16];
+const fmtHeight = m => m == null ? '–' : prefs.units === 'm' ? `${m.toFixed(1)} m` : `${(m * 3.281).toFixed(1)} ft`;
+function swellText(sw) {
+  if (!sw) return '';
+  const h = sw.swellH ?? sw.waveH, p = sw.swellP ?? sw.waveP, d = sw.swellDir ?? sw.waveDir;
+  return `${fmtHeight(h)}${p != null ? ` @ ${Math.round(p)} s` : ''}${d != null ? ` from ${compass(d)} (${Math.round(d)}°)` : ''}`;
+}
+
+/* ---------- stats ---------- */
+function statsOf(list) {
+  const funs = list.map(s => s.fun).filter(Boolean);
+  const last = list.reduce((m, s) => (!m || s.start > m ? s.start : m), '');
+  return { count: list.length, avgFun: avg(funs), last };
+}
+function topBy(list, field, labelFn) {
+  const groups = new Map();
+  for (const s of list) { if (!s[field]) continue; const g = groups.get(s[field]) || []; g.push(s); groups.set(s[field], g); }
+  let best = null;
+  for (const [id, g] of groups) {
+    const a = avg(g.map(s => s.fun).filter(Boolean));
+    const score = [a ?? 0, g.length];
+    if (!best || score[0] > best.score[0] || (score[0] === best.score[0] && score[1] > best.score[1])) best = { id, score, label: labelFn(id), count: g.length, avg: a };
+  }
+  return best;
+}
+function mostFrequent(list, field, labelFn) {
+  const counts = new Map();
+  for (const s of list) if (s[field]) counts.set(s[field], (counts.get(s[field]) || 0) + 1);
+  let best = null;
+  for (const [id, c] of counts) if (!best || c > best.count) best = { id, count: c, label: labelFn(id) };
+  return best;
 }
 
 /* ---------- helpers ---------- */
-const $ = s => document.querySelector(s);
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
-const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 let toastTimer;
 function toast(msg) {
   const t = $('#toast');
@@ -250,48 +454,705 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
 }
-function openDialog(html) {
+let dialogCleanup = null;
+function openDialog(html, full) {
   const d = $('#dlg');
+  if (dialogCleanup) { dialogCleanup(); dialogCleanup = null; }
+  d.classList.toggle('full', !!full);
   d.innerHTML = html;
   if (!d.open) d.showModal();
   return d;
 }
-function closeDialog() { const d = $('#dlg'); if (d.open) d.close(); }
+function closeDialog() {
+  const d = $('#dlg');
+  if (dialogCleanup) { dialogCleanup(); dialogCleanup = null; }
+  if (d.open) d.close();
+  d.classList.remove('full');
+}
+$('#dlg').addEventListener('close', () => { if (dialogCleanup) { dialogCleanup(); dialogCleanup = null; } $('#dlg').classList.remove('full'); });
+function confirmDialog(title, body, buttons) {
+  openDialog(`<h3>${esc(title)}</h3><p>${body}</p><div class="actions">${buttons}<button data-act="close">Cancel</button></div>`);
+}
 
-/* ---------- views ---------- */
-function setTop(title, backHref) {
-  $('#top').innerHTML = (backHref ? `<a class="back" href="${backHref}" aria-label="Back">&#8249; Back</a>` : '') + `<h1>${esc(title)}</h1>`;
+let mounted = { maps: [], charts: [] };
+function unmount() {
+  mounted.maps.forEach(m => { try { m.stop(); m.off(); m.remove(); } catch (e) {} });
+  mounted.charts.forEach(c => { try { c.destroy(); } catch (e) {} });
+  mounted = { maps: [], charts: [] };
+}
+function measure() {
+  const h = window.innerHeight - $('#top').offsetHeight - $('#tabs').offsetHeight;
+  document.documentElement.style.setProperty('--avail', Math.max(300, h) + 'px');
+}
+function makeMap(el, opts = {}) {
+  if (typeof L === 'undefined') { el.innerHTML = '<div class="empty">Map unavailable.</div>'; return null; }
+  const map = L.map(el, { attributionControl: true, ...opts, zoomControl: false });
+  if (opts.zoomControl !== false) L.control.zoom({ position: 'topright' }).addTo(map);
+  L.tileLayer(TILE_URL, { maxZoom: 18, attribution: TILE_ATTR }).addTo(map);
+  map.setView(DEFAULT_VIEW.center, DEFAULT_VIEW.zoom);
+  mounted.maps.push(map);
+  setTimeout(() => { try { if (map._container && map._container.isConnected) map.invalidateSize(); } catch (e) {} }, 50);
+  return map;
+}
+function funColor(a) { return a == null ? '#8a9a9f' : a < 2.5 ? '#c8553d' : a < 3.75 ? '#e0a526' : '#1f9d8f'; }
+function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function makeChart(canvas, cfg) {
+  if (typeof Chart === 'undefined') return null;
+  Chart.defaults.color = cssVar('--muted');
+  Chart.defaults.borderColor = cssVar('--line');
+  Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+  const c = new Chart(canvas, cfg);
+  mounted.charts.push(c);
+  return c;
+}
+
+/* ---------- photos ---------- */
+function loadImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { resolve(img); URL.revokeObjectURL(url); };
+    img.onerror = () => { reject(new Error("That file couldn't be read as an image.")); URL.revokeObjectURL(url); };
+    img.src = url;
+  });
+}
+function scaleTo(img, max, q) {
+  const w = img.naturalWidth, h = img.naturalHeight, s = Math.min(1, max / Math.max(w, h));
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(w * s)); c.height = Math.max(1, Math.round(h * s));
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return new Promise(resolve => c.toBlob(resolve, 'image/jpeg', q));
+}
+async function processPhoto(file) {
+  const img = await loadImage(file);
+  return { blob: await scaleTo(img, 1600, 0.82), thumb: await scaleTo(img, 480, 0.8) };
+}
+
+/* ---------- swell ---------- */
+const WAVE_IDS = listByKey('waveSize').values.map(v => 'waveSize:' + slug(v));
+function addMinutes(localStr, mins) {
+  const [d, t] = localStr.split('T');
+  const [y, m, dd] = d.split('-').map(Number), [h, mi] = t.split(':').map(Number);
+  const u = new Date(Date.UTC(y, m - 1, dd, h, mi + mins));
+  return `${u.getUTCFullYear()}-${pad(u.getUTCMonth() + 1)}-${pad(u.getUTCDate())}T${pad(u.getUTCHours())}:${pad(u.getUTCMinutes())}`;
+}
+async function fetchSwell(spot, start, durationMin) {
+  const mid = addMinutes(start, Math.round((durationMin || 0) / 2));
+  const date = mid.slice(0, 10), hour = mid.slice(0, 13) + ':00';
+  const ahead = (parseLocal(date + 'T00:00') - new Date()) / 86400000;
+  if (ahead > 7) throw new Error('That date is too far ahead for a forecast.');
+  const params = new URLSearchParams({
+    latitude: spot.lat.toFixed(4), longitude: spot.lon.toFixed(4),
+    hourly: 'wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period,swell_wave_direction,wind_wave_height',
+    timezone: 'auto', start_date: date, end_date: date, cell_selection: 'sea'
+  });
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15000);
+  let res;
+  try { res = await fetch(`${MARINE_URL}?${params}`, { signal: ctrl.signal }); }
+  catch (e) { throw new Error(navigator.onLine === false ? "You're offline." : "Couldn't reach the swell service."); }
+  finally { clearTimeout(timer); }
+  if (!res.ok) {
+    let reason = '';
+    try { reason = (await res.json()).reason || ''; } catch (e) {}
+    throw new Error(/range|date/i.test(reason) ? 'No swell data for that date.' : (reason || `Swell service error (${res.status}).`));
+  }
+  const j = await res.json();
+  const i = (j.hourly && j.hourly.time || []).indexOf(hour);
+  if (i < 0) throw new Error('No swell data for that hour.');
+  const g = k => { const v = (j.hourly[k] || [])[i]; return v == null ? null : Number(v); };
+  const sw = {
+    time: hour, lat: j.latitude, lon: j.longitude, fetchedAt: new Date().toISOString(),
+    swellH: g('swell_wave_height'), swellP: g('swell_wave_period'), swellDir: g('swell_wave_direction'),
+    waveH: g('wave_height'), waveP: g('wave_period'), waveDir: g('wave_direction'), windWaveH: g('wind_wave_height')
+  };
+  if (sw.swellH == null && sw.waveH == null) throw new Error('No swell data for that spot and time.');
+  return sw;
+}
+/* Rough face-height estimate from open-ocean swell: longer period swells stand up taller at the break. */
+function faceFeet(sw) {
+  if (!sw) return null;
+  const h = sw.swellH ?? sw.waveH, p = sw.swellP ?? sw.waveP;
+  if (h == null) return null;
+  const k = p == null ? 1.1 : p < 8 ? 0.9 : p < 12 ? 1.2 : p < 15 ? 1.5 : 1.8;
+  return h * 3.281 * k;
+}
+function suggestWaveSize(sw) {
+  const ft = faceFeet(sw);
+  if (ft == null) return null;
+  const limits = [1, 2, 3, 4, 5, 6, 8, 10];
+  let idx = limits.findIndex(l => ft < l);
+  if (idx < 0) idx = limits.length;
+  const id = WAVE_IDS[idx];
+  const o = S.options.find(x => x.id === id && !x.hidden);
+  return o ? { id, ft } : null;
+}
+
+/* ---------- pickers ---------- */
+function pickerHTML(key, current, name, id) {
+  const opts = optionsFor(key).filter(o => !o.hidden || o.id === current);
+  return `<select name="${name}" id="${id || name}"><option value="">–</option>${opts.map(o => `<option value="${esc(o.id)}" ${o.id === current ? 'selected' : ''}>${esc(o.value)}</option>`).join('')}</select>`;
+}
+function numSelect(name, current, from, to, step, fmt) {
+  let h = `<select name="${name}" id="${name}"><option value="">–</option>`;
+  for (let v = from; v <= to + 1e-9; v += step) {
+    const r = Math.round(v * 10000) / 10000;
+    h += `<option value="${r}" ${current != null && Math.abs(current - r) < 1e-6 ? 'selected' : ''}>${fmt(r)}</option>`;
+  }
+  return h + '</select>';
+}
+
+/* ---------- header ---------- */
+function setTop(title, back, actions = '') {
+  $('#top').innerHTML = (back ? `<button class="back" data-act="back" data-fallback="${esc(back)}" aria-label="Back">&#8249; Back</button>` : '') + `<h1>${esc(title)}</h1>${actions}`;
   document.title = title + ' · Surfboard Tracker';
 }
-function placeholder(title, big, small) {
-  setTop(title);
-  $('#main').innerHTML = `<div class="empty"><div class="big">${esc(big)}</div><div>${esc(small)}</div></div>`;
+const main = () => $('#main');
+function setMain(html, full) { const m = main(); m.classList.toggle('full', !!full); m.innerHTML = html; }
+
+/* =========================================================
+   BOARDS
+   ========================================================= */
+function filteredBoards() {
+  let list = S.boards.filter(b => prefs.showRetired || !b.retired);
+  if (prefs.filterType && listOn('type')) list = list.filter(b => b.type === prefs.filterType);
+  if (prefs.filterShaper) list = list.filter(b => (b.shaper || '') === prefs.filterShaper);
+  const st = new Map(list.map(b => [b.id, statsOf(sessionsFor('boardId', b.id))]));
+  const by = {
+    model: (a, b) => boardName(a).localeCompare(boardName(b)),
+    shaper: (a, b) => (a.shaper || '~').localeCompare(b.shaper || '~') || boardName(a).localeCompare(boardName(b)),
+    length: (a, b) => (a.length || 0) - (b.length || 0),
+    sessions: (a, b) => st.get(b.id).count - st.get(a.id).count,
+    recent: (a, b) => (st.get(b.id).last || '').localeCompare(st.get(a.id).last || ''),
+    fun: (a, b) => (st.get(b.id).avgFun ?? -1) - (st.get(a.id).avgFun ?? -1),
+    added: (a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')
+  }[prefs.boardSort] || (() => 0);
+  return { list: list.sort(by), st };
 }
-async function viewSettings() {
+function photoBox(b, thumb) {
+  const u = photoUrl(b.photoId, thumb);
+  return u ? `<img src="${u}" alt="" loading="lazy">` : `<div class="noph">${BOARD_ICON}</div>`;
+}
+function viewBoards() {
+  setTop('Boards', null, `<a class="hact plus" href="#/boards/new" aria-label="Add board">+</a>`);
+  if (!S.boards.length) {
+    setMain(`<div class="empty"><div class="big">No boards yet</div><div>Add your first board to start your quiver.</div><a class="btn primary" href="#/boards/new">Add a board</a></div>`);
+    return;
+  }
+  const { list, st } = filteredBoards();
+  const v = prefs.boardsView;
+  const shapers = [...new Set(S.boards.map(b => b.shaper).filter(Boolean))].sort();
+  const usedTypes = optionsFor('type').filter(o => S.boards.some(b => b.type === o.id));
+  const controls = `
+    <div class="toolbar">
+      <div class="seg" role="group" aria-label="View">
+        ${['table', 'tiles', 'pages'].map(k => `<button data-act="view" data-v="${k}" aria-pressed="${v === k}">${{ table: 'Table', tiles: 'Tiles', pages: 'Full page' }[k]}</button>`).join('')}
+      </div>
+    </div>
+    <div class="filters">
+      <select data-pref="boardSort" aria-label="Sort">
+        ${[['model', 'Sort: Model'], ['shaper', 'Sort: Shaper'], ['length', 'Sort: Length'], ['sessions', 'Sort: Most surfed'], ['recent', 'Sort: Recently surfed'], ['fun', 'Sort: Most fun'], ['added', 'Sort: Newest added']].map(([k, l]) => `<option value="${k}" ${prefs.boardSort === k ? 'selected' : ''}>${l}</option>`).join('')}
+      </select>
+      ${listOn('type') ? '' : '<!--'}<select data-pref="filterType" aria-label="Filter by type">
+        <option value="">All types</option>${usedTypes.map(o => `<option value="${esc(o.id)}" ${prefs.filterType === o.id ? 'selected' : ''}>${esc(o.value)}</option>`).join('')}
+      </select>${listOn('type') ? '' : '-->'}
+      <select data-pref="filterShaper" aria-label="Filter by shaper">
+        <option value="">All shapers</option>${shapers.map(s => `<option ${prefs.filterShaper === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}
+      </select>
+      <label class="check"><input type="checkbox" data-pref="showRetired" ${prefs.showRetired ? 'checked' : ''}> Show retired</label>
+    </div>`;
+  let body;
+  if (!list.length) body = `<div class="empty"><div class="big">No boards match</div><div>Change the filters above.</div></div>`;
+  else if (v === 'table') {
+    body = `<div class="card"><table class="list"><thead><tr><th></th><th>Board</th><th>Length</th><th class="num">Sessions</th></tr></thead><tbody>
+      ${list.map(b => `<tr class="click ${b.retired ? 'retired' : ''}" data-href="#/board/${esc(b.id)}">
+        <td style="width:52px">${photoUrl(b.photoId, true) ? `<img class="thumb" src="${photoUrl(b.photoId, true)}" alt="">` : '<div class="thumb"></div>'}</td>
+        <td><a href="#/board/${esc(b.id)}"><strong>${esc(boardName(b))}</strong><br><span class="sub">${esc([b.shaper, listOn('type') ? optLabel(b.type) : ''].filter(Boolean).join(' · '))}</span></a></td>
+        <td class="nowrap">${esc(fmtLen(b.length))}</td>
+        <td class="num">${st.get(b.id).count}</td></tr>`).join('')}
+    </tbody></table></div>`;
+  } else if (v === 'tiles') {
+    body = `<div class="tiles">${list.map(b => `
+      <a class="tile ${b.retired ? 'retired' : ''}" href="#/board/${esc(b.id)}">
+        <div class="ph">${photoBox(b, true)}</div>
+        <div class="meta"><div class="name">${esc(boardName(b))}</div>
+        <div class="sub">${esc([fmtLen(b.length), listOn('type') ? optLabel(b.type) : ''].filter(Boolean).join(' · ')) || '&nbsp;'}</div></div>
+      </a>`).join('')}</div>`;
+  }
+  if (v === 'pages' && list.length) {
+    setMain(`<div class="pagewrap"><div class="pager" id="pager">${list.map((b, i) => {
+      const s = st.get(b.id);
+      return `<section class="page" aria-label="${esc(boardName(b))}">
+        <div class="ph">${photoBox(b, false)}<span class="pager-dots">${i + 1} / ${list.length}</span></div>
+        <div class="body">
+          <p class="name">${esc(boardName(b))}</p>
+          <div class="sub">${esc(b.shaper || '')}</div>
+          <div class="chips">${specChips(b)}</div>
+          <div class="sub">${plural(s.count, 'session')}${s.avgFun != null ? ` · avg fun ${fmtAvg(s.avgFun)}` : ''}${s.last ? ` · last surfed ${esc(fmtDate(s.last))}` : ''}</div>
+          <div class="actions-row"><a class="btn primary" href="#/board/${esc(b.id)}">Details</a><a class="btn" href="#/sessions/new?board=${esc(b.id)}">Log session</a></div>
+        </div></section>`;
+    }).join('')}</div>${list.length > 1 ? '<div class="pager-hint" id="pagerHint">Swipe for the next board</div>' : ''}</div>
+    <div style="padding:12px 16px calc(env(safe-area-inset-bottom) + 80px)">${controls}</div>`, true);
+    measure();
+    const pager = $('#pager');
+    const idx = Math.min(prefs.pagerIndex || 0, list.length - 1);
+    requestAnimationFrame(() => { pager.scrollLeft = idx * pager.clientWidth; });
+    let t;
+    pager.addEventListener('scroll', () => {
+      clearTimeout(t);
+      t = setTimeout(() => {
+        const i = Math.round(pager.scrollLeft / pager.clientWidth);
+        if (i !== prefs.pagerIndex) savePrefs({ pagerIndex: i });
+        const hint = $('#pagerHint'); if (hint) hint.remove();
+      }, 120);
+    }, { passive: true });
+    return;
+  }
+  setMain(controls + body);
+}
+function specChips(b) {
+  return [fmtLen(b.length), b.width ? fmtFrac(b.width) + ' wide' : '', b.thickness ? fmtFrac(b.thickness) + ' thick' : '', b.volume ? `${b.volume} L` : '',
+    ...boardListsOn().map(k => optLabel(b[k]))].filter(Boolean).map(x => `<span class="chip">${esc(x)}</span>`).join('');
+}
+
+function viewBoard(id) {
+  const b = boardById(id);
+  if (!b) { location.replace('#/boards'); return; }
+  const list = sessionsFor('boardId', id).sort((a, c) => c.start.localeCompare(a.start));
+  const s = statsOf(list);
+  const fav = mostFrequent(list, 'spotId', sid => (spotById(sid) || {}).name || 'Unknown spot');
+  const best = topBy(list.filter(x => x.fun), 'waveSize', shortSize);
+  const specs = [
+    ['Length', fmtLen(b.length)], ['Width', fmtFrac(b.width)], ['Thickness', fmtFrac(b.thickness)], ['Volume', b.volume ? `${b.volume} L` : ''],
+    ...boardListsOn().map(k => [listByKey(k).name, optLabel(b[k])])
+  ].filter(([, v]) => v);
+  setTop(boardName(b), '#/boards', `<a class="hact" href="#/board/${esc(id)}/edit">Edit</a>`);
+  setMain(`
+    <div class="hero">${photoBox(b, false)}</div>
+    <div class="title-block"><h2>${esc(boardName(b))}${b.retired ? ' <span class="tag">Retired</span>' : ''}</h2><div class="sub">${esc(b.shaper || 'Shaper not set')}</div></div>
+    <div class="actions-row"><a class="btn primary" href="#/sessions/new?board=${esc(id)}">Log a session</a></div>
+    <h2 class="sec">Stats</h2>
+    <div class="stats">
+      <div class="stat"><div class="v">${s.count}</div><div class="k">Sessions</div></div>
+      <div class="stat"><div class="v">${s.avgFun != null ? funStars(s.avgFun) + ' ' + fmtAvg(s.avgFun) : '–'}</div><div class="k">Average fun</div></div>
+      <div class="stat"><div class="v">${s.last ? esc(fmtDate(s.last)) : '–'}</div><div class="k">Last surfed</div></div>
+      <div class="stat"><div class="v">${fav ? esc(fav.label) : '–'}</div><div class="k">Most surfed spot</div></div>
+      <div class="stat" style="grid-column:1/-1"><div class="v">${best ? esc(best.label) : '–'}</div><div class="k">Most fun in (highest average fun by wave size)</div></div>
+    </div>
+    ${list.filter(x => x.fun && x.waveSize).length >= 2 ? `<h2 class="sec">Fun by wave size</h2><div class="card chartbox"><canvas id="chFun" aria-label="Average fun by wave size"></canvas></div>` : ''}
+    ${list.length >= 2 ? `<h2 class="sec">Sessions per month</h2><div class="card chartbox"><canvas id="chMonth" aria-label="Sessions per month"></canvas></div>` : ''}
+    ${specs.length ? `<h2 class="sec">Specs</h2><div class="card"><dl class="specs">${specs.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></div>` : ''}
+    ${b.notes ? `<h2 class="sec">Notes</h2><div class="card notes">${esc(b.notes)}</div>` : ''}
+    ${list.length ? `<h2 class="sec">Where it's been surfed</h2><div class="card"><div class="minimap" id="minimap"></div></div>` : ''}
+    <h2 class="sec">Sessions</h2>
+    ${list.length ? sessionTable(list, { hideBoard: true }) : `<div class="card"><div class="stack sub">No sessions on this board yet.</div></div>`}
+  `);
+  if ($('#chFun')) {
+    const sizes = optionsFor('waveSize').filter(o => list.some(x => x.waveSize === o.id && x.fun));
+    makeChart($('#chFun'), {
+      type: 'bar',
+      data: { labels: sizes.map(o => o.value.split('(')[0].trim()), datasets: [{ label: 'Average fun', data: sizes.map(o => +avg(list.filter(x => x.waveSize === o.id && x.fun).map(x => x.fun)).toFixed(2)), backgroundColor: cssVar('--accent'), borderRadius: 6 }] },
+      options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 5, ticks: { stepSize: 1 } } } }
+    });
+  }
+  if ($('#chMonth')) monthChart($('#chMonth'), list);
+  if ($('#minimap')) spotsMap($('#minimap'), list, { small: true });
+}
+function monthChart(canvas, list) {
+  const now = new Date(), labels = [], keys = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    keys.push(`${d.getFullYear()}-${pad(d.getMonth() + 1)}`);
+    labels.push(d.toLocaleDateString(undefined, { month: 'short' }));
+  }
+  makeChart(canvas, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Sessions', data: keys.map(k => list.filter(s => s.start.startsWith(k)).length), backgroundColor: cssVar('--accent'), borderRadius: 6 }] },
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+  });
+}
+
+/* ---------- board form ---------- */
+let bform = null;
+function viewBoardForm(id) {
+  const b = id ? boardById(id) : null;
+  if (id && !b) { location.replace('#/boards'); return; }
+  bform = { id, photoBlob: null, thumbBlob: null, removePhoto: false, previewUrl: null };
+  const v = b || {};
+  const shapers = [...new Set(S.boards.map(x => x.shaper).filter(Boolean))].sort();
+  const curPhoto = photoUrl(v.photoId, true);
+  setTop(b ? 'Edit board' : 'New board', b ? `#/board/${id}` : '#/boards');
+  setMain(`
+    <form data-form="board" autocomplete="off" novalidate>
+      <div class="field"><span class="lbl">Photo</span>
+        <div class="photo-field">
+          <div class="prev" id="photoPrev">${curPhoto ? `<img src="${curPhoto}" alt="">` : `<div class="noph">${BOARD_ICON}</div>`}</div>
+          <div class="btns">
+            <label class="btn">${curPhoto ? 'Change photo' : 'Add photo'}<input type="file" id="photoInput" accept="image/*"></label>
+            <button type="button" data-act="removePhoto" ${curPhoto ? '' : 'hidden'} id="removePhotoBtn">Remove photo</button>
+          </div>
+        </div>
+      </div>
+      <div class="field"><label for="model">Model</label><input type="text" name="model" id="model" value="${esc(v.model)}" maxlength="80" placeholder="e.g. Seaside" enterkeyhint="next"></div>
+      <div class="field"><label for="shaper">Shaper</label><input type="text" name="shaper" id="shaper" value="${esc(v.shaper)}" maxlength="80" list="shaperList" placeholder="e.g. Firewire" enterkeyhint="next">
+        <datalist id="shaperList">${shapers.map(s => `<option value="${esc(s)}">`).join('')}</datalist></div>
+      <div class="err" id="boardErr" role="alert"></div>
+      <h2 class="sec">Size</h2>
+      <div class="grid2">
+        <div class="field"><label for="length">Length</label>${numSelect('length', v.length, 54, 144, 1, fmtLen)}</div>
+        <div class="field"><label for="volume">Volume (L)</label><input type="number" name="volume" id="volume" inputmode="decimal" step="0.1" min="0" max="200" value="${v.volume ?? ''}"></div>
+        <div class="field"><label for="width">Width</label>${numSelect('width', v.width, 16, 32, 0.125, fmtFrac)}</div>
+        <div class="field"><label for="thickness">Thickness</label>${numSelect('thickness', v.thickness, 1.5, 4.5, 0.0625, fmtFrac)}</div>
+      </div>
+      <h2 class="sec">Shape and fins</h2>
+      ${boardListsOn().map(k => `<div class="field"><label for="f_${k}">${esc(listByKey(k).name)}</label>${pickerHTML(k, v[k], k, 'f_' + k)}</div>`).join('')}
+      <h2 class="sec">Notes</h2>
+      <div class="field"><textarea name="notes" id="notes" aria-label="Notes" maxlength="4000" placeholder="Fin setup, dings, how it rides...">${esc(v.notes)}</textarea></div>
+      ${b ? `<label class="check"><input type="checkbox" name="retired" ${v.retired ? 'checked' : ''}> Retired (hidden from lists and the session picker)</label>` : ''}
+      <div class="actions-row"><button class="primary" type="submit">Save board</button></div>
+      ${b ? `<div class="actions-row"><button type="button" class="danger" data-act="deleteBoard" data-id="${esc(id)}">Delete board</button></div>` : ''}
+      <p class="note">Missing a value in a list? Add it in Settings.</p>
+    </form>`);
+  $('#photoInput').addEventListener('change', async e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    try {
+      const { blob, thumb } = await processPhoto(f);
+      bform.photoBlob = blob; bform.thumbBlob = thumb; bform.removePhoto = false;
+      if (bform.previewUrl) URL.revokeObjectURL(bform.previewUrl);
+      bform.previewUrl = URL.createObjectURL(thumb);
+      $('#photoPrev').innerHTML = `<img src="${bform.previewUrl}" alt="">`;
+      $('#removePhotoBtn').hidden = false;
+    } catch (err) { toast(err.message); }
+  });
+}
+async function saveBoard(form) {
+  const fd = new FormData(form);
+  const model = (fd.get('model') || '').trim(), shaper = (fd.get('shaper') || '').trim();
+  if (!model && !shaper) { $('#boardErr').textContent = 'Enter a model or a shaper.'; $('#model').focus(); return; }
+  const num = k => { const x = fd.get(k); return x === '' || x == null ? null : Number(x); };
+  const existing = bform.id ? boardById(bform.id) : null;
+  const b = existing ? { ...existing } : { id: 'board:' + newId(), createdAt: new Date().toISOString() };
+  Object.assign(b, { model, shaper, length: num('length'), width: num('width'), thickness: num('thickness'), volume: num('volume'), notes: (fd.get('notes') || '').trim(), retired: fd.get('retired') === 'on' });
+  for (const k of boardListsOn()) b[k] = fd.get(k) || '';
+  if (b.volume != null && (isNaN(b.volume) || b.volume < 0)) { $('#boardErr').textContent = 'Volume should be a number of liters.'; return; }
+  const oldPhoto = existing && existing.photoId;
+  if (bform.photoBlob) {
+    const pid = 'photo:' + newId();
+    await putMany('photos', [{ id: pid, boardId: b.id, blob: bform.photoBlob, thumb: bform.thumbBlob }]);
+    b.photoId = pid;
+  } else if (bform.removePhoto) b.photoId = null;
+  await putMany('boards', [b]);
+  if (oldPhoto && oldPhoto !== b.photoId) await del('photos', oldPhoto);
+  if (bform.previewUrl) URL.revokeObjectURL(bform.previewUrl);
+  await loadAll();
+  toast(existing ? 'Board saved' : 'Board added');
+  if (existing) goBack(`#/board/${b.id}`); else location.replace(`#/board/${b.id}`);
+}
+async function deleteBoard(id, withSessions) {
+  const b = boardById(id);
+  const ss = sessionsFor('boardId', id);
+  await tx(['boards', 'sessions', 'photos'], 'readwrite', t => {
+    t.objectStore('boards').delete(id);
+    if (b && b.photoId) t.objectStore('photos').delete(b.photoId);
+    if (withSessions) ss.forEach(s => t.objectStore('sessions').delete(s.id));
+  });
+  await loadAll();
+  closeDialog();
+  toast('Board deleted');
+  location.replace('#/boards');
+}
+
+/* =========================================================
+   SESSIONS
+   ========================================================= */
+function sessionTable(list, { hideBoard } = {}) {
+  return `<div class="card"><table class="list"><thead><tr><th>Date</th><th>${hideBoard ? 'Spot' : 'Spot · board'}</th><th>Size</th><th>Fun</th></tr></thead><tbody>
+    ${list.map(s => {
+      const sp = spotById(s.spotId), b = boardById(s.boardId);
+      return `<tr class="click" data-href="#/session/${esc(s.id)}">
+        <td class="nowrap"><a href="#/session/${esc(s.id)}">${esc(fmtDateShort(s.start))}</a></td>
+        <td>${esc(sp ? sp.name : 'No spot')}${hideBoard ? '' : `<br><span class="sub">${esc(boardName(b))}</span>`}</td>
+        <td class="nowrap">${esc(shortSize(s.waveSize)) || '<span class="sub">–</span>'}</td>
+        <td>${funStars(s.fun)}</td></tr>`;
+    }).join('')}</tbody></table></div>`;
+}
+function viewSessions(q) {
+  setTop('Sessions', null, `<a class="hact plus" href="#/sessions/new" aria-label="Log a session">+</a>`);
+  if (!S.sessions.length) {
+    setMain(`<div class="empty"><div class="big">No sessions yet</div><div>${S.boards.length ? 'Log a surf to start tracking how each board goes.' : 'Add a board first, then log your surfs against it.'}</div>
+      ${S.boards.length ? '<a class="btn primary" href="#/sessions/new">Log a session</a>' : '<a class="btn primary" href="#/boards/new">Add a board</a>'}</div>`);
+    return;
+  }
+  const fb = q.get('board') || '', fs = q.get('spot') || '';
+  let list = S.sessions.filter(s => (!fb || s.boardId === fb) && (!fs || s.spotId === fs));
+  const sizeIdx = id => WAVE_IDS.indexOf(id);
+  const sorter = {
+    newest: (a, b) => b.start.localeCompare(a.start), oldest: (a, b) => a.start.localeCompare(b.start),
+    fun: (a, b) => (b.fun || 0) - (a.fun || 0) || b.start.localeCompare(a.start),
+    size: (a, b) => sizeIdx(b.waveSize) - sizeIdx(a.waveSize) || b.start.localeCompare(a.start)
+  }[prefs.sessionSort] || (() => 0);
+  list.sort(sorter);
+  const st = statsOf(list);
+  const yr = String(new Date().getFullYear());
+  const thisYear = list.filter(s => s.start.startsWith(yr)).length;
+  const mins = list.reduce((a, s) => a + (s.duration || 0), 0);
+  const usedBoards = S.boards.filter(b => S.sessions.some(s => s.boardId === b.id));
+  const usedSpots = spotsSorted().filter(sp => S.sessions.some(s => s.spotId === sp.id));
+  setMain(`
+    <div class="stats" style="margin-bottom:12px">
+      <div class="stat"><div class="v">${st.count}</div><div class="k">Sessions${fb || fs ? ' (filtered)' : ''}</div></div>
+      <div class="stat"><div class="v">${thisYear}</div><div class="k">This year</div></div>
+      <div class="stat"><div class="v">${st.avgFun != null ? fmtAvg(st.avgFun) : '–'}</div><div class="k">Average fun</div></div>
+      <div class="stat"><div class="v">${mins ? (mins / 60).toFixed(1) : '–'}</div><div class="k">Hours logged</div></div>
+    </div>
+    <div class="filters">
+      <select data-qfilter="board" aria-label="Filter by board"><option value="">All boards</option>${usedBoards.map(b => `<option value="${esc(b.id)}" ${fb === b.id ? 'selected' : ''}>${esc(boardName(b))}</option>`).join('')}</select>
+      <select data-qfilter="spot" aria-label="Filter by spot"><option value="">All spots</option>${usedSpots.map(sp => `<option value="${esc(sp.id)}" ${fs === sp.id ? 'selected' : ''}>${esc(sp.name)}</option>`).join('')}</select>
+      <select data-pref="sessionSort" aria-label="Sort" style="grid-column:1/-1">${[['newest', 'Newest first'], ['oldest', 'Oldest first'], ['fun', 'Most fun'], ['size', 'Biggest waves']].map(([k, l]) => `<option value="${k}" ${prefs.sessionSort === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+    </div>
+    ${list.length >= 2 ? `<div class="card chartbox" style="height:180px;margin-bottom:12px"><canvas id="chMonth" aria-label="Sessions per month"></canvas></div>` : ''}
+    ${list.length ? sessionTable(list) : '<div class="empty"><div class="big">No sessions match</div></div>'}`);
+  if ($('#chMonth')) monthChart($('#chMonth'), list);
+}
+
+/* ---------- session form ---------- */
+let sform = null;
+function viewSessionForm(id, q) {
+  const s = id ? S.sessions.find(x => x.id === id) : null;
+  if (id && !s) { location.replace('#/sessions'); return; }
+  if (!S.boards.length) { setTop('Log session', '#/sessions'); setMain(`<div class="empty"><div class="big">Add a board first</div><div>Sessions are logged against a board.</div><a class="btn primary" href="#/boards/new">Add a board</a></div>`); return; }
+  const v = s || { boardId: q.get('board') || lastBoardId(), spotId: q.get('spot') || lastSpotId(), start: toLocalInput(roundTime(new Date())), duration: 90 };
+  sform = { id, swell: s ? s.swell || null : null, suggested: s ? s.suggestedSize || null : null, waveTouched: !!(s && s.waveSize), token: 0, fun: v.fun || 0, timer: null };
+  const boards = S.boards.filter(b => !b.retired || b.id === v.boardId).sort((a, c) => boardName(a).localeCompare(boardName(c)));
+  const durs = [30, 45, 60, 75, 90, 105, 120, 150, 180, 210, 240, 300];
+  setTop(s ? 'Edit session' : 'Log session', '#/sessions');
+  setMain(`
+    <form data-form="session" autocomplete="off" novalidate>
+      <div class="field"><label for="boardId">Board</label><select name="boardId" id="boardId"><option value="">Choose a board</option>${boards.map(b => `<option value="${esc(b.id)}" ${b.id === v.boardId ? 'selected' : ''}>${esc(boardFull(b))}${b.retired ? ' (retired)' : ''}</option>`).join('')}</select></div>
+      <div class="field"><label for="spotId">Spot</label>
+        <div class="spotpick"><select name="spotId" id="spotId">${spotOptions(v.spotId)}</select><button type="button" data-act="pickSpot" aria-label="Pick spot on map">Map</button></div></div>
+      <div class="grid2">
+        <div class="field"><label for="start">Start</label><input type="datetime-local" name="start" id="start" value="${esc(v.start)}"></div>
+        <div class="field"><label for="duration">Length</label><select name="duration" id="duration"><option value="">–</option>${durs.map(d => `<option value="${d}" ${v.duration === d ? 'selected' : ''}>${d < 60 ? d + ' min' : (d / 60) + ' hr'}</option>`).join('')}</select></div>
+      </div>
+      <div class="swell" id="swellBox" aria-live="polite"></div>
+      ${listOn('waveSize') ? `<div class="field"><label for="f_waveSize">Wave size</label>${pickerHTML('waveSize', v.waveSize, 'waveSize', 'f_waveSize')}</div>` : ''}
+      ${listOn('waveDesc') ? `<div class="field"><label for="f_waveDesc">Wave description</label>${pickerHTML('waveDesc', v.waveDesc, 'waveDesc', 'f_waveDesc')}</div>` : ''}
+      <div class="field"><span class="lbl" id="funLbl">Fun</span><div class="stars" role="radiogroup" aria-labelledby="funLbl" id="stars"></div></div>
+      <div class="field"><label for="snotes">Notes</label><textarea name="notes" id="snotes" maxlength="4000" placeholder="Crowd, tide, what worked...">${esc(v.notes)}</textarea></div>
+      <div class="err" id="sessErr" role="alert"></div>
+      <div class="actions-row"><button class="primary" type="submit">Save session</button></div>
+      ${s ? `<div class="actions-row"><button type="button" class="danger" data-act="deleteSession" data-id="${esc(id)}">Delete session</button></div>` : ''}
+    </form>`);
+  renderStars();
+  renderSwell(s && s.swell ? 'ok' : s && s.spotId ? 'none' : 'idle');
+  if ($('#f_waveSize')) $('#f_waveSize').addEventListener('change', () => { sform.waveTouched = true; renderSwell(sform.swell ? 'ok' : sform.state || 'idle'); });
+  ['spotId', 'start', 'duration'].forEach(n => $('#' + n).addEventListener('change', () => scheduleSwell()));
+  if (!s) scheduleSwell(0);
+}
+const roundTime = d => { const r = new Date(d); r.setMinutes(Math.floor(r.getMinutes() / 15) * 15, 0, 0); return r; };
+function lastOf(field) { const s = [...S.sessions].sort((a, b) => b.start.localeCompare(a.start))[0]; return s ? s[field] : ''; }
+const lastBoardId = () => { const id = lastOf('boardId'); const b = boardById(id); return b && !b.retired ? id : ''; };
+const lastSpotId = () => lastOf('spotId');
+function spotOptions(current) {
+  const list = spotsSorted().filter(s => !s.hidden || s.id === current);
+  return `<option value="">Choose a spot</option>${list.map(s => `<option value="${esc(s.id)}" ${s.id === current ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}`;
+}
+function renderStars() {
+  $('#stars').innerHTML = [1, 2, 3, 4, 5].map(n => `<button type="button" role="radio" aria-checked="${sform.fun === n}" aria-label="${plural(n, 'star')}" class="${n <= sform.fun ? 'on' : ''}" data-act="fun" data-v="${n}">★</button>`).join('');
+}
+function scheduleSwell(delay = 500) {
+  clearTimeout(sform.timer);
+  sform.timer = setTimeout(lookupSwell, delay);
+}
+async function lookupSwell() {
+  const spot = spotById($('#spotId') && $('#spotId').value), start = $('#start') && $('#start').value;
+  if (!spot || !start) { sform.swell = null; renderSwell('idle'); return; }
+  const token = ++sform.token;
+  renderSwell('loading');
+  try {
+    const sw = await fetchSwell(spot, start, Number($('#duration').value) || 0);
+    if (!sform || token !== sform.token || !$('#swellBox')) return;
+    sform.swell = sw;
+    const sug = suggestWaveSize(sw);
+    sform.suggested = sug ? sug.id : null;
+    if (sug && !sform.waveTouched && $('#f_waveSize')) $('#f_waveSize').value = sug.id;
+    renderSwell('ok');
+  } catch (e) {
+    if (!sform || token !== sform.token || !$('#swellBox')) return;
+    sform.swell = null; sform.suggested = null;
+    renderSwell('error', e.message);
+  }
+}
+function renderSwell(state, msg) {
+  const box = $('#swellBox');
+  if (!box) return;
+  sform.state = state;
+  if (state === 'idle') box.innerHTML = `<span class="sub">Pick a spot and time to look up the swell.</span>`;
+  else if (state === 'none') box.innerHTML = `<span class="sub">No swell data saved for this session.</span><div class="row2"><button type="button" data-act="retrySwell">Look up swell</button></div>`;
+  else if (state === 'loading') box.innerHTML = `<span class="sub">Looking up the swell…</span>`;
+  else if (state === 'error') box.innerHTML = `<div class="h">No swell data</div><div class="sub">${esc(msg)} Choose a wave size yourself.</div><div class="row2"><button type="button" data-act="retrySwell">Try again</button></div>`;
+  else {
+    const sw = sform.swell, sug = sform.suggested, sel = $('#f_waveSize'), cur = sel ? sel.value : '';
+    const ft = faceFeet(sw);
+    box.innerHTML = `<div class="h">Swell ${esc(swellText(sw))}</div>
+      ${sw.windWaveH != null ? `<div class="sub">Wind waves ${esc(fmtHeight(sw.windWaveH))} · model data for ${esc(fmtTime(sw.time))}</div>` : ''}
+      ${sug ? `<div class="sub">Suggested face height: <strong>${esc(shortSize(sug))}</strong> (about ${ft.toFixed(1)} ft). Adjust if it was different at the spot.</div>` : ''}
+      <div class="row2">${sel && sug && cur !== sug ? `<button type="button" data-act="useSuggestion">Use ${esc(shortSize(sug))}</button>` : ''}<button type="button" data-act="retrySwell">Refresh</button></div>`;
+  }
+}
+async function saveSession(form) {
+  const fd = new FormData(form);
+  const boardId = fd.get('boardId'), spotId = fd.get('spotId'), start = fd.get('start');
+  if (!boardId) { $('#sessErr').textContent = 'Choose a board.'; $('#boardId').focus(); return; }
+  if (!start) { $('#sessErr').textContent = 'Enter the start date and time.'; $('#start').focus(); return; }
+  const existing = sform.id ? S.sessions.find(x => x.id === sform.id) : null;
+  const s = existing ? { ...existing } : { id: 'session:' + newId(), createdAt: new Date().toISOString() };
+  Object.assign(s, {
+    boardId, spotId: spotId || '', start, duration: Number(fd.get('duration')) || null,
+    waveSize: listOn('waveSize') ? fd.get('waveSize') || '' : s.waveSize || '', waveDesc: listOn('waveDesc') ? fd.get('waveDesc') || '' : s.waveDesc || '', fun: sform.fun || null,
+    notes: (fd.get('notes') || '').trim(), swell: sform.swell || null, suggestedSize: sform.suggested || null
+  });
+  await putMany('sessions', [s]);
+  await loadAll();
+  toast(existing ? 'Session saved' : 'Session logged');
+  goBack(existing ? '#/sessions' : `#/board/${boardId}`);
+}
+
+/* ---------- spot picker (full-screen map dialog) ---------- */
+function openSpotPicker() {
+  const d = openDialog(`
+    <div class="dhead"><h3>Pick a spot</h3><button data-act="close" aria-label="Close">Done</button></div>
+    <div class="dbody"><div id="pickMap" style="position:absolute;inset:0"></div></div>
+    <div class="dfoot" id="pickFoot"><div class="sub">Tap a spot to choose it, or tap the map to add a new one.</div></div>`, true);
+  const map = makeMap($('#pickMap'));
+  if (!map) return;
+  const local = mounted.maps.pop();
+  dialogCleanup = () => { try { local.stop(); local.off(); local.remove(); } catch (e) {} };
+  const cur = $('#spotId') && $('#spotId').value;
+  const pts = [];
+  for (const sp of spotsSorted().filter(x => !x.hidden || x.id === cur)) {
+    const m = L.circleMarker([sp.lat, sp.lon], { radius: sp.id === cur ? 11 : 8, color: '#fff', weight: 2, fillColor: sp.id === cur ? '#e0a526' : '#0f7f8c', fillOpacity: 0.95, bubblingMouseEvents: false }).addTo(map);
+    m.bindTooltip(esc(sp.name), { direction: 'top', offset: [0, -8] });
+    m.on('click', e => { L.DomEvent.stopPropagation(e); chooseSpot(sp.id); });
+    pts.push([sp.lat, sp.lon]);
+  }
+  const c = spotById(cur);
+  if (c) map.setView([c.lat, c.lon], 12, { animate: false }); else if (pts.length) map.fitBounds(pts, { padding: [30, 30], animate: false });
+  let temp = null;
+  map.on('click', e => {
+    if (temp) temp.remove();
+    temp = L.marker(e.latlng, { icon: L.divIcon({ className: '', html: '<div class="pin"></div>', iconSize: [24, 24], iconAnchor: [12, 12] }) }).addTo(map);
+    $('#pickFoot').innerHTML = `<form data-form="newSpot" data-lat="${e.latlng.lat.toFixed(5)}" data-lon="${e.latlng.lng.toFixed(5)}" autocomplete="off">
+      <div class="sub">New spot at the pin</div>
+      <div class="addspot"><input type="text" id="newSpotName" placeholder="Spot name" maxlength="60" aria-label="New spot name" enterkeyhint="done"><button class="primary" type="submit">Add</button></div>
+      <div class="err" id="newSpotErr" role="alert"></div></form>`;
+    $('#newSpotName').focus();
+  });
+}
+function chooseSpot(id) {
+  const sel = $('#spotId');
+  closeDialog();
+  if (!sel) return;
+  sel.innerHTML = spotOptions(id);
+  sel.value = id;
+  sel.dispatchEvent(new Event('change'));
+}
+function spotNameError(name, exceptId) {
+  const n = name.trim();
+  if (!n) return 'Enter a name.';
+  if (S.spots.some(s => s.id !== exceptId && s.name.toLowerCase() === n.toLowerCase())) return 'There is already a spot with that name.';
+  return '';
+}
+async function addSpot(name, lat, lon) {
+  const sp = { id: 'spot:' + newId(), name: name.trim(), lat, lon, order: 1000 + S.spots.length, builtIn: false, hidden: false };
+  await putMany('spots', [sp]);
+  await loadAll();
+  return sp;
+}
+
+/* =========================================================
+   MAP + spot stats
+   ========================================================= */
+function spotSummary(sp, list) {
+  const st = statsOf(list);
+  const bb = topBy(list.filter(x => x.fun), 'boardId', id => boardName(boardById(id)));
+  return `<div class="popup-title">${esc(sp.name)}</div>
+    <div>${plural(st.count, 'session')}${st.avgFun != null ? ` · avg fun ${fmtAvg(st.avgFun)}` : ''}</div>
+    ${st.last ? `<div class="sub">Last surfed ${esc(fmtDate(st.last))}</div>` : ''}
+    ${bb ? `<div>Most fun here: <strong>${esc(bb.label)}</strong> (${fmtAvg(bb.avg)})</div>` : ''}
+    <div class="popup-links">${st.count ? `<a href="#/sessions?spot=${encodeURIComponent(sp.id)}">Sessions</a>` : ''}<a href="#/sessions/new?spot=${encodeURIComponent(sp.id)}">Log here</a></div>`;
+}
+function spotsMap(el, sessions, { small, showAll } = {}) {
+  const map = makeMap(el, small ? { zoomControl: false, scrollWheelZoom: false } : {});
+  if (!map) return;
+  const bySpot = new Map();
+  for (const s of sessions) if (s.spotId) { const g = bySpot.get(s.spotId) || []; g.push(s); bySpot.set(s.spotId, g); }
+  const pts = [];
+  for (const sp of spotsSorted()) {
+    const list = bySpot.get(sp.id) || [];
+    if (!list.length && (!showAll || sp.hidden)) continue;
+    const a = avg(list.map(s => s.fun).filter(Boolean));
+    const m = L.circleMarker([sp.lat, sp.lon], {
+      radius: list.length ? Math.min(26, 7 + 4 * Math.sqrt(list.length)) : 5,
+      color: '#fff', weight: 2, fillColor: list.length ? funColor(a) : '#8a9a9f', fillOpacity: list.length ? 0.9 : 0.6
+    }).addTo(map);
+    m.bindPopup(spotSummary(sp, list), { autoPanPaddingTopLeft: [12, 12], autoPanPaddingBottomRight: [12, 110] });
+    if (list.length) pts.push([sp.lat, sp.lon]);
+  }
+  if (pts.length === 1) map.setView(pts[0], 13, { animate: false });
+  else if (pts.length) map.fitBounds(pts, { padding: [40, 40], maxZoom: 13, animate: false });
+  return map;
+}
+function viewMap() {
+  setTop('Map');
+  const surfed = new Set(S.sessions.map(s => s.spotId).filter(Boolean)).size;
+  setMain(`<div style="position:relative"><div id="bigmap"></div>
+    <div class="map-legend">
+      <span><strong>${S.sessions.length}</strong> sessions · <strong>${surfed}</strong> spots</span>
+      <span><span class="dot" style="background:#1f9d8f"></span>fun</span><span><span class="dot" style="background:#e0a526"></span>ok</span><span><span class="dot" style="background:#c8553d"></span>meh</span>
+      <label class="check" style="min-height:28px"><input type="checkbox" data-pref="showAllSpots" ${prefs.showAllSpots ? 'checked' : ''}> All spots</label>
+    </div></div>`, true);
+  measure();
+  spotsMap($('#bigmap'), S.sessions, { showAll: prefs.showAllSpots || !S.sessions.length });
+}
+
+/* =========================================================
+   SETTINGS
+   ========================================================= */
+function viewSettings() {
   setTop('Settings');
-  const last = await getMeta('lastBackup');
+  const last = S.meta.lastBackup;
   const rows = LISTS.map(l => {
     const all = optionsFor(l.key), shown = all.filter(o => !o.hidden).length;
     const sub = shown === all.length ? `${shown} values` : `${shown} values, ${all.length - shown} hidden`;
-    return `<a class="row" href="#/settings/list/${l.key}"><span class="grow"><span class="label">${esc(l.name)}</span><br><span class="sub">${sub}</span></span><span class="chev" aria-hidden="true">&#8250;</span></a>`;
+    return `<a class="row ${listOn(l.key) ? '' : 'hidden-opt'}" href="#/settings/list/${l.key}"><span class="grow"><span class="label">${esc(l.name)}</span>${listOn(l.key) ? '' : '<span class="tag">Off</span>'}<br><span class="sub">${listOn(l.key) ? sub : 'Not shown on forms'}</span></span><span class="chev" aria-hidden="true">&#8250;</span></a>`;
   }).join('');
-  $('#main').innerHTML = `
+  setMain(`
     <h2 class="sec">Lists</h2>
     <div class="card">${rows}</div>
-    <p class="note">These are the choices offered when you add a board or log a session.</p>
-    <h2 class="sec">Backup</h2>
+    <p class="note">These are the choices offered when you add a board or log a session. Open a list to turn the whole field off if you don't use it.</p>
+    <h2 class="sec">Spots</h2>
+    <div class="card"><a class="row" href="#/settings/spots"><span class="grow"><span class="label">Surf spots</span><br><span class="sub">${plural(S.spots.filter(s => !s.hidden).length, 'spot')}</span></span><span class="chev" aria-hidden="true">&#8250;</span></a></div>
+    <h2 class="sec">Units</h2>
+    <div class="card"><div class="stack"><label for="units" class="sub">Swell height</label>
+      <select id="units" data-pref="units"><option value="ft" ${prefs.units === 'ft' ? 'selected' : ''}>Feet</option><option value="m" ${prefs.units === 'm' ? 'selected' : ''}>Meters</option></select></div></div>
+    <h2 class="sec">Backup and export</h2>
     <div class="card"><div class="stack">
       <button class="primary" data-act="export">Export backup</button>
       <button data-act="import">Restore from backup</button>
-      <div class="sub" style="color:var(--muted);font-size:13px">${last ? 'Last export: ' + esc(new Date(last).toLocaleString()) : 'No backup exported yet.'}</div>
+      <button data-act="csv">Export spreadsheets (CSV)</button>
+      <div class="sub">${last ? 'Last backup: ' + esc(new Date(last).toLocaleString()) : 'No backup exported yet.'}</div>
     </div></div>
-    <p class="note">Everything is stored only on this device. Export a backup now and then, and keep the file somewhere safe.</p>
+    <p class="note">Everything is stored only on this device. Export a backup now and then, and keep the file somewhere safe. CSV files open in Numbers, Excel or Google Sheets.</p>
     <h2 class="sec">About</h2>
-    <div class="card"><div class="row"><span class="grow"><span class="label">Surfboard Tracker</span><br><span class="sub">${esc(BUILD)}</span></span></div></div>`;
+    <div class="card"><div class="row"><span class="grow"><span class="label">Surfboard Tracker</span><br><span class="sub">${esc(BUILD)}</span></span></div>
+      <div class="row"><span class="grow sub">Swell data: Open-Meteo Marine API. Map: © OpenStreetMap contributors.</span></div></div>`);
 }
 function viewList(key) {
   const list = listByKey(key);
-  if (!list) { location.hash = '#/settings'; return; }
+  if (!list) { location.replace('#/settings'); return; }
   setTop(list.name, '#/settings');
   const all = optionsFor(key);
   const rows = all.map((o, i) => `
@@ -301,7 +1162,9 @@ function viewList(key) {
       <button class="icon" data-act="down" data-id="${esc(o.id)}" aria-label="Move ${esc(o.value)} down" ${i === all.length - 1 ? 'disabled' : ''}>&#9660;</button>
     </div>`).join('');
   const preview = all.filter(o => !o.hidden).map(o => `<option>${esc(o.value)}</option>`).join('');
-  $('#main').innerHTML = `
+  setMain(`
+    <div class="card" style="margin-bottom:14px"><div class="stack"><label class="check" style="color:var(--ink)"><input type="checkbox" data-listtoggle="${esc(key)}" ${listOn(key) ? 'checked' : ''}> Use this field</label>
+      <div class="sub">${listOn(key) ? 'Shown on forms and board details.' : 'Turned off: hidden from forms and details. Values already saved are kept and come back if you turn it on again.'}</div></div></div>
     <div class="field"><label for="preview">How it will look in a form</label>
       <select id="preview"><option value="">Choose…</option>${preview}</select></div>
     <h2 class="sec">Values</h2>
@@ -311,11 +1174,10 @@ function viewList(key) {
       <button class="primary" type="submit">Add</button>
     </form>
     <div class="err" id="addErr" role="alert"></div>
-    <p class="note">Tap a value to rename, hide or delete it. Arrows change the order.</p>`;
+    <p class="note">Tap a value to rename, hide or delete it. Arrows change the order.${key === 'waveSize' ? ' Swell suggestions use the built-in sizes; renaming them is fine.' : ''}</p>`);
 }
-
 function editDialog(id) {
-  const o = options.find(x => x.id === id);
+  const o = S.options.find(x => x.id === id);
   if (!o) return;
   openDialog(`
     <form data-form="rename" data-id="${esc(o.id)}" autocomplete="off">
@@ -331,38 +1193,101 @@ function editDialog(id) {
       </div>
     </form>`);
 }
-
-/* ---------- list actions ---------- */
+function nameError(key, value, exceptId) {
+  const v = value.trim();
+  if (!v) return 'Enter a name.';
+  if (v.length > 60) return 'Keep it under 60 characters.';
+  return optionsFor(key).some(o => o.id !== exceptId && o.value.toLowerCase() === v.toLowerCase()) ? 'That value is already in the list.' : '';
+}
 async function addOption(key, value) {
   const all = optionsFor(key);
   const order = all.length ? Math.max(...all.map(o => o.order)) + 1 : 0;
   await putMany('options', [{ id: key + ':' + newId(), list: key, value: value.trim(), order, builtIn: false, hidden: false }]);
-  await loadOptions();
+  await loadAll();
 }
 async function moveOption(id, dir) {
-  const o = options.find(x => x.id === id);
+  const o = S.options.find(x => x.id === id);
   const all = optionsFor(o.list);
   const i = all.findIndex(x => x.id === id), j = i + dir;
   if (j < 0 || j >= all.length) return;
   [all[i], all[j]] = [all[j], all[i]];
   all.forEach((x, n) => { x.order = n; });
   await putMany('options', all);
-  await loadOptions();
+  await loadAll();
 }
 async function deleteOption(id) {
-  const o = options.find(x => x.id === id);
+  const o = S.options.find(x => x.id === id);
   const list = listByKey(o.list);
-  const n = await usedCount(list, id);
+  const n = (list.store === 'boards' ? S.boards : S.sessions).filter(r => r[list.key] === id).length;
   if (n > 0) {
-    openDialog(`<h3>In use</h3><p>"${esc(o.value)}" is used by ${n} ${n === 1 ? 'record' : 'records'}, so it can't be deleted. Hide it instead and it stops showing in pickers.</p>
-      <div class="actions"><button class="primary" data-act="toggleHide" data-id="${esc(id)}" ${o.hidden ? 'hidden' : ''}>Hide from pickers</button><button data-act="close">Close</button></div>`);
+    openDialog(`<h3>In use</h3><p>"${esc(o.value)}" is used by ${plural(n, list.store === 'boards' ? 'board' : 'session')}, so it can't be deleted. Hide it instead and it stops showing in pickers.</p>
+      <div class="actions">${o.hidden ? '' : `<button class="primary" data-act="toggleHide" data-id="${esc(id)}">Hide from pickers</button>`}<button data-act="close">Close</button></div>`);
     return;
   }
   await del('options', id);
-  await loadOptions();
-  closeDialog();
-  toast('Deleted');
-  route();
+  await loadAll();
+  closeDialog(); toast('Deleted'); route();
+}
+
+/* ---------- spot management ---------- */
+function viewSpots() {
+  setTop('Surf spots', '#/settings', `<a class="hact plus" href="#/settings/spots/new" aria-label="Add spot">+</a>`);
+  const rows = spotsSorted().map(sp => {
+    const n = sessionsFor('spotId', sp.id).length;
+    return `<a class="row ${sp.hidden ? 'hidden-opt' : ''}" href="#/settings/spot/${encodeURIComponent(sp.id)}"><span class="grow"><span class="label">${esc(sp.name)}</span>${sp.hidden ? '<span class="tag">Hidden</span>' : ''}${sp.builtIn ? '' : '<span class="tag">Added</span>'}<br><span class="sub">${n ? plural(n, 'session') : 'Not surfed yet'}</span></span><span class="chev" aria-hidden="true">&#8250;</span></a>`;
+  }).join('');
+  setMain(`<div class="card">${rows}</div><p class="note">Built-in spot locations are approximate. Open a spot and drag its pin to put it exactly where you surf. You can also add spots from the map when logging a session.</p>`);
+}
+let spotEdit = null;
+function viewSpotForm(id) {
+  const sp = id ? spotById(id) : null;
+  if (id && !sp) { location.replace('#/settings/spots'); return; }
+  const n = sp ? sessionsFor('spotId', sp.id).length : 0;
+  spotEdit = { id, lat: sp ? sp.lat : DEFAULT_VIEW.center[0], lon: sp ? sp.lon : DEFAULT_VIEW.center[1] };
+  setTop(sp ? sp.name : 'New spot', '#/settings/spots');
+  setMain(`
+    <form data-form="spot" autocomplete="off" novalidate>
+      <div class="field"><label for="spotName">Name</label><input type="text" id="spotName" value="${esc(sp ? sp.name : '')}" maxlength="60" enterkeyhint="done"></div>
+      <div class="field"><span class="lbl">Location: drag the pin or tap the map</span><div class="card"><div id="spotMap" style="height:300px"></div></div>
+        <div class="sub" id="spotCoords" style="margin:6px 4px 0"></div></div>
+      <div class="err" id="spotErr" role="alert"></div>
+      <div class="actions-row"><button class="primary" type="submit">Save spot</button></div>
+      ${sp ? `<div class="actions-row"><button type="button" data-act="toggleSpot" data-id="${esc(sp.id)}">${sp.hidden ? 'Show in spot list' : 'Hide from spot list'}</button></div>
+      <div class="actions-row"><button type="button" class="danger" data-act="deleteSpot" data-id="${esc(sp.id)}">Delete spot</button></div>
+      <p class="note">${n ? `Used by ${plural(n, 'session')}.` : 'No sessions here yet.'}</p>` : ''}
+    </form>`);
+  const map = makeMap($('#spotMap'));
+  if (!map) return;
+  map.setView([spotEdit.lat, spotEdit.lon], sp ? 15 : 11, { animate: false });
+  const pin = L.marker([spotEdit.lat, spotEdit.lon], { draggable: true, icon: L.divIcon({ className: '', html: '<div class="pin"></div>', iconSize: [24, 24], iconAnchor: [12, 12] }) }).addTo(map);
+  const show = () => { $('#spotCoords').textContent = `${spotEdit.lat.toFixed(5)}, ${spotEdit.lon.toFixed(5)}`; };
+  const set = ll => { spotEdit.lat = ll.lat; spotEdit.lon = ll.lng; show(); };
+  pin.on('dragend', () => set(pin.getLatLng()));
+  map.on('click', e => { pin.setLatLng(e.latlng); set(e.latlng); });
+  show();
+}
+async function saveSpot() {
+  const name = $('#spotName').value;
+  const problem = spotNameError(name, spotEdit.id);
+  if (problem) { $('#spotErr').textContent = problem; return; }
+  const lat = +spotEdit.lat.toFixed(5), lon = +spotEdit.lon.toFixed(5);
+  if (spotEdit.id) {
+    const sp = { ...spotById(spotEdit.id), name: name.trim(), lat, lon };
+    await putMany('spots', [sp]); await loadAll();
+  } else await addSpot(name, lat, lon);
+  toast('Spot saved');
+  goBack('#/settings/spots');
+}
+async function deleteSpot(id) {
+  const sp = spotById(id);
+  const n = sessionsFor('spotId', id).length;
+  if (n) {
+    openDialog(`<h3>In use</h3><p>${esc(sp.name)} has ${plural(n, 'session')}, so it can't be deleted. Hide it instead to keep it out of the spot list.</p>
+      <div class="actions">${sp.hidden ? '' : `<button class="primary" data-act="toggleSpot" data-id="${esc(id)}">Hide spot</button>`}<button data-act="close">Close</button></div>`);
+    return;
+  }
+  await del('spots', id); await loadAll();
+  toast('Spot deleted'); location.replace('#/settings/spots');
 }
 
 /* ---------- backup ---------- */
@@ -371,39 +1296,37 @@ const blobToDataURL = blob => new Promise((resolve, reject) => {
   r.onload = () => resolve(r.result); r.onerror = () => reject(r.error);
   r.readAsDataURL(blob);
 });
-async function dataURLToBlob(url) { return (await fetch(url)).blob(); }
-
+const dataURLToBlob = async url => (await fetch(url)).blob();
 async function buildBackup() {
   const data = {};
   for (const s of STORES) data[s] = await getAll(s);
-  data.photos = await Promise.all(data.photos.map(async p =>
-    p.blob instanceof Blob ? { ...p, blob: { __blob: await blobToDataURL(p.blob) } } : p));
+  data.photos = await Promise.all(data.photos.map(async p => {
+    const out = { ...p };
+    if (p.blob instanceof Blob) out.blob = { __blob: await blobToDataURL(p.blob) };
+    if (p.thumb instanceof Blob) out.thumb = { __blob: await blobToDataURL(p.thumb) };
+    return out;
+  }));
   return { app: APP_ID, schema: SCHEMA, exportedAt: new Date().toISOString(), data };
+}
+async function shareOrDownload(files, title) {
+  try {
+    if (navigator.canShare && navigator.canShare({ files })) { await navigator.share({ files, title }); return true; }
+  } catch (e) { if (e && e.name === 'AbortError') return false; }
+  for (const f of files) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(f); a.download = f.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+  return true;
 }
 async function exportBackup() {
   const backup = await buildBackup();
   const name = `surfboard-tracker-backup-${backup.exportedAt.slice(0, 10)}.json`;
-  const text = JSON.stringify(backup);
-  let shared = false;
-  try {
-    const file = new File([text], name, { type: 'application/json' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: 'Surfboard Tracker backup' });
-      shared = true;
-    }
-  } catch (e) {
-    if (e && e.name === 'AbortError') return;   // user closed the share sheet
-  }
-  if (!shared) {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
-    a.download = name;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  }
-  await setMeta('lastBackup', backup.exportedAt);
-  toast('Backup exported');
-  route();
+  const ok = await shareOrDownload([new File([JSON.stringify(backup)], name, { type: 'application/json' })], 'Surfboard Tracker backup');
+  if (!ok) return;
+  await setMeta('lastBackup', backup.exportedAt); await loadAll();
+  toast('Backup exported'); route();
 }
 function checkBackup(b) {
   if (!b || b.app !== APP_ID || !b.data) return 'This file is not a Surfboard Tracker backup.';
@@ -420,84 +1343,167 @@ async function readImport(file) {
   pendingImport = b;
   const n = s => (b.data[s] || []).length;
   openDialog(`<h3>Restore this backup?</h3>
-    <p>Exported ${esc(new Date(b.exportedAt).toLocaleString())}. It holds ${plural(n('boards'), 'board')}, ${plural(n('sessions'), 'session')} and ${plural(n('options'), 'list value')}.</p>
+    <p>Exported ${esc(new Date(b.exportedAt).toLocaleString())}. It holds ${plural(n('boards'), 'board')}, ${plural(n('sessions'), 'session')}, ${plural(n('photos'), 'photo')} and ${plural(n('options'), 'list value')}.</p>
     <p>Everything currently on this device will be replaced.</p>
     <div class="actions"><button class="primary" data-act="confirmImport">Replace and restore</button><button data-act="close">Cancel</button></div>`);
 }
 async function applyImport(b) {
   const data = {};
   for (const s of STORES) data[s] = b.data[s] || [];
-  data.photos = await Promise.all(data.photos.map(async p =>
-    p.blob && p.blob.__blob ? { ...p, blob: await dataURLToBlob(p.blob.__blob) } : p));
+  data.photos = await Promise.all(data.photos.map(async p => {
+    const out = { ...p };
+    if (p.blob && p.blob.__blob) out.blob = await dataURLToBlob(p.blob.__blob);
+    if (p.thumb && p.thumb.__blob) out.thumb = await dataURLToBlob(p.thumb.__blob);
+    return out;
+  }));
   await tx(STORES, 'readwrite', t => {
-    for (const s of STORES) {
-      const st = t.objectStore(s);
-      st.clear();
-      data[s].forEach(r => st.put(r));
-    }
+    for (const s of STORES) { const st = t.objectStore(s); st.clear(); data[s].forEach(r => st.put(r)); }
   });
-  await seed();          // seeds any list the backup predates
-  await loadOptions();
+  await seed();
+  await loadAll();
 }
 
-/* ---------- events ---------- */
+/* ---------- CSV ---------- */
+function csv(rows) {
+  return '﻿' + rows.map(r => r.map(v => {
+    const s = v == null ? '' : String(v);
+    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  }).join(',')).join('\r\n');
+}
+async function exportCSV() {
+  const boards = [['Model', 'Shaper', 'Length', 'Width (in)', 'Thickness (in)', 'Volume (L)', ...BOARD_LISTS.map(k => listByKey(k).name), 'Retired', 'Sessions', 'Average fun', 'Notes']];
+  for (const b of [...S.boards].sort((a, c) => boardName(a).localeCompare(boardName(c)))) {
+    const st = statsOf(sessionsFor('boardId', b.id));
+    boards.push([b.model, b.shaper, fmtLen(b.length), b.width, b.thickness, b.volume, ...BOARD_LISTS.map(k => optLabel(b[k])), b.retired ? 'Yes' : '', st.count, st.avgFun == null ? '' : st.avgFun.toFixed(2), b.notes]);
+  }
+  const sessions = [['Date', 'Time', 'Board', 'Spot', 'Latitude', 'Longitude', 'Duration (min)', 'Wave size', 'Wave description', 'Fun', 'Swell height (ft)', 'Swell period (s)', 'Swell direction (deg)', 'Notes']];
+  for (const s of [...S.sessions].sort((a, c) => a.start.localeCompare(c.start))) {
+    const sp = spotById(s.spotId) || {}, sw = s.swell || {};
+    const h = sw.swellH ?? sw.waveH;
+    sessions.push([s.start.slice(0, 10), s.start.slice(11, 16), boardFull(boardById(s.boardId)), sp.name, sp.lat, sp.lon, s.duration, optLabel(s.waveSize), optLabel(s.waveDesc), s.fun, h == null ? '' : (h * 3.281).toFixed(1), sw.swellP ?? sw.waveP ?? '', sw.swellDir ?? sw.waveDir ?? '', s.notes]);
+  }
+  const day = new Date().toISOString().slice(0, 10);
+  const ok = await shareOrDownload([
+    new File([csv(boards)], `surfboards-${day}.csv`, { type: 'text/csv' }),
+    new File([csv(sessions)], `surf-sessions-${day}.csv`, { type: 'text/csv' })
+  ], 'Surfboard Tracker export');
+  if (ok) toast('Spreadsheets exported');
+}
+
+/* =========================================================
+   EVENTS
+   ========================================================= */
+let navCount = 0;
+function goBack(fallback) {
+  if (navCount > 0) history.back(); else location.replace(fallback);
+}
+function fail(err) { console.error(err); toast('Something went wrong: ' + (err && err.message ? err.message : 'unknown error')); }
+
 document.addEventListener('click', async e => {
+  const row = e.target.closest('tr[data-href]');
+  if (row && !e.target.closest('a,button')) { location.hash = row.dataset.href; return; }
   const el = e.target.closest('[data-act]');
   if (!el) return;
   const act = el.dataset.act, id = el.dataset.id;
   try {
-    if (act === 'close') closeDialog();
-    else if (act === 'edit') editDialog(id);
-    else if (act === 'up' || act === 'down') {
-      await moveOption(id, act === 'up' ? -1 : 1); route();
-      const again = document.querySelector(`[data-act="${act}"][data-id="${CSS.escape(id)}"]`);
-      if (again && !again.disabled) again.focus();
+    switch (act) {
+      case 'close': closeDialog(); break;
+      case 'back': goBack(el.dataset.fallback || '#/boards'); break;
+      case 'view': await savePrefs({ boardsView: el.dataset.v }); route(); break;
+      case 'edit': editDialog(id); break;
+      case 'up': case 'down': {
+        await moveOption(id, act === 'up' ? -1 : 1); route();
+        const again = document.querySelector(`[data-act="${act}"][data-id="${CSS.escape(id)}"]`);
+        if (again && !again.disabled) again.focus();
+        break;
+      }
+      case 'toggleHide': {
+        const o = S.options.find(x => x.id === id);
+        await putMany('options', [{ ...o, hidden: !o.hidden }]); await loadAll();
+        closeDialog(); toast(!o.hidden ? 'Hidden from pickers' : 'Showing in pickers'); route(); break;
+      }
+      case 'delete': await deleteOption(id); break;
+      case 'export': await exportBackup(); break;
+      case 'import': $('#importFile').click(); break;
+      case 'csv': await exportCSV(); break;
+      case 'confirmImport': { const b = pendingImport; pendingImport = null; await applyImport(b); closeDialog(); toast('Backup restored'); route(); break; }
+      case 'removePhoto':
+        bform.photoBlob = null; bform.thumbBlob = null; bform.removePhoto = true;
+        $('#photoPrev').innerHTML = `<div class="noph">${BOARD_ICON}</div>`; el.hidden = true; break;
+      case 'deleteBoard': {
+        const n = sessionsFor('boardId', id).length;
+        if (n) confirmDialog('Delete this board?', `It has ${plural(n, 'session')}. Retire it to keep its history, or delete the board and its sessions.`,
+          `<button class="primary" data-act="retireBoard" data-id="${esc(id)}">Retire instead</button><button class="danger" data-act="deleteBoardAll" data-id="${esc(id)}">Delete board and sessions</button>`);
+        else confirmDialog('Delete this board?', 'This removes the board and its photo.', `<button class="danger" data-act="deleteBoardAll" data-id="${esc(id)}">Delete board</button>`);
+        break;
+      }
+      case 'deleteBoardAll': await deleteBoard(id, true); break;
+      case 'retireBoard': { const b = boardById(id); await putMany('boards', [{ ...b, retired: true }]); await loadAll(); closeDialog(); toast('Board retired'); location.replace(`#/board/${id}`); break; }
+      case 'fun': { const n = Number(el.dataset.v); sform.fun = sform.fun === n ? 0 : n; renderStars(); break; }
+      case 'pickSpot': openSpotPicker(); break;
+      case 'retrySwell': scheduleSwell(0); break;
+      case 'useSuggestion': $('#f_waveSize').value = sform.suggested; sform.waveTouched = false; renderSwell('ok'); break;
+      case 'deleteSession': confirmDialog('Delete this session?', "This can't be undone.", `<button class="danger" data-act="deleteSessionYes" data-id="${esc(id)}">Delete session</button>`); break;
+      case 'deleteSessionYes': await del('sessions', id); await loadAll(); closeDialog(); toast('Session deleted'); goBack('#/sessions'); break;
+      case 'toggleSpot': { const sp = spotById(id); await putMany('spots', [{ ...sp, hidden: !sp.hidden }]); await loadAll(); closeDialog(); toast(sp.hidden ? 'Spot shown' : 'Spot hidden'); route(); break; }
+      case 'deleteSpot': await deleteSpot(id); break;
     }
-    else if (act === 'toggleHide') {
-      const o = options.find(x => x.id === id);
-      o.hidden = !o.hidden;
-      await putMany('options', [o]); await loadOptions();
-      closeDialog(); toast(o.hidden ? 'Hidden from pickers' : 'Showing in pickers'); route();
+  } catch (err) { fail(err); }
+});
+document.addEventListener('change', async e => {
+  const el = e.target;
+  try {
+    if (el.dataset.pref) {
+      await savePrefs({ [el.dataset.pref]: el.type === 'checkbox' ? el.checked : el.value, ...(el.dataset.pref.startsWith('filter') || el.dataset.pref === 'boardSort' ? { pagerIndex: 0 } : {}) });
+      route();
+    } else if (el.dataset.listtoggle) {
+      const k = el.dataset.listtoggle, off = new Set(prefs.disabledLists || []);
+      if (el.checked) off.delete(k); else off.add(k);
+      await savePrefs({ disabledLists: [...off], ...(k === 'type' && !el.checked ? { filterType: '' } : {}) });
+      toast(el.checked ? 'Field turned on' : 'Field turned off'); route();
+    } else if (el.dataset.qfilter) {
+      const [path, qs] = location.hash.slice(1).split('?');
+      const q = new URLSearchParams(qs || '');
+      if (el.value) q.set(el.dataset.qfilter, el.value); else q.delete(el.dataset.qfilter);
+      location.replace('#' + path + (q.toString() ? '?' + q : ''));
     }
-    else if (act === 'delete') await deleteOption(id);
-    else if (act === 'export') await exportBackup();
-    else if (act === 'import') $('#importFile').click();
-    else if (act === 'confirmImport') {
-      const b = pendingImport; pendingImport = null;
-      await applyImport(b);
-      closeDialog(); toast('Backup restored'); route();
-    }
-  } catch (err) {
-    console.error(err);
-    toast('Something went wrong: ' + (err && err.message ? err.message : 'unknown error'));
-  }
+  } catch (err) { fail(err); }
 });
 document.addEventListener('submit', async e => {
   const f = e.target.closest('[data-form]');
   if (!f) return;
   e.preventDefault();
+  const btn = f.querySelector('[type=submit]');
+  if (btn) btn.disabled = true;
   try {
-    if (f.dataset.form === 'add') {
-      const input = $('#addValue'), key = f.dataset.key;
-      const problem = nameError(key, input.value);
-      if (problem) { $('#addErr').textContent = problem; return; }
-      await addOption(key, input.value);
-      route();
-      toast('Added');
-      $('#addValue').focus();
-    } else if (f.dataset.form === 'rename') {
-      const o = options.find(x => x.id === f.dataset.id);
-      const input = $('#renameValue');
-      const problem = nameError(o.list, input.value, o.id);
-      if (problem) { $('#renameErr').textContent = problem; return; }
-      o.value = input.value.trim();
-      await putMany('options', [o]); await loadOptions();
-      closeDialog(); toast('Saved'); route();
+    switch (f.dataset.form) {
+      case 'add': {
+        const input = $('#addValue'), key = f.dataset.key;
+        const problem = nameError(key, input.value);
+        if (problem) { $('#addErr').textContent = problem; break; }
+        await addOption(key, input.value); route(); toast('Added'); $('#addValue').focus(); break;
+      }
+      case 'rename': {
+        const o = S.options.find(x => x.id === f.dataset.id);
+        const input = $('#renameValue');
+        const problem = nameError(o.list, input.value, o.id);
+        if (problem) { $('#renameErr').textContent = problem; break; }
+        await putMany('options', [{ ...o, value: input.value.trim() }]); await loadAll();
+        closeDialog(); toast('Saved'); route(); break;
+      }
+      case 'board': await saveBoard(f); break;
+      case 'session': await saveSession(f); break;
+      case 'spot': await saveSpot(); break;
+      case 'newSpot': {
+        const name = $('#newSpotName').value;
+        const problem = spotNameError(name);
+        if (problem) { $('#newSpotErr').textContent = problem; break; }
+        const sp = await addSpot(name, Number(f.dataset.lat), Number(f.dataset.lon));
+        toast('Spot added'); chooseSpot(sp.id); break;
+      }
     }
-  } catch (err) {
-    console.error(err);
-    toast('Something went wrong: ' + (err && err.message ? err.message : 'unknown error'));
-  }
+  } catch (err) { fail(err); }
+  finally { if (btn && document.body.contains(btn)) btn.disabled = false; }
 });
 $('#importFile').addEventListener('change', async e => {
   const file = e.target.files[0];
@@ -507,35 +1513,52 @@ $('#importFile').addEventListener('change', async e => {
 
 /* ---------- router ---------- */
 function route() {
-  const parts = (location.hash || '#/boards').slice(2).split('/');
-  const tab = ['boards', 'sessions', 'map', 'settings'].includes(parts[0]) ? parts[0] : 'boards';
+  unmount();
+  const [path, qs] = (location.hash || '#/boards').slice(2).split('?');
+  const parts = path.split('/').map(decodeURIComponent);
+  const q = new URLSearchParams(qs || '');
+  const tabFor = { boards: 'boards', board: 'boards', sessions: 'sessions', session: 'sessions', map: 'map', settings: 'settings' };
+  const tab = tabFor[parts[0]] || 'boards';
   document.querySelectorAll('#tabs a').forEach(a => {
     const on = a.dataset.tab === tab;
     a.classList.toggle('on', on);
     if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
-  if (tab === 'settings') return parts[1] === 'list' ? viewList(parts[2]) : viewSettings();
-  if (tab === 'boards') return placeholder('Boards', 'No boards yet', 'Adding boards comes in the next build. For now, set up your lists in Settings.');
-  if (tab === 'sessions') return placeholder('Sessions', 'No sessions yet', 'Session logging comes after boards.');
-  return placeholder('Map', 'Nothing to map yet', 'Your surf spots will show here once sessions are logged.');
+  switch (parts[0]) {
+    case 'board': return parts[2] === 'edit' ? viewBoardForm(parts[1]) : viewBoard(parts[1]);
+    case 'boards': return parts[1] === 'new' ? viewBoardForm(null) : viewBoards();
+    case 'sessions': return parts[1] === 'new' ? viewSessionForm(null, q) : viewSessions(q);
+    case 'session': return viewSessionForm(parts[1], q);
+    case 'map': return viewMap();
+    case 'settings':
+      if (parts[1] === 'list') return viewList(parts[2]);
+      if (parts[1] === 'spots') return parts[2] === 'new' ? viewSpotForm(null) : viewSpots();
+      if (parts[1] === 'spot') return viewSpotForm(parts[2]);
+      return viewSettings();
+    default: return viewBoards();
+  }
 }
-window.addEventListener('hashchange', () => { closeDialog(); route(); window.scrollTo(0, 0); });
+window.addEventListener('hashchange', () => { navCount++; closeDialog(); route(); window.scrollTo(0, 0); });
+let resizeT;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeT);
+  resizeT = setTimeout(() => { measure(); mounted.maps.forEach(m => { try { m.invalidateSize(); } catch (e) {} }); }, 150);
+});
 
 /* ---------- start ---------- */
 (async function start() {
   try {
     db = await openDB();
     await seed();
-    await loadOptions();
+    await loadAll();
+    measure();
     route();
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
-    if ('serviceWorker' in navigator && location.protocol === 'https:') {
-      navigator.serviceWorker.register('sw.js').catch(() => {});
-    }
+    if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
   } catch (err) {
     console.error(err);
     setTop('Surfboard Tracker');
-    $('#main').innerHTML = `<div class="empty"><div class="big">Storage isn't available</div><div>The app needs on-device storage. Private browsing can block it; open the page in a normal tab.</div></div>`;
+    setMain(`<div class="empty"><div class="big">Storage isn't available</div><div>The app needs on-device storage. Private browsing can block it; open the page in a normal tab.</div></div>`);
   }
 })();
 </script>
