@@ -287,16 +287,18 @@ table.bt td { padding: 2px 0; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 3 (base maps, imagery, buoys)';
+const BUILD = 'Build 4 (keyless Esri base map, imagery, buoys)';
 const SCHEMA = 1;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta'];
 const DEFAULT_VIEW = { center: [34.27, -119.30], zoom: 11 };
 const BASEMAPS = {
-  map: { label: 'Map', url: 'https://{s}.basemaps.cartocdn.com/{style}/{z}/{x}/{y}{r}.png', subdomains: 'abcd', maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>' },
+  /* Esri Canvas (light or dark gray) with its label layer on top. No API key needed. */
+  map: { label: 'Map', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_{shade}_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    labels: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_{shade}_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+    maxNativeZoom: 16, maxZoom: 19, attribution: 'Map &copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors' },
   imagery: { label: 'Imagery', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', maxZoom: 19,
-    attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics' }
+    maxNativeZoom: 19, attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics' }
 };
 const BUOY_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/buoys.json';
 /* NOAA buoys near Ventura. Positions here are a fallback; the data file carries NDBC's current positions. */
@@ -516,7 +518,9 @@ function measure() {
 function baseLayer(key) {
   const b = BASEMAPS[key];
   const dark = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches;
-  return L.tileLayer(b.url, { maxZoom: b.maxZoom, subdomains: b.subdomains || 'abc', attribution: b.attribution, style: dark ? 'dark_all' : 'light_all', detectRetina: false });
+  const opts = { maxZoom: b.maxZoom, maxNativeZoom: b.maxNativeZoom, shade: dark ? 'Dark' : 'Light' };
+  const base = L.tileLayer(b.url, { ...opts, attribution: b.attribution });
+  return b.labels ? L.layerGroup([base, L.tileLayer(b.labels, { ...opts, pane: 'overlayPane' })]) : base;
 }
 function makeMap(el, opts = {}) {
   if (typeof L === 'undefined') { el.innerHTML = '<div class="empty">Map unavailable.</div>'; return null; }
@@ -1311,7 +1315,7 @@ function viewSettings() {
     <p class="note">Everything is stored only on this device. Export a backup now and then, and keep the file somewhere safe. CSV files open in Numbers, Excel or Google Sheets.</p>
     <h2 class="sec">About</h2>
     <div class="card"><div class="row"><span class="grow"><span class="label">Surfboard Tracker</span><br><span class="sub">${esc(BUILD)}</span></span></div>
-      <div class="row"><span class="grow sub">Swell data: Open-Meteo Marine API. Buoys: NOAA National Data Buoy Center, updated about every 30 minutes. Maps: © OpenStreetMap contributors, CARTO; imagery © Esri.</span></div></div>`);
+      <div class="row"><span class="grow sub">Swell data: Open-Meteo Marine API. Buoys: NOAA National Data Buoy Center, updated about every 30 minutes. Maps and imagery: © Esri and contributors.</span></div></div>`);
 }
 function viewList(key) {
   const list = listByKey(key);
