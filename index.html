@@ -252,6 +252,19 @@ label.btn input { display: none; }
 .popup-links { display: flex; gap: 12px; margin-top: 8px; }
 .pin { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
 .addspot { display: flex; gap: 8px; margin-top: 8px; }
+.rthumb { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; flex: none; background: var(--tag); }
+.rthumb.noimg { display: flex; align-items: center; justify-content: center; color: var(--muted); }
+.rthumb.noimg svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.4; }
+.tile .ph.sq, .photo-field .prev.sq { aspect-ratio: 1 / 1; }
+.photo-field .prev.sq { height: 84px; }
+.picklist { max-height: 55vh; overflow-y: auto; margin: 0 0 8px; }
+.pickrow { display: flex; gap: 12px; align-items: center; padding: 10px 4px; border-bottom: 1px solid var(--line); min-height: 52px; cursor: pointer; }
+.pickrow:last-child { border-bottom: 0; }
+.pickrow input { width: 22px; height: 22px; flex: none; accent-color: var(--accent); }
+.chipsel { display: flex; flex-wrap: wrap; gap: 8px; }
+.chipbtn { min-height: 40px; border-radius: 999px; font-size: 14px; }
+.chipbtn[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+nav.tabs a { font-size: 10.5px; }
 .buoy-icon { background: none; border: 0; }
 .buoy { position: relative; width: 24px; height: 24px; }
 .buoy .bdot { position: absolute; inset: 0; border-radius: 50%; background: #ffc531; border: 2px solid #0b3a4a; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
@@ -276,6 +289,7 @@ table.bt td { padding: 2px 0; }
 <main id="main"></main>
 <nav class="tabs" id="tabs" aria-label="Sections">
   <a href="#/boards" data-tab="boards"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c3 3 4.5 7 4.5 10.5S15 20 12 22c-3-2-4.5-6-4.5-9.5S9 5 12 2z"/><path d="M12 5v14"/></svg>Boards</a>
+  <a href="#/fins" data-tab="fins"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20c0-7 3-13 10-16 1 5 2 11 4 16z"/><path d="M4 20h16"/></svg>Fins</a>
   <a href="#/sessions" data-tab="sessions"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 16c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/><path d="M2 10c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/></svg>Sessions</a>
   <a href="#/map" data-tab="map"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.5-6-10a6 6 0 0 1 12 0c0 4.5-6 10-6 10z"/><circle cx="12" cy="11" r="2.2"/></svg>Map</a>
   <a href="#/settings" data-tab="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>Settings</a>
@@ -287,10 +301,10 @@ table.bt td { padding: 2px 0; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 4 (keyless Esri base map, imagery, buoys)';
-const SCHEMA = 1;
+const BUILD = 'Build 5 (fin tracker)';
+const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
-const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta'];
+const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
 const DEFAULT_VIEW = { center: [34.27, -119.30], zoom: 11 };
 const BASEMAPS = {
   /* Esri Canvas (light or dark gray) with its label layer on top. No API key needed. */
@@ -313,19 +327,30 @@ const BOARD_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c3
 
 /* Each list's key is also the field name on the record that uses it. */
 const LISTS = [
-  { key: 'type', name: 'Board type', store: 'boards', values: ['Shortboard', 'Groveler', 'Fish', 'Hybrid', 'Step-up', 'Gun', 'Mid-length', 'Egg', 'Funboard', 'Longboard', 'Log', 'Soft-top', 'SUP'] },
-  { key: 'finConfig', name: 'Fin configuration', store: 'boards', values: ['Single', 'Twin', 'Twin + trailer', 'Thruster', 'Quad', '5-fin convertible', '2+1', 'Bonzer', 'Finless'] },
-  { key: 'finSystem', name: 'Fin system', store: 'boards', values: ['FCS II', 'FCS (plugs)', 'Futures', 'Glass-on', 'US box (single)', 'Box + side bites', 'Soft-top screw-through'] },
-  { key: 'rocker', name: 'Rocker profile', store: 'boards', values: ['Flat', 'Low', 'Medium', 'High', 'Low entry / high exit', 'High entry / low exit'] },
-  { key: 'rails', name: 'Rails', store: 'boards', values: ['Soft (50/50)', 'Medium', 'Hard (down)', 'Boxy', 'Pinched', 'Tucked edge'] },
-  { key: 'tail', name: 'Tail shape', store: 'boards', values: ['Squash', 'Round', 'Rounded pin', 'Pin', 'Swallow', 'Fish', 'Diamond', 'Square', 'Bat'] },
-  { key: 'waveSize', name: 'Wave size', store: 'sessions', values: ['Flat', '1-2 ft (ankle to knee)', '2-3 ft (knee to waist)', '3-4 ft (waist to chest)', '4-5 ft (chest to head)', '5-6 ft (head high)', '6-8 ft (overhead)', '8-10 ft (well overhead)', '10 ft+ (double overhead+)'] },
-  { key: 'waveDesc', name: 'Wave description', store: 'sessions', values: ['Glassy', 'Clean', 'Lined up', 'Peaky', 'Hollow', 'Mushy', 'Choppy', 'Blown out', 'Closed out'] }
+  { key: 'type', name: 'Board type', group: 'Boards', store: 'boards', values: ['Shortboard', 'Groveler', 'Fish', 'Hybrid', 'Step-up', 'Gun', 'Mid-length', 'Egg', 'Funboard', 'Longboard', 'Log', 'Soft-top', 'SUP'] },
+  { key: 'finConfig', name: 'Fin configuration', group: 'Boards', store: 'boards', values: ['Single', 'Twin', 'Twin + trailer', 'Thruster', 'Quad', '5-fin convertible', '2+1', 'Bonzer', 'Finless'] },
+  { key: 'finSystem', name: 'Fin system', group: 'Boards and fins', store: ['boards', 'fins'], values: ['FCS II', 'FCS (plugs)', 'Futures', 'Glass-on', 'US box (single)', 'Box + side bites', 'Soft-top screw-through'] },
+  { key: 'rocker', name: 'Rocker profile', group: 'Boards', store: 'boards', values: ['Flat', 'Low', 'Medium', 'High', 'Low entry / high exit', 'High entry / low exit'] },
+  { key: 'rails', name: 'Rails', group: 'Boards', store: 'boards', values: ['Soft (50/50)', 'Medium', 'Hard (down)', 'Boxy', 'Pinched', 'Tucked edge'] },
+  { key: 'tail', name: 'Tail shape', group: 'Boards', store: 'boards', values: ['Squash', 'Round', 'Rounded pin', 'Pin', 'Swallow', 'Fish', 'Diamond', 'Square', 'Bat'] },
+  { key: 'finSetup', name: 'Fin configuration', group: 'Fins', store: 'fins', values: ['Single', 'Twin', 'Twin + trailer', 'Tri (thruster)', 'Quad', 'Quad rears', 'Twinzer', 'Canards', '2+1 side bites', 'Bonzer', '5-fin set'] },
+  { key: 'finShape', name: 'Fin shape', group: 'Fins', store: 'fins', values: ['Upright', 'Raked', 'Keel', 'Pivot', 'Hatchet', 'Dolphin', 'Cutaway', 'All-round performance', 'Side bite', 'Trailer'] },
+  { key: 'finBrand', name: 'Fin brand', group: 'Fins', store: 'fins', values: ['FCS', 'Futures', 'Captain Fin Co.', 'True Ames', 'Shapers', 'Feather Fins', 'Rainbow Fin Co.', 'Vektor', 'Other'] },
+  { key: 'finSize', name: 'Fin size', group: 'Fins', store: 'fins', values: ['XS', 'S', 'M', 'L', 'XL'] },
+  { key: 'finMaterial', name: 'Fin material', group: 'Fins', store: 'fins', values: ['Fiberglass', 'Honeycomb', 'Carbon', 'Bamboo core', 'Wood', 'Composite / plastic'] },
+  { key: 'finFlex', name: 'Fin flex', group: 'Fins', store: 'fins', values: ['Stiff', 'Medium', 'Flexible'] },
+  { key: 'finFoil', name: 'Fin foil', group: 'Fins', store: 'fins', values: ['Flat inside', '50/50', '70/30', '80/20', 'Concave inside'] },
+  { key: 'finCondition', name: 'Fin condition', group: 'Fins', store: 'fins', values: ['New', 'Good', 'Worn', 'Damaged', 'Missing a fin'] },
+  { key: 'waveSize', name: 'Wave size', group: 'Sessions', store: 'sessions', values: ['Flat', '1-2 ft (ankle to knee)', '2-3 ft (knee to waist)', '3-4 ft (waist to chest)', '4-5 ft (chest to head)', '5-6 ft (head high)', '6-8 ft (overhead)', '8-10 ft (well overhead)', '10 ft+ (double overhead+)'] },
+  { key: 'waveDesc', name: 'Wave description', group: 'Sessions', store: 'sessions', values: ['Glassy', 'Clean', 'Lined up', 'Peaky', 'Hollow', 'Mushy', 'Choppy', 'Blown out', 'Closed out'] }
 ];
 const listByKey = k => LISTS.find(l => l.key === k);
 const BOARD_LISTS = ['type', 'finConfig', 'finSystem', 'rocker', 'rails', 'tail'];
+const FIN_LISTS = ['finSetup', 'finShape', 'finBrand', 'finSystem', 'finSize', 'finMaterial', 'finFlex', 'finFoil', 'finCondition'];
+const storesOf = l => [].concat(l.store);
 const listOn = k => !(prefs.disabledLists || []).includes(k);
 const boardListsOn = () => BOARD_LISTS.filter(listOn);
+const finListsOn = () => FIN_LISTS.filter(listOn);
 
 /* Ventura-area spots, north to south. Coordinates are approximate; adjust in Settings > Spots. */
 const SEED_SPOTS = [
@@ -348,8 +373,9 @@ function openDB() {
       const d = req.result;
       for (const s of STORES) if (!d.objectStoreNames.contains(s)) d.createObjectStore(s, { keyPath: s === 'meta' ? 'key' : 'id' });
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => { const d = req.result; d.onversionchange = () => { d.close(); location.reload(); }; resolve(d); };
     req.onerror = () => reject(req.error);
+    req.onblocked = () => toast('Close the app in other tabs to finish updating.');
   });
 }
 function tx(stores, mode, work) {
@@ -390,12 +416,12 @@ async function seed() {
 }
 
 /* ---------- in-memory state ---------- */
-const S = { options: [], boards: [], sessions: [], spots: [], photos: new Map(), meta: {} };
-const PREF_DEFAULTS = { boardsView: 'tiles', boardSort: 'model', filterType: '', filterShaper: '', showRetired: false, pagerIndex: 0, units: 'ft', sessionSort: 'newest', showAllSpots: false, disabledLists: [], baseMap: 'map', showBuoys: true };
+const S = { options: [], boards: [], sessions: [], spots: [], photos: new Map(), meta: {}, fins: [], finLinks: [] };
+const PREF_DEFAULTS = { boardsView: 'tiles', boardSort: 'model', filterType: '', filterShaper: '', showRetired: false, pagerIndex: 0, units: 'ft', sessionSort: 'newest', finsView: 'table', finSort: 'name', filterFinSetup: '', showRetiredFins: false, showAllSpots: false, disabledLists: [], baseMap: 'map', showBuoys: true };
 let prefs = { ...PREF_DEFAULTS };
 async function loadAll() {
-  const [options, boards, sessions, spots, photos, meta] = await Promise.all(STORES.map(getAll));
-  S.options = options; S.boards = boards; S.sessions = sessions; S.spots = spots;
+  const [options, boards, sessions, spots, photos, meta, fins, finLinks] = await Promise.all(STORES.map(getAll));
+  S.options = options; S.boards = boards; S.sessions = sessions; S.spots = spots; S.fins = fins; S.finLinks = finLinks;
   S.meta = Object.fromEntries(meta.map(m => [m.key, m.value]));
   prefs = { ...PREF_DEFAULTS, ...(S.meta.prefs || {}) };
   const keep = new Set(photos.map(p => p.id));
@@ -413,6 +439,23 @@ const boardById = id => S.boards.find(b => b.id === id);
 const spotById = id => S.spots.find(s => s.id === id);
 const spotsSorted = () => [...S.spots].sort((a, b) => (a.order ?? 999) - (b.order ?? 999) || a.name.localeCompare(b.name));
 const sessionsFor = (field, id) => S.sessions.filter(s => s[field] === id);
+const finById = id => S.fins.find(f => f.id === id);
+const finsForBoard = boardId => S.finLinks.filter(l => l.boardId === boardId).map(l => finById(l.finId)).filter(Boolean);
+const boardsForFin = finId => S.finLinks.filter(l => l.finId === finId).map(l => boardById(l.boardId)).filter(Boolean);
+const sessionsWithFin = finId => S.sessions.filter(s => (s.finIds || []).includes(finId));
+const finName = f => f ? (f.name || [optLabel(f.finBrand), optLabel(f.finSetup)].filter(Boolean).join(' ') || 'Untitled fins') : 'Deleted fins';
+const finSub = f => [optLabel(f.finBrand), listOn('finSetup') ? optLabel(f.finSetup) : '', listOn('finSize') ? optLabel(f.finSize) : ''].filter(Boolean).join(' · ');
+async function setLinks(field, id, otherIds) {
+  const other = field === 'boardId' ? 'finId' : 'boardId';
+  const current = S.finLinks.filter(l => l[field] === id);
+  const want = new Set(otherIds);
+  await tx(['finLinks'], 'readwrite', t => {
+    const st = t.objectStore('finLinks');
+    current.filter(l => !want.has(l[other])).forEach(l => st.delete(l.id));
+    const have = new Set(current.map(l => l[other]));
+    [...want].filter(x => !have.has(x)).forEach(x => st.put({ id: 'link:' + newId(), [field]: id, [other]: x, createdAt: new Date().toISOString() }));
+  });
+}
 const photoUrl = (id, thumb) => { const u = id && S.photos.get(id); return u ? (thumb ? u.thumb : u.full) : ''; };
 
 /* ---------- formatting ---------- */
@@ -905,11 +948,14 @@ function viewBoard(id) {
       <div class="stat"><div class="v">${s.last ? esc(fmtDate(s.last)) : '–'}</div><div class="k">Last surfed</div></div>
       <div class="stat"><div class="v">${fav ? esc(fav.label) : '–'}</div><div class="k">Most surfed spot</div></div>
       <div class="stat" style="grid-column:1/-1"><div class="v">${best ? esc(best.label) : '–'}</div><div class="k">Most fun in (highest average fun by wave size)</div></div>
+      ${bestFins(list) ? `<div class="stat" style="grid-column:1/-1"><div class="v">${esc(finName(bestFins(list).fin))}</div><div class="k">Most fun fins on this board (${fmtAvg(bestFins(list).avg)} over ${plural(bestFins(list).count, 'session')})</div></div>` : ''}
     </div>
     ${list.filter(x => x.fun && x.waveSize).length >= 2 ? `<h2 class="sec">Fun by wave size</h2><div class="card chartbox"><canvas id="chFun" aria-label="Average fun by wave size"></canvas></div>` : ''}
     ${list.length >= 2 ? `<h2 class="sec">Sessions per month</h2><div class="card chartbox"><canvas id="chMonth" aria-label="Sessions per month"></canvas></div>` : ''}
     ${specs.length ? `<h2 class="sec">Specs</h2><div class="card"><dl class="specs">${specs.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></div>` : ''}
     ${b.notes ? `<h2 class="sec">Notes</h2><div class="card notes">${esc(b.notes)}</div>` : ''}
+    <h2 class="sec">Fins</h2>
+    ${boardFinsHTML(b)}
     ${list.length ? `<h2 class="sec">Where it's been surfed</h2><div class="card"><div class="minimap" id="minimap"></div></div>` : ''}
     <h2 class="sec">Sessions</h2>
     ${list.length ? sessionTable(list, { hideBoard: true }) : `<div class="card"><div class="stack sub">No sessions on this board yet.</div></div>`}
@@ -1019,8 +1065,9 @@ async function saveBoard(form) {
 async function deleteBoard(id, withSessions) {
   const b = boardById(id);
   const ss = sessionsFor('boardId', id);
-  await tx(['boards', 'sessions', 'photos'], 'readwrite', t => {
+  await tx(['boards', 'sessions', 'photos', 'finLinks'], 'readwrite', t => {
     t.objectStore('boards').delete(id);
+    S.finLinks.filter(l => l.boardId === id).forEach(l => t.objectStore('finLinks').delete(l.id));
     if (b && b.photoId) t.objectStore('photos').delete(b.photoId);
     if (withSessions) ss.forEach(s => t.objectStore('sessions').delete(s.id));
   });
@@ -1028,6 +1075,230 @@ async function deleteBoard(id, withSessions) {
   closeDialog();
   toast('Board deleted');
   location.replace('#/boards');
+}
+
+/* =========================================================
+   FINS
+   ========================================================= */
+const FIN_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20c0-7 3-13 10-16 1 5 2 11 4 16z"/><path d="M4 20h16"/></svg>';
+function finPhoto(f, thumb) {
+  const u = photoUrl(f.photoId, thumb);
+  return u ? `<img src="${u}" alt="" loading="lazy">` : `<div class="noph">${FIN_ICON}</div>`;
+}
+function bestFins(list) {
+  const groups = new Map();
+  for (const s of list) if (s.fun) for (const fid of s.finIds || []) { if (!finById(fid)) continue; const g = groups.get(fid) || []; g.push(s.fun); groups.set(fid, g); }
+  let best = null;
+  for (const [fid, funs] of groups) { const a = avg(funs); if (!best || a > best.avg || (a === best.avg && funs.length > best.count)) best = { fin: finById(fid), avg: a, count: funs.length }; }
+  return best;
+}
+function systemMismatch(f, b) { return f.finSystem && b.finSystem && f.finSystem !== b.finSystem; }
+function boardFinsHTML(b) {
+  const fins = finsForBoard(b.id).sort((a, c) => finName(a).localeCompare(finName(c)));
+  const rows = fins.map(f => {
+    const n = S.sessions.filter(s => s.boardId === b.id && (s.finIds || []).includes(f.id)).length;
+    return `<a class="row" href="#/fin/${encodeURIComponent(f.id)}">${photoUrl(f.photoId, true) ? `<img class="rthumb" src="${photoUrl(f.photoId, true)}" alt="">` : `<span class="rthumb noimg">${FIN_ICON}</span>`}
+      <span class="grow"><span class="label">${esc(finName(f))}</span>${f.retired ? '<span class="tag">Retired</span>' : ''}${systemMismatch(f, b) ? '<span class="tag">Different fin system</span>' : ''}<br><span class="sub">${esc(finSub(f) || ' ')}${n ? ` · ridden ${plural(n, 'time')}` : ''}</span></span><span class="chev" aria-hidden="true">&#8250;</span></a>`;
+  }).join('');
+  return `<div class="card">${rows || '<div class="stack sub">No fins paired with this board yet.</div>'}
+    <div class="stack"><button data-act="pairFins" data-id="${esc(b.id)}">${fins.length ? 'Change paired fins' : 'Pair fins'}</button></div></div>`;
+}
+function pairDialog(kind, id) {
+  /* kind 'board': choose fins for board id. kind 'fin': choose boards for fin id. */
+  const isBoard = kind === 'board';
+  const current = new Set(isBoard ? finsForBoard(id).map(f => f.id) : boardsForFin(id).map(b => b.id));
+  const target = isBoard ? boardById(id) : finById(id);
+  const items = (isBoard ? S.fins : S.boards).filter(x => !x.retired || current.has(x.id))
+    .sort((a, c) => (isBoard ? finName(a).localeCompare(finName(c)) : boardName(a).localeCompare(boardName(c))));
+  if (!items.length) {
+    openDialog(`<h3>${isBoard ? 'No fins yet' : 'No boards yet'}</h3><p>${isBoard ? 'Add your fins in the Fins tab, then pair them here.' : 'Add a board first.'}</p>
+      <div class="actions">${isBoard ? '<a class="btn primary" href="#/fins/new">Add fins</a>' : ''}<button data-act="close">Close</button></div>`);
+    return;
+  }
+  const rows = items.map(x => {
+    const mismatch = isBoard ? systemMismatch(x, target) : systemMismatch(target, x);
+    return `<label class="pickrow"><input type="checkbox" name="pick" value="${esc(x.id)}" ${current.has(x.id) ? 'checked' : ''}>
+      <span><span class="label">${esc(isBoard ? finName(x) : boardFull(x))}</span><br><span class="sub">${esc(isBoard ? finSub(x) : [fmtLen(x.length), optLabel(x.type)].filter(Boolean).join(' · '))}${mismatch ? ' · different fin system' : ''}</span></span></label>`;
+  }).join('');
+  openDialog(`<form data-form="pair" data-kind="${kind}" data-id="${esc(id)}">
+    <h3>${isBoard ? `Fins for ${esc(boardName(target))}` : `Boards for ${esc(finName(target))}`}</h3>
+    <div class="picklist">${rows}</div>
+    <div class="actions"><button class="primary" type="submit">Save</button><button type="button" data-act="close">Cancel</button></div></form>`);
+}
+function filteredFins() {
+  let list = S.fins.filter(f => prefs.showRetiredFins || !f.retired);
+  if (prefs.filterFinSetup && listOn('finSetup')) list = list.filter(f => f.finSetup === prefs.filterFinSetup);
+  const st = new Map(list.map(f => [f.id, statsOf(sessionsWithFin(f.id))]));
+  const by = {
+    name: (a, b) => finName(a).localeCompare(finName(b)),
+    brand: (a, b) => (optLabel(a.finBrand) || '~').localeCompare(optLabel(b.finBrand) || '~') || finName(a).localeCompare(finName(b)),
+    boards: (a, b) => boardsForFin(b.id).length - boardsForFin(a.id).length,
+    sessions: (a, b) => st.get(b.id).count - st.get(a.id).count,
+    fun: (a, b) => (st.get(b.id).avgFun ?? -1) - (st.get(a.id).avgFun ?? -1)
+  }[prefs.finSort] || (() => 0);
+  return { list: list.sort(by), st };
+}
+function viewFins() {
+  setTop('Fins', null, `<a class="hact plus" href="#/fins/new" aria-label="Add fins">+</a>`);
+  if (!S.fins.length) {
+    setMain(`<div class="empty"><div class="big">No fins yet</div><div>Add your fin sets, then pair them with the boards they fit.</div><a class="btn primary" href="#/fins/new">Add fins</a></div>`);
+    return;
+  }
+  const { list, st } = filteredFins();
+  const v = prefs.finsView;
+  const usedSetups = optionsFor('finSetup').filter(o => S.fins.some(f => f.finSetup === o.id));
+  const controls = `
+    <div class="toolbar"><div class="seg" role="group" aria-label="View">
+      ${['table', 'tiles'].map(k => `<button data-act="finView" data-v="${k}" aria-pressed="${v === k}">${k === 'table' ? 'Table' : 'Tiles'}</button>`).join('')}
+    </div></div>
+    <div class="filters">
+      <select data-pref="finSort" aria-label="Sort">${[['name', 'Sort: Name'], ['brand', 'Sort: Brand'], ['boards', 'Sort: Most boards'], ['sessions', 'Sort: Most ridden'], ['fun', 'Sort: Most fun']].map(([k, l]) => `<option value="${k}" ${prefs.finSort === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      ${listOn('finSetup') ? `<select data-pref="filterFinSetup" aria-label="Filter by configuration"><option value="">All configurations</option>${usedSetups.map(o => `<option value="${esc(o.id)}" ${prefs.filterFinSetup === o.id ? 'selected' : ''}>${esc(o.value)}</option>`).join('')}</select>` : '<span></span>'}
+      <label class="check"><input type="checkbox" data-pref="showRetiredFins" ${prefs.showRetiredFins ? 'checked' : ''}> Show retired</label>
+    </div>`;
+  let body;
+  if (!list.length) body = `<div class="empty"><div class="big">No fins match</div><div>Change the filters above.</div></div>`;
+  else if (v === 'tiles') body = `<div class="tiles">${list.map(f => `
+    <a class="tile ${f.retired ? 'retired' : ''}" href="#/fin/${encodeURIComponent(f.id)}"><div class="ph sq">${finPhoto(f, true)}</div>
+      <div class="meta"><div class="name">${esc(finName(f))}</div><div class="sub">${esc(finSub(f)) || '&nbsp;'}</div></div></a>`).join('')}</div>`;
+  else body = `<div class="card"><table class="list"><thead><tr><th></th><th>Fins</th><th class="num">Boards</th><th class="num">Rides</th></tr></thead><tbody>
+    ${list.map(f => `<tr class="click ${f.retired ? 'retired' : ''}" data-href="#/fin/${encodeURIComponent(f.id)}">
+      <td style="width:52px">${photoUrl(f.photoId, true) ? `<img class="thumb" src="${photoUrl(f.photoId, true)}" alt="">` : '<div class="thumb"></div>'}</td>
+      <td><a href="#/fin/${encodeURIComponent(f.id)}"><strong>${esc(finName(f))}</strong><br><span class="sub">${esc(finSub(f))}</span></a></td>
+      <td class="num">${boardsForFin(f.id).length}</td><td class="num">${st.get(f.id).count}</td></tr>`).join('')}
+    </tbody></table></div>`;
+  setMain(controls + body);
+}
+function viewFin(id) {
+  const f = finById(id);
+  if (!f) { location.replace('#/fins'); return; }
+  const list = sessionsWithFin(id).sort((a, c) => c.start.localeCompare(a.start));
+  const st = statsOf(list);
+  const boards = boardsForFin(id).sort((a, c) => boardName(a).localeCompare(boardName(c)));
+  const bestBoard = topBy(list.filter(x => x.fun), 'boardId', bid => boardName(boardById(bid)));
+  const bestSize = topBy(list.filter(x => x.fun), 'waveSize', shortSize);
+  const dims = [f.base ? `${f.base}" base` : '', f.depth ? `${f.depth}" depth` : '', f.area ? `${f.area} sq in` : ''].filter(Boolean).join(', ');
+  const specs = [...finListsOn().map(k => [listByKey(k).name.replace(/^Fin /, '').replace(/^./, c => c.toUpperCase()), optLabel(f[k])]), ['Size details', dims], ['Pieces', f.pieces ? String(f.pieces) : ''], ['Acquired', f.acquired ? fmtDate(f.acquired + 'T00:00') : '']].filter(([, v]) => v);
+  setTop(finName(f), '#/fins', `<a class="hact" href="#/fin/${encodeURIComponent(id)}/edit">Edit</a>`);
+  setMain(`
+    <div class="hero">${finPhoto(f, false)}</div>
+    <div class="title-block"><h2>${esc(finName(f))}${f.retired ? ' <span class="tag">Retired</span>' : ''}</h2><div class="sub">${esc(finSub(f))}</div></div>
+    <h2 class="sec">Stats</h2>
+    <div class="stats">
+      <div class="stat"><div class="v">${st.count}</div><div class="k">Sessions ridden</div></div>
+      <div class="stat"><div class="v">${st.avgFun != null ? fmtAvg(st.avgFun) : '–'}</div><div class="k">Average fun</div></div>
+      <div class="stat"><div class="v">${bestBoard ? esc(bestBoard.label) : '–'}</div><div class="k">Most fun on</div></div>
+      <div class="stat"><div class="v">${bestSize ? esc(bestSize.label) : '–'}</div><div class="k">Most fun in</div></div>
+    </div>
+    <h2 class="sec">Paired boards</h2>
+    <div class="card">${boards.map(b => `<a class="row" href="#/board/${esc(b.id)}">${photoUrl(b.photoId, true) ? `<img class="rthumb" src="${photoUrl(b.photoId, true)}" alt="">` : `<span class="rthumb noimg">${BOARD_ICON}</span>`}
+      <span class="grow"><span class="label">${esc(boardName(b))}</span>${systemMismatch(f, b) ? '<span class="tag">Different fin system</span>' : ''}<br><span class="sub">${esc([b.shaper, fmtLen(b.length)].filter(Boolean).join(' · '))}</span></span><span class="chev" aria-hidden="true">&#8250;</span></a>`).join('') || '<div class="stack sub">Not paired with any board yet.</div>'}
+      <div class="stack"><button data-act="pairBoards" data-id="${esc(id)}">${boards.length ? 'Change paired boards' : 'Pair with boards'}</button></div></div>
+    ${specs.length ? `<h2 class="sec">Specs</h2><div class="card"><dl class="specs">${specs.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></div>` : ''}
+    ${f.notes ? `<h2 class="sec">Notes</h2><div class="card notes">${esc(f.notes)}</div>` : ''}
+    <h2 class="sec">Sessions with these fins</h2>
+    ${list.length ? sessionTable(list) : '<div class="card"><div class="stack sub">Pick these fins when you log a session to track how they go.</div></div>'}`);
+}
+let fform = null;
+function viewFinForm(id) {
+  const f = id ? finById(id) : null;
+  if (id && !f) { location.replace('#/fins'); return; }
+  fform = { id, photoBlob: null, thumbBlob: null, removePhoto: false, previewUrl: null };
+  const v = f || {};
+  const cur = photoUrl(v.photoId, true);
+  const paired = new Set(f ? boardsForFin(f.id).map(b => b.id) : []);
+  const boards = S.boards.filter(b => !b.retired || paired.has(b.id)).sort((a, c) => boardName(a).localeCompare(boardName(c)));
+  setTop(f ? 'Edit fins' : 'New fins', f ? `#/fin/${encodeURIComponent(id)}` : '#/fins');
+  setMain(`
+    <form data-form="fin" autocomplete="off" novalidate>
+      <div class="field"><span class="lbl">Photo</span>
+        <div class="photo-field">
+          <div class="prev sq" id="photoPrev">${cur ? `<img src="${cur}" alt="">` : `<div class="noph">${FIN_ICON}</div>`}</div>
+          <div class="btns"><label class="btn">${cur ? 'Change photo' : 'Add photo'}<input type="file" id="photoInput" accept="image/*"></label>
+            <button type="button" data-act="removeFinPhoto" ${cur ? '' : 'hidden'} id="removePhotoBtn">Remove photo</button></div>
+        </div></div>
+      <div class="field"><label for="finName">Name or model</label><input type="text" name="name" id="finName" value="${esc(v.name)}" maxlength="80" placeholder="e.g. AM2, Rasta Keel" enterkeyhint="next"></div>
+      <div class="err" id="finErr" role="alert"></div>
+      <h2 class="sec">Details</h2>
+      ${finListsOn().map(k => `<div class="field"><label for="f_${k}">${esc(listByKey(k).name.replace(/^Fin /, '').replace(/^./, c => c.toUpperCase()))}</label>${pickerHTML(k, v[k], k, 'f_' + k)}</div>`).join('')}
+      <h2 class="sec">Size details (optional)</h2>
+      <div class="grid3">
+        <div class="field"><label for="base">Base (in)</label><input type="number" name="base" id="base" inputmode="decimal" step="0.01" min="0" max="15" value="${v.base ?? ''}"></div>
+        <div class="field"><label for="depth">Depth (in)</label><input type="number" name="depth" id="depth" inputmode="decimal" step="0.01" min="0" max="15" value="${v.depth ?? ''}"></div>
+        <div class="field"><label for="area">Area (sq in)</label><input type="number" name="area" id="area" inputmode="decimal" step="0.1" min="0" max="100" value="${v.area ?? ''}"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label for="pieces">Pieces in set</label><select name="pieces" id="pieces"><option value="">–</option>${[1, 2, 3, 4, 5, 6].map(n => `<option ${v.pieces === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+        <div class="field"><label for="acquired">Acquired</label><input type="date" name="acquired" id="acquired" value="${esc(v.acquired || '')}" style="font:inherit;min-height:44px;width:100%;border:1px solid var(--line);border-radius:10px;padding:0 12px;background:var(--surface);color:var(--ink)"></div>
+      </div>
+      <h2 class="sec">Paired boards</h2>
+      <div class="card"><div class="picklist" style="padding:4px 12px">${boards.map(b => `<label class="pickrow"><input type="checkbox" name="boards" value="${esc(b.id)}" ${paired.has(b.id) ? 'checked' : ''}><span><span class="label">${esc(boardFull(b))}</span>${v.finSystem && systemMismatch(v, b) ? '<br><span class="sub">Different fin system</span>' : ''}</span></label>`).join('') || '<div class="sub" style="padding:10px 4px">No boards yet.</div>'}</div></div>
+      <h2 class="sec">Notes</h2>
+      <div class="field"><textarea name="notes" aria-label="Notes" maxlength="4000" placeholder="Where they work best, fronts vs rears, damage...">${esc(v.notes)}</textarea></div>
+      ${f ? `<label class="check"><input type="checkbox" name="retired" ${v.retired ? 'checked' : ''}> Retired (hidden from lists and pickers)</label>` : ''}
+      <div class="actions-row"><button class="primary" type="submit">Save fins</button></div>
+      ${f ? `<div class="actions-row"><button type="button" class="danger" data-act="deleteFin" data-id="${esc(id)}">Delete fins</button></div>` : ''}
+      <p class="note">Missing a value in a list? Add it in Settings.</p>
+    </form>`);
+  $('#photoInput').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const { blob, thumb } = await processPhoto(file);
+      fform.photoBlob = blob; fform.thumbBlob = thumb; fform.removePhoto = false;
+      if (fform.previewUrl) URL.revokeObjectURL(fform.previewUrl);
+      fform.previewUrl = URL.createObjectURL(thumb);
+      $('#photoPrev').innerHTML = `<img src="${fform.previewUrl}" alt="">`;
+      $('#removePhotoBtn').hidden = false;
+    } catch (err) { toast(err.message); }
+  });
+}
+async function saveFin(form) {
+  const fd = new FormData(form);
+  const name = (fd.get('name') || '').trim();
+  const pickedAny = finListsOn().some(k => fd.get(k));
+  if (!name && !fd.get('finBrand') && !pickedAny) { $('#finErr').textContent = 'Enter a name or pick at least a brand or configuration.'; $('#finName').focus(); return; }
+  const num = k => { const x = fd.get(k); return x === '' || x == null ? null : Number(x); };
+  const existing = fform.id ? finById(fform.id) : null;
+  const f = existing ? { ...existing } : { id: 'fin:' + newId(), createdAt: new Date().toISOString() };
+  Object.assign(f, { name, base: num('base'), depth: num('depth'), area: num('area'), pieces: num('pieces'), acquired: fd.get('acquired') || '', notes: (fd.get('notes') || '').trim(), retired: fd.get('retired') === 'on' });
+  for (const k of finListsOn()) f[k] = fd.get(k) || '';
+  const oldPhoto = existing && existing.photoId;
+  if (fform.photoBlob) {
+    const pid = 'photo:' + newId();
+    await putMany('photos', [{ id: pid, finId: f.id, blob: fform.photoBlob, thumb: fform.thumbBlob }]);
+    f.photoId = pid;
+  } else if (fform.removePhoto) f.photoId = null;
+  await putMany('fins', [f]);
+  await setLinks('finId', f.id, fd.getAll('boards'));
+  if (oldPhoto && oldPhoto !== f.photoId) await del('photos', oldPhoto);
+  if (fform.previewUrl) URL.revokeObjectURL(fform.previewUrl);
+  await loadAll();
+  toast(existing ? 'Fins saved' : 'Fins added');
+  if (existing) goBack(`#/fin/${encodeURIComponent(f.id)}`); else location.replace(`#/fin/${encodeURIComponent(f.id)}`);
+}
+async function deleteFin(id) {
+  const f = finById(id);
+  await tx(['fins', 'finLinks', 'photos', 'sessions'], 'readwrite', t => {
+    t.objectStore('fins').delete(id);
+    if (f && f.photoId) t.objectStore('photos').delete(f.photoId);
+    S.finLinks.filter(l => l.finId === id).forEach(l => t.objectStore('finLinks').delete(l.id));
+    sessionsWithFin(id).forEach(s => t.objectStore('sessions').put({ ...s, finIds: s.finIds.filter(x => x !== id) }));
+  });
+  await loadAll();
+  closeDialog(); toast('Fins deleted'); location.replace('#/fins');
+}
+/* Fins used, on the session form: the fins paired with the chosen board, plus any already picked. */
+function renderSessionFins() {
+  const box = $('#sessFins');
+  if (!box) return;
+  const boardId = $('#boardId').value;
+  const paired = boardId ? finsForBoard(boardId).filter(f => !f.retired) : [];
+  const ids = new Set([...paired.map(f => f.id), ...sform.finIds]);
+  const fins = [...ids].map(finById).filter(Boolean).sort((a, c) => finName(a).localeCompare(finName(c)));
+  box.innerHTML = fins.length
+    ? `<div class="chipsel">${fins.map(f => `<button type="button" class="chipbtn" aria-pressed="${sform.finIds.has(f.id)}" data-act="toggleSessFin" data-id="${esc(f.id)}">${esc(finName(f))}</button>`).join('')}</div>`
+    : `<div class="sub">${boardId ? `No fins paired with this board. <a href="#/board/${esc(boardId)}">Pair fins</a> to pick them here.` : 'Choose a board to see its fins.'}</div>`;
 }
 
 /* =========================================================
@@ -1090,7 +1361,7 @@ function viewSessionForm(id, q) {
   if (id && !s) { location.replace('#/sessions'); return; }
   if (!S.boards.length) { setTop('Log session', '#/sessions'); setMain(`<div class="empty"><div class="big">Add a board first</div><div>Sessions are logged against a board.</div><a class="btn primary" href="#/boards/new">Add a board</a></div>`); return; }
   const v = s || { boardId: q.get('board') || lastBoardId(), spotId: q.get('spot') || lastSpotId(), start: toLocalInput(roundTime(new Date())), duration: 90 };
-  sform = { id, swell: s ? s.swell || null : null, suggested: s ? s.suggestedSize || null : null, waveTouched: !!(s && s.waveSize), token: 0, fun: v.fun || 0, timer: null };
+  sform = { id, swell: s ? s.swell || null : null, suggested: s ? s.suggestedSize || null : null, waveTouched: !!(s && s.waveSize), token: 0, fun: v.fun || 0, timer: null, finIds: new Set(s ? s.finIds || [] : []) };
   const boards = S.boards.filter(b => !b.retired || b.id === v.boardId).sort((a, c) => boardName(a).localeCompare(boardName(c)));
   const durs = [30, 45, 60, 75, 90, 105, 120, 150, 180, 210, 240, 300];
   setTop(s ? 'Edit session' : 'Log session', '#/sessions');
@@ -1101,11 +1372,12 @@ function viewSessionForm(id, q) {
         <div class="spotpick"><select name="spotId" id="spotId">${spotOptions(v.spotId)}</select><button type="button" data-act="pickSpot" aria-label="Pick spot on map">Map</button></div></div>
       <div class="grid2">
         <div class="field"><label for="start">Start</label><input type="datetime-local" name="start" id="start" value="${esc(v.start)}"></div>
-        <div class="field"><label for="duration">Length</label><select name="duration" id="duration"><option value="">–</option>${durs.map(d => `<option value="${d}" ${v.duration === d ? 'selected' : ''}>${d < 60 ? d + ' min' : (d / 60) + ' hr'}</option>`).join('')}</select></div>
+        <div class="field"><label for="duration">Length</label><select name="duration" id="duration"><option value="">–</option>${durs.map(d => `<option value="${d}" ${v.duration === d ? 'selected' : ''}>${d < 60 ? d + ' min' : (d / 60) + ' h'}</option>`).join('')}</select></div>
       </div>
       <div class="swell" id="swellBox" aria-live="polite"></div>
       ${listOn('waveSize') ? `<div class="field"><label for="f_waveSize">Wave size</label>${pickerHTML('waveSize', v.waveSize, 'waveSize', 'f_waveSize')}</div>` : ''}
       ${listOn('waveDesc') ? `<div class="field"><label for="f_waveDesc">Wave description</label>${pickerHTML('waveDesc', v.waveDesc, 'waveDesc', 'f_waveDesc')}</div>` : ''}
+      <div class="field"><span class="lbl">Fins used</span><div id="sessFins"></div></div>
       <div class="field"><span class="lbl" id="funLbl">Fun</span><div class="stars" role="radiogroup" aria-labelledby="funLbl" id="stars"></div></div>
       <div class="field"><label for="snotes">Notes</label><textarea name="notes" id="snotes" maxlength="4000" placeholder="Crowd, tide, what worked...">${esc(v.notes)}</textarea></div>
       <div class="err" id="sessErr" role="alert"></div>
@@ -1113,6 +1385,15 @@ function viewSessionForm(id, q) {
       ${s ? `<div class="actions-row"><button type="button" class="danger" data-act="deleteSession" data-id="${esc(id)}">Delete session</button></div>` : ''}
     </form>`);
   renderStars();
+  if (!s) { const pf = finsForBoard(v.boardId).filter(f => !f.retired); if (pf.length === 1) sform.finIds.add(pf[0].id); }
+  renderSessionFins();
+  $('#boardId').addEventListener('change', () => {
+    const paired = new Set(finsForBoard($('#boardId').value).map(f => f.id));
+    sform.finIds = new Set([...sform.finIds].filter(x => paired.has(x)));
+    const pf = finsForBoard($('#boardId').value).filter(f => !f.retired);
+    if (!sform.finIds.size && pf.length === 1) sform.finIds.add(pf[0].id);
+    renderSessionFins();
+  });
   renderSwell(s && s.swell ? 'ok' : s && s.spotId ? 'none' : 'idle');
   if ($('#f_waveSize')) $('#f_waveSize').addEventListener('change', () => { sform.waveTouched = true; renderSwell(sform.swell ? 'ok' : sform.state || 'idle'); });
   ['spotId', 'start', 'duration'].forEach(n => $('#' + n).addEventListener('change', () => scheduleSwell()));
@@ -1179,7 +1460,8 @@ async function saveSession(form) {
   Object.assign(s, {
     boardId, spotId: spotId || '', start, duration: Number(fd.get('duration')) || null,
     waveSize: listOn('waveSize') ? fd.get('waveSize') || '' : s.waveSize || '', waveDesc: listOn('waveDesc') ? fd.get('waveDesc') || '' : s.waveDesc || '', fun: sform.fun || null,
-    notes: (fd.get('notes') || '').trim(), swell: sform.swell || null, suggestedSize: sform.suggested || null
+    notes: (fd.get('notes') || '').trim(), swell: sform.swell || null, suggestedSize: sform.suggested || null,
+    finIds: [...sform.finIds].filter(finById)
   });
   await putMany('sessions', [s]);
   await loadAll();
@@ -1291,14 +1573,14 @@ function viewMap() {
 function viewSettings() {
   setTop('Settings');
   const last = S.meta.lastBackup;
-  const rows = LISTS.map(l => {
+  const listRow = l => {
     const all = optionsFor(l.key), shown = all.filter(o => !o.hidden).length;
     const sub = shown === all.length ? `${shown} values` : `${shown} values, ${all.length - shown} hidden`;
     return `<a class="row ${listOn(l.key) ? '' : 'hidden-opt'}" href="#/settings/list/${l.key}"><span class="grow"><span class="label">${esc(l.name)}</span>${listOn(l.key) ? '' : '<span class="tag">Off</span>'}<br><span class="sub">${listOn(l.key) ? sub : 'Not shown on forms'}</span></span><span class="chev" aria-hidden="true">&#8250;</span></a>`;
-  }).join('');
+  };
+  const groups = [...new Set(LISTS.map(l => l.group))];
   setMain(`
-    <h2 class="sec">Lists</h2>
-    <div class="card">${rows}</div>
+    ${groups.map(g => `<h2 class="sec">${esc(g)} lists</h2><div class="card">${LISTS.filter(l => l.group === g).map(listRow).join('')}</div>`).join('')}
     <p class="note">These are the choices offered when you add a board or log a session. Open a list to turn the whole field off if you don't use it.</p>
     <h2 class="sec">Spots</h2>
     <div class="card"><a class="row" href="#/settings/spots"><span class="grow"><span class="label">Surf spots</span><br><span class="sub">${plural(S.spots.filter(s => !s.hidden).length, 'spot')}</span></span><span class="chev" aria-hidden="true">&#8250;</span></a></div>
@@ -1385,9 +1667,11 @@ async function moveOption(id, dir) {
 async function deleteOption(id) {
   const o = S.options.find(x => x.id === id);
   const list = listByKey(o.list);
-  const n = (list.store === 'boards' ? S.boards : S.sessions).filter(r => r[list.key] === id).length;
+  const counts = storesOf(list).map(st => [st, S[st].filter(r => r[list.key] === id).length]).filter(([, c]) => c);
+  const n = counts.reduce((a, [, c]) => a + c, 0);
+  const words = { boards: 'board', sessions: 'session', fins: 'fin set' };
   if (n > 0) {
-    openDialog(`<h3>In use</h3><p>"${esc(o.value)}" is used by ${plural(n, list.store === 'boards' ? 'board' : 'session')}, so it can't be deleted. Hide it instead and it stops showing in pickers.</p>
+    openDialog(`<h3>In use</h3><p>"${esc(o.value)}" is used by ${counts.map(([st, c]) => plural(c, words[st])).join(' and ')}, so it can't be deleted. Hide it instead and it stops showing in pickers.</p>
       <div class="actions">${o.hidden ? '' : `<button class="primary" data-act="toggleHide" data-id="${esc(id)}">Hide from pickers</button>`}<button data-act="close">Close</button></div>`);
     return;
   }
@@ -1549,8 +1833,18 @@ async function exportCSV() {
     const h = sw.swellH ?? sw.waveH;
     sessions.push([s.start.slice(0, 10), s.start.slice(11, 16), boardFull(boardById(s.boardId)), sp.name, sp.lat, sp.lon, s.duration, optLabel(s.waveSize), optLabel(s.waveDesc), s.fun, h == null ? '' : (h * 3.281).toFixed(1), sw.swellP ?? sw.waveP ?? '', sw.swellDir ?? sw.waveDir ?? '', s.notes]);
   }
+  const fins = [['Name', ...FIN_LISTS.map(k => listByKey(k).name), 'Base (in)', 'Depth (in)', 'Area (sq in)', 'Pieces', 'Acquired', 'Paired boards', 'Sessions', 'Average fun', 'Retired', 'Notes']];
+  for (const f of [...S.fins].sort((a, c) => finName(a).localeCompare(finName(c)))) {
+    const st = statsOf(sessionsWithFin(f.id));
+    fins.push([finName(f), ...FIN_LISTS.map(k => optLabel(f[k])), f.base, f.depth, f.area, f.pieces, f.acquired, boardsForFin(f.id).map(boardFull).join('; '), st.count, st.avgFun == null ? '' : st.avgFun.toFixed(2), f.retired ? 'Yes' : '', f.notes]);
+  }
+  sessions[0].splice(4, 0, 'Fins');
+  sessions.slice(1).forEach((r, i) => r.splice(4, 0, ''));
+  const sortedS = [...S.sessions].sort((a, c) => a.start.localeCompare(c.start));
+  sessions.slice(1).forEach((r, i) => { r[4] = (sortedS[i].finIds || []).map(x => finName(finById(x))).join('; '); });
   const day = new Date().toISOString().slice(0, 10);
   const ok = await shareOrDownload([
+    ...(S.fins.length ? [new File([csv(fins)], `fins-${day}.csv`, { type: 'text/csv' })] : []),
     new File([csv(boards)], `surfboards-${day}.csv`, { type: 'text/csv' }),
     new File([csv(sessions)], `surf-sessions-${day}.csv`, { type: 'text/csv' })
   ], 'Surfboard Tracker export');
@@ -1614,6 +1908,21 @@ document.addEventListener('click', async e => {
       case 'deleteSessionYes': await del('sessions', id); await loadAll(); closeDialog(); toast('Session deleted'); goBack('#/sessions'); break;
       case 'toggleSpot': { const sp = spotById(id); await putMany('spots', [{ ...sp, hidden: !sp.hidden }]); await loadAll(); closeDialog(); toast(sp.hidden ? 'Spot shown' : 'Spot hidden'); route(); break; }
       case 'deleteSpot': await deleteSpot(id); break;
+      case 'finView': await savePrefs({ finsView: el.dataset.v }); route(); break;
+      case 'pairFins': pairDialog('board', id); break;
+      case 'pairBoards': pairDialog('fin', id); break;
+      case 'toggleSessFin': { if (sform.finIds.has(id)) sform.finIds.delete(id); else sform.finIds.add(id); renderSessionFins(); break; }
+      case 'removeFinPhoto':
+        fform.photoBlob = null; fform.thumbBlob = null; fform.removePhoto = true;
+        $('#photoPrev').innerHTML = `<div class="noph">${FIN_ICON}</div>`; el.hidden = true; break;
+      case 'deleteFin': {
+        const n = sessionsWithFin(id).length;
+        confirmDialog('Delete these fins?', n ? `They're recorded on ${plural(n, 'session')}. Retire them to keep that history, or delete them anyway (the sessions stay, without the fins).` : 'This removes the fins, their photo and their board pairings.',
+          `${n ? `<button class="primary" data-act="retireFin" data-id="${esc(id)}">Retire instead</button>` : ''}<button class="danger" data-act="deleteFinYes" data-id="${esc(id)}">Delete fins</button>`);
+        break;
+      }
+      case 'deleteFinYes': await deleteFin(id); break;
+      case 'retireFin': { const f = finById(id); await putMany('fins', [{ ...f, retired: true }]); await loadAll(); closeDialog(); toast('Fins retired'); location.replace(`#/fin/${encodeURIComponent(id)}`); break; }
     }
   } catch (err) { fail(err); }
 });
@@ -1661,6 +1970,12 @@ document.addEventListener('submit', async e => {
       case 'board': await saveBoard(f); break;
       case 'session': await saveSession(f); break;
       case 'spot': await saveSpot(); break;
+      case 'fin': await saveFin(f); break;
+      case 'pair': {
+        const picks = [...f.querySelectorAll('input[name=pick]:checked')].map(i => i.value);
+        await setLinks(f.dataset.kind === 'board' ? 'boardId' : 'finId', f.dataset.id, picks);
+        await loadAll(); closeDialog(); toast('Pairings saved'); route(); break;
+      }
       case 'newSpot': {
         const name = $('#newSpotName').value;
         const problem = spotNameError(name);
@@ -1684,7 +1999,7 @@ function route() {
   const [path, qs] = (location.hash || '#/boards').slice(2).split('?');
   const parts = path.split('/').map(decodeURIComponent);
   const q = new URLSearchParams(qs || '');
-  const tabFor = { boards: 'boards', board: 'boards', sessions: 'sessions', session: 'sessions', map: 'map', settings: 'settings' };
+  const tabFor = { boards: 'boards', board: 'boards', fins: 'fins', fin: 'fins', sessions: 'sessions', session: 'sessions', map: 'map', settings: 'settings' };
   const tab = tabFor[parts[0]] || 'boards';
   document.querySelectorAll('#tabs a').forEach(a => {
     const on = a.dataset.tab === tab;
@@ -1694,6 +2009,8 @@ function route() {
   switch (parts[0]) {
     case 'board': return parts[2] === 'edit' ? viewBoardForm(parts[1]) : viewBoard(parts[1]);
     case 'boards': return parts[1] === 'new' ? viewBoardForm(null) : viewBoards();
+    case 'fins': return parts[1] === 'new' ? viewFinForm(null) : viewFins();
+    case 'fin': return parts[2] === 'edit' ? viewFinForm(parts[1]) : viewFin(parts[1]);
     case 'sessions': return parts[1] === 'new' ? viewSessionForm(null, q) : viewSessions(q);
     case 'session': return viewSessionForm(parts[1], q);
     case 'map': return viewMap();
