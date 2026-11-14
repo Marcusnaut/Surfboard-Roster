@@ -274,7 +274,7 @@ body.mapfs .leaflet-bottom { bottom: env(safe-area-inset-bottom); }
 /* While a popup is open, the controls step aside so the popup can use the whole map. */
 .leaflet-container.popup-open .wave-ctl, .leaflet-container.popup-open .leaflet-top.leaflet-right { display: none; }
 .wave-ctl.offmap { display: none; }
-.spotlbl { position: absolute; left: 0; top: 0; height: 18px; line-height: 18px; padding: 0 4px; font-size: 12px; font-weight: 600; white-space: nowrap; color: #14272e; text-align: center;
+.spotlbl { position: absolute; left: 0; top: 0; transform-origin: 0 0; height: 18px; line-height: 18px; padding: 0 4px; font-size: 12px; font-weight: 600; white-space: nowrap; color: #14272e; text-align: center;
   text-shadow: 0 0 2px #fff, 0 0 3px #fff, 0 0 4px #fff; }
 .spotlbl.surfed { font-weight: 750; }
 .installhelp { margin-top: 18px; text-align: left; padding: 14px 16px; }
@@ -391,7 +391,7 @@ svg.chart text.unit { font-weight: 600; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 9.7 (CDIP time slider fallback)';
+const BUILD = 'Build 9.8 (spot labels perpendicular to the coast)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -502,6 +502,29 @@ const setMeta = (key, value) => putMany('meta', [{ key, value }]);
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
+/* When spots.json gets a new version (fixed positions, names, label angles), update the built-in spots.
+   A spot keeps your own name and position if you changed them in the app; otherwise it takes the file's. */
+async function syncSpots(meta) {
+  const cur = (meta.find(m => m.key === 'spotsVersion') || {}).value || 1;
+  let file = null;
+  try { const r = await fetch('spots.json', { cache: 'no-cache' }); if (r.ok) file = await r.json(); } catch (e) { return; }
+  if (!file || !Array.isArray(file.spots) || (file.version || 1) <= cur) return;
+  const have = new Map((await getAll('spots')).map(x => [x.id, x]));
+  const puts = [];
+  file.spots.forEach((x, i) => {
+    const old = have.get(x.id);
+    if (!old) return;
+    const base = { name: x.name, lat: x.lat, lon: x.lon };
+    const src = old.src || null;
+    /* src remembers what the file said last time; if the spot still matches it, you haven't edited it. */
+    const ref = src || base;
+    const untouched = old.name === ref.name && Math.abs(old.lat - ref.lat) < 1e-6 && Math.abs(old.lon - ref.lon) < 1e-6;
+    const extra = { region: x.region, coast: x.coast, ca: !!x.ca, order: i, builtIn: true, ang: Number.isFinite(x.ang) ? x.ang : null, src: base };
+    puts.push(untouched ? { ...old, ...base, ...extra } : { ...old, ...extra });
+  });
+  if (puts.length) await putMany('spots', puts);
+  await setMeta('spotsVersion', file.version || 1);
+}
 async function seed() {
   const meta = await getAll('meta');
   const done = new Set(meta.filter(m => m.key.startsWith('seeded:')).map(m => m.key.slice(7)));
@@ -519,13 +542,14 @@ async function seed() {
       const have = new Map((await getAll('spots')).map(x => [x.id, x]));
       await putMany('spots', list.map((x, i) => {
         const old = have.get(x.id), extra = { region: x.region, coast: x.coast, ca: !!x.ca, order: i, builtIn: true };
-        return old ? { ...old, ...extra } : { id: x.id, name: x.name, lat: x.lat, lon: x.lon, hidden: false, ...extra };
+        return old ? { ...old, ...extra } : { id: x.id, name: x.name, lat: x.lat, lon: x.lon, hidden: false, ...extra, ang: Number.isFinite(x.ang) ? x.ang : null, src: { name: x.name, lat: x.lat, lon: x.lon } };
       }));
       await setMeta('seeded:spots2', true);
       await setMeta('seeded:spots', true);
       done.add('spots');
     }
   }
+  await syncSpots(meta);
   if (!done.has('spots')) {
     await putMany('spots', SEED_SPOTS.map(([name, lat, lon], i) => ({ id: 'spot:' + slug(name), name, lat, lon, order: i, builtIn: true, hidden: false, region: 'Ventura', coast: 'West Coast', ca: true })));
     await setMeta('seeded:spots', true);
@@ -2230,7 +2254,7 @@ function spotsMap(el, sessions, { small, showAll, state } = {}) {
       renderer: map.spotRenderer, radius: 3, color: '#33373a', weight: 1.5, fillColor: '#ffffff', fillOpacity: 1
     }).addTo(list.length ? map : unsurfed);
     m.spotId = sp.id;
-    labelItems.push({ m, name: sp.name, rank: list.length });
+    labelItems.push({ m, name: sp.name, rank: list.length, ang: Number.isFinite(sp.ang) ? sp.ang : null });
     const base = spotSummary(sp, list);
     m.bindPopup(base + (small ? '' : FC_LOADING), POPUP_OPTS);
     if (!small) m.on('popupopen', e => fillForecast(e.popup, base, () => spotForecast(sp)));
@@ -2270,21 +2294,57 @@ function spotLabels(map, items) {
     const live = order.filter(it => map.hasLayer(it.m)).map(it => ({ it, p: map.latLngToContainerPoint(it.m.getLatLng()), r: it.m.getRadius() }))
       .filter(o => o.p.x > -50 && o.p.y > -20 && o.p.x < size.x + 50 && o.p.y < size.y + 20);
     for (const o of live) blocked.push({ x: o.p.x - o.r - 1, y: o.p.y - o.r - 1, w: 2 * o.r + 2, h: 2 * o.r + 2 });
-    const placed = [];
+    /* Labels are tested as a chain of small circles, which works for angled text too. */
+    const placedC = [];
+    const circleHitsRect = (c, b) => { const nx = Math.max(b.x, Math.min(c.x, b.x + b.w)), ny = Math.max(b.y, Math.min(c.y, b.y + b.h)); return (c.x - nx) ** 2 + (c.y - ny) ** 2 < c.r * c.r; };
     const html = [];
     for (const o of live) {
       const w = textWidth(o.it.name) + 8, h = 18, g = o.r + 3;
-      const tries = [
-        { x: o.p.x + g, y: o.p.y - h / 2 }, { x: o.p.x - g - w, y: o.p.y - h / 2 },
-        { x: o.p.x - w / 2, y: o.p.y - g - h }, { x: o.p.x - w / 2, y: o.p.y + g }
-      ];
       const own = { x: o.p.x - o.r - 1, y: o.p.y - o.r - 1, w: 2 * o.r + 2, h: 2 * o.r + 2 };
       const others = blocked.filter(b => b.x !== own.x || b.y !== own.y);
-      const spot = tries.find(t => t.x >= 2 && t.y >= 2 && t.x + w <= size.x - 2 && t.y + h <= size.y - 2 && !hit({ ...t, w, h }, placed) && !hit({ ...t, w, h }, others));
-      if (!spot) continue;
-      placed.push({ ...spot, w, h });
-      const lp = map.containerPointToLayerPoint([spot.x, spot.y]);
-      html.push(`<div class="spotlbl${o.it.rank ? ' surfed' : ''}" style="transform:translate(${Math.round(lp.x)}px,${Math.round(lp.y)}px);width:${w}px">${esc(o.it.name)}</div>`);
+      /* Candidate placements as a direction (unit vector on screen). Spots with a seaward angle get their
+         label pointing out to sea, perpendicular to the coast; then level options to the side, above or below. */
+      const dirs = [];
+      if (Number.isFinite(o.it.ang)) {
+        const b = o.it.ang * Math.PI / 180, v = { x: Math.sin(b), y: -Math.cos(b) };
+        dirs.push({ v, rotate: true });
+      }
+      dirs.push({ v: { x: 1, y: 0 } }, { v: { x: -1, y: 0 } }, { v: { x: 0, y: -1 }, up: true }, { v: { x: 0, y: 1 }, up: true });
+      /* Last resort for angled spots: point the other way, inland. */
+      if (Number.isFinite(o.it.ang)) { const b = o.it.ang * Math.PI / 180; dirs.push({ v: { x: -Math.sin(b), y: Math.cos(b) }, rotate: true }); }
+      let chosen = null;
+      for (const d of dirs) {
+        let circles;
+        if (d.up) {
+          /* Horizontal text centred above or below the dot. */
+          const cy = o.p.y + d.v.y * (g + h / 2);
+          circles = [];
+          for (let x = -w / 2 + h / 2; x <= w / 2 - h / 2 + 0.1; x += h / 2) circles.push({ x: o.p.x + x, y: cy, r: h / 2 - 1 });
+        } else {
+          circles = [];
+          for (let t = g + h / 2; t <= g + w - h / 2 + 0.1; t += h / 2) circles.push({ x: o.p.x + d.v.x * t, y: o.p.y + d.v.y * t, r: h / 2 - 1 });
+        }
+        const inView = circles.every(c => c.x - c.r >= 2 && c.y - c.r >= 2 && c.x + c.r <= size.x - 2 && c.y + c.r <= size.y - 2);
+        if (!inView) continue;
+        if (circles.some(c => placedC.some(q => (c.x - q.x) ** 2 + (c.y - q.y) ** 2 < (c.r + q.r) ** 2))) continue;
+        if (circles.some(c => others.some(b => circleHitsRect(c, b)))) continue;
+        chosen = { d, circles };
+        break;
+      }
+      if (!chosen) continue;
+      placedC.push(...chosen.circles);
+      const lp = map.latLngToLayerPoint(o.it.m.getLatLng());
+      const { d } = chosen;
+      let tf;
+      if (d.up) tf = `translate(${Math.round(lp.x - w / 2)}px,${Math.round(lp.y + d.v.y * (g + h / 2) - h / 2)}px)`;
+      else {
+        /* Keep text upright: if the direction points left, flip it and run the text toward the dot. */
+        let a = Math.atan2(d.v.y, d.v.x) * 180 / Math.PI;
+        const flip = d.v.x < -1e-6 || (Math.abs(d.v.x) < 1e-6 && false);
+        if (flip) a += 180;
+        tf = `translate(${Math.round(lp.x)}px,${Math.round(lp.y)}px) rotate(${a.toFixed(1)}deg) translate(${flip ? -(g + w) : g}px,${-h / 2}px)`;
+      }
+      html.push(`<div class="spotlbl${o.it.rank ? ' surfed' : ''}" style="transform:${tf};width:${w}px">${esc(o.it.name)}</div>`);
     }
     pane.innerHTML = html.join('');
   };
