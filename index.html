@@ -109,12 +109,12 @@ button.icon { width: 44px; padding: 0; font-size: 16px; color: var(--muted); bor
 button.icon:disabled { opacity: .25; }
 button.rowbtn { flex: 1; text-align: left; justify-content: flex-start; border: 0; background: transparent; padding: 10px 0; min-height: 52px; border-radius: 0; flex-wrap: wrap; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-input[type=text], input[type=number], input[type=datetime-local], select, textarea {
+input[type=text], input[type=number], input[type=datetime-local], input[type=date], input[type=time], input:not([type]), select, textarea {
   font: inherit; color: var(--ink); background: var(--surface);
   border: 1px solid var(--line); border-radius: 10px;
   min-height: 44px; padding: 0 12px; width: 100%;
 }
-input[type=datetime-local] { padding: 8px 12px; }
+input[type=datetime-local], input[type=date], input[type=time] { padding: 8px 12px; }
 textarea { padding: 10px 12px; min-height: 96px; resize: vertical; }
 .addbar { display: flex; gap: 8px; margin-top: 12px; }
 .addbar input { flex: 1; }
@@ -246,6 +246,30 @@ label.btn input { display: none; }
 .swell .cond span { color: var(--muted); display: inline-block; min-width: 62px; }
 .swell .row2 { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 .swell .row2 button { min-height: 36px; font-size: 14px; }
+details.condedit { border: 1px solid var(--line); border-radius: 12px; padding: 4px 12px; margin: -6px 0 14px; background: var(--surface); }
+details.condedit summary { font-weight: 600; min-height: 40px; display: flex; align-items: center; cursor: pointer; }
+.loc-btn.busy a { animation: pulse 1s infinite; }
+@keyframes pulse { 50% { opacity: .4; } }
+.map-search { margin: 10px 0 0 10px !important; }
+.map-search .ms-open { width: 44px; height: 44px; min-height: 44px; padding: 0; border-radius: 10px; background: var(--surface); border: 2px solid rgba(0,0,0,.2); display: flex; align-items: center; justify-content: center; color: var(--ink); }
+.map-search svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+.map-search .ms-panel { width: min(340px, calc(100vw - 90px)); background: var(--surface); color: var(--ink); border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.25); padding: 8px; }
+.map-search .ms-row { display: flex; gap: 6px; }
+.map-search .ms-q { flex: 1; min-width: 0; font-size: 16px; }
+.map-search .ms-x { min-width: 44px; font-size: 24px; padding: 0; }
+.map-search .ms-res { max-height: calc(var(--avail) - 140px); overflow-y: auto; }
+.map-search .ms-sec { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 10px 4px 4px; }
+.map-search .ms-item { display: block; width: 100%; text-align: left; min-height: 44px; padding: 6px 8px; border: 0; border-radius: 8px; background: none; }
+.map-search .ms-item .sub { display: block; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.map-search .ms-item:active, .map-search .ms-item:hover { background: rgba(0,0,0,.06); }
+.map-search .ms-go { color: var(--accent); font-weight: 650; }
+.map-search .ms-hint, .map-search .ms-credit { padding: 4px 8px; }
+.leaflet-container.popup-open .map-search { display: none; }
+details.condedit .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 8px; }
+details.condedit input, details.condedit select { width: 100%; min-width: 0; box-sizing: border-box; }
+details.condedit .field { margin-bottom: 10px; }
+details.condedit .field label { font-size: 13px; }
+details.condedit h4 { margin: 6px 0 6px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 .spotpick { display: flex; gap: 8px; }
 .spotpick select { flex: 1; }
 
@@ -282,6 +306,8 @@ details.install { border-top: 1px solid var(--line); padding: 8px 0; }
 details.install summary { font-weight: 650; cursor: pointer; min-height: 32px; display: flex; align-items: center; }
 details.install ol { margin: 6px 0 4px; padding-left: 22px; }
 details.install li { margin: 3px 0; }
+.helpdoc ul { margin: 6px 0 6px; padding-left: 20px; }
+.helpdoc li { margin: 5px 0; line-height: 1.45; }
 /* The open layer list sits above the bottom-left CDIP panel. */
 .leaflet-top.leaflet-right { z-index: 1001; }
 .lc-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -2px -6px 4px 0; font-weight: 650; font-size: 14px; }
@@ -390,7 +416,7 @@ svg.chart text.unit { font-weight: 600; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 9.8.1 (home-screen layout heal after keyboard)';
+const BUILD = 'Build 10 (session editing, date and time fields, map search and my location)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -702,6 +728,112 @@ function unmount() {
   mounted.charts.forEach(c => { try { c.destroy(); } catch (e) {} });
   mounted = { maps: [], charts: [] };
 }
+/* ---------- map: find my location and search ----------
+   Search is closed until you tap the magnifier. It lists matching surf spots first (as you type), then
+   places from OpenStreetMap's Nominatim when you press Search (their rules allow searches, not search-as-you-type). */
+const ICON_LOC = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7.5"/></svg>';
+const ICON_SEARCH = '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>';
+function addLocateControl(map) {
+  let dot = null, ring = null;
+  const Ctl = L.Control.extend({
+    options: { position: 'topright' },
+    onAdd() {
+      const d = L.DomUtil.create('div', 'leaflet-bar fs-btn loc-btn');
+      d.innerHTML = `<a href="#" role="button" aria-label="Find my location" title="Find my location">${ICON_LOC}</a>`;
+      L.DomEvent.disableClickPropagation(d);
+      d.firstChild.addEventListener('click', ev => {
+        ev.preventDefault();
+        if (!navigator.geolocation) { toast('Location isn’t available on this device.'); return; }
+        d.classList.add('busy');
+        navigator.geolocation.getCurrentPosition(pos => {
+          d.classList.remove('busy');
+          const ll = [pos.coords.latitude, pos.coords.longitude], acc = pos.coords.accuracy || 50;
+          if (dot) { dot.remove(); ring.remove(); }
+          ring = L.circle(ll, { radius: acc, color: '#2f7fe0', weight: 1, fillColor: '#2f7fe0', fillOpacity: 0.12, interactive: false }).addTo(map);
+          dot = L.circleMarker(ll, { radius: 7, color: '#fff', weight: 2.5, fillColor: '#2f7fe0', fillOpacity: 1, interactive: false }).addTo(map);
+          map.setView(ll, Math.max(map.getZoom(), acc > 2000 ? 11 : 13));
+        }, err => {
+          d.classList.remove('busy');
+          toast(err.code === 1 ? 'Location is turned off for this app. Allow it in your phone’s settings.' : 'Couldn’t find your location.');
+        }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
+      });
+      return d;
+    }
+  });
+  new Ctl().addTo(map);
+}
+const searchPin = (ll, name) => L.marker(ll, { icon: L.divIcon({ className: '', html: '<div class="pin"></div>', iconSize: [24, 24], iconAnchor: [12, 12] }), interactive: false })
+  .bindTooltip(esc(name), { permanent: true, direction: 'top', offset: [0, -12] });
+function addSearchControl(map) {
+  let pin = null;
+  const Ctl = L.Control.extend({
+    options: { position: 'topleft' },
+    onAdd() {
+      const d = L.DomUtil.create('div', 'map-search');
+      d.innerHTML = `<button type="button" class="ms-open" aria-label="Search spots and places" title="Search">${ICON_SEARCH}</button>
+        <form class="ms-panel" hidden autocomplete="off">
+          <div class="ms-row"><input type="search" class="ms-q" placeholder="Search spots or places" aria-label="Search spots or places" enterkeyhint="search"><button type="button" class="ms-x" aria-label="Close search">&times;</button></div>
+          <div class="ms-res"></div>
+        </form>`;
+      L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d);
+      const panel = d.querySelector('.ms-panel'), q = d.querySelector('.ms-q'), res = d.querySelector('.ms-res'), openBtn = d.querySelector('.ms-open');
+      let places = null, placesFor = '';
+      const close = () => { panel.hidden = true; openBtn.hidden = false; q.blur(); };
+      const draw = () => {
+        const term = q.value.trim().toLowerCase();
+        if (!term) { res.innerHTML = '<div class="sub ms-hint">Type a spot name, town or address.</div>'; return; }
+        const spots = S.spots.filter(sp => !sp.hidden && (sp.name.toLowerCase().includes(term) || (sp.region || '').toLowerCase().includes(term)))
+          .sort((a, b) => (a.name.toLowerCase().startsWith(term) ? 0 : 1) - (b.name.toLowerCase().startsWith(term) ? 0 : 1) || a.name.localeCompare(b.name)).slice(0, 8);
+        let html = `<div class="ms-sec">Surf spots</div>${spots.length ? spots.map(sp => `<button type="button" class="ms-item" data-spot="${esc(sp.id)}"><strong>${esc(sp.name)}</strong><span class="sub">${esc(sp.region || 'Your spot')}</span></button>`).join('') : '<div class="sub ms-hint">No spots match.</div>'}`;
+        html += '<div class="ms-sec">Places</div>';
+        if (places && placesFor === term) html += places.length ? places.map((p, i) => `<button type="button" class="ms-item" data-place="${i}"><strong>${esc(p.name || p.display_name.split(',')[0])}</strong><span class="sub">${esc(p.display_name)}</span></button>`).join('') + '<div class="sub ms-credit">Places: © OpenStreetMap contributors (Nominatim)</div>' : '<div class="sub ms-hint">No places found.</div>';
+        else html += `<button type="submit" class="ms-item ms-go">Search places for “${esc(q.value.trim())}”</button>`;
+        res.innerHTML = html;
+      };
+      openBtn.addEventListener('click', () => { panel.hidden = false; openBtn.hidden = true; draw(); q.focus(); });
+      d.querySelector('.ms-x').addEventListener('click', close);
+      q.addEventListener('input', draw);
+      q.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+      panel.addEventListener('submit', async e => {
+        e.preventDefault();
+        const term = q.value.trim();
+        if (!term) return;
+        res.querySelector('.ms-go') && (res.querySelector('.ms-go').textContent = 'Searching places…');
+        try {
+          const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&countrycodes=us&q=${encodeURIComponent(term)}`;
+          const r = await fetch(url, { headers: { 'Accept-Language': navigator.language || 'en' } });
+          places = r.ok ? await r.json() : [];
+        } catch (err) { places = []; toast('Place search isn’t reachable right now.'); }
+        placesFor = term.toLowerCase();
+        draw();
+      });
+      res.addEventListener('click', e => {
+        const b = e.target.closest('.ms-item');
+        if (!b || b.classList.contains('ms-go')) return;
+        if (pin) { pin.remove(); pin = null; }
+        if (b.dataset.spot) {
+          const sp = spotById(b.dataset.spot);
+          close();
+          let mk = null;
+          map.eachLayer(l => { if (l.spotId === sp.id) mk = l; });
+          map.setView([sp.lat, sp.lon], Math.max(map.getZoom(), 14));
+          if (mk) setTimeout(() => mk.openPopup(), 350);
+          else pin = searchPin([sp.lat, sp.lon], sp.name).addTo(map);
+        } else {
+          const p = places[+b.dataset.place];
+          close();
+          const bb = (p.boundingbox || []).map(Number);
+          if (bb.length === 4 && bb.every(Number.isFinite) && (bb[1] - bb[0] > 0.002 || bb[3] - bb[2] > 0.002)) map.fitBounds([[bb[0], bb[2]], [bb[1], bb[3]]], { maxZoom: 15 });
+          else map.setView([+p.lat, +p.lon], 15);
+          pin = searchPin([+p.lat, +p.lon], p.name || p.display_name.split(',')[0]).addTo(map);
+        }
+      });
+      return d;
+    }
+  });
+  new Ctl().addTo(map);
+}
+
 function setMapFullscreen(on) {
   document.body.classList.toggle('mapfs', on);
   const d = document.documentElement;
@@ -814,6 +946,8 @@ function makeMap(el, opts = {}) {
       }
     });
     new Fs().addTo(map);
+    addLocateControl(map);
+    addSearchControl(map);
   }
   /* Spot dots draw on a canvas with a wide tap tolerance so they're easy to hit with a finger. */
   map.spotRenderer = L.canvas({ tolerance: 14, padding: 0.5 });
@@ -1411,7 +1545,7 @@ const fmtTideH = m => m == null ? '' : prefs.units === 'm' ? `${m.toFixed(2)} m`
 function tideText(t) {
   if (!t) return '';
   const turns = (t.turns || []).map(x => `${x.type} ${fmtTime(x.t)}`).join(', ');
-  return `${fmtTideH(t.h)}${t.trend ? `, ${t.trend}` : ''} (${t.stage} tide)${turns ? ` · ${turns}` : ''}`;
+  return [fmtTideH(t.h), t.trend || '', t.stage ? `${t.stage} tide` : ''].filter(Boolean).join(', ') + (turns ? ` · ${turns}` : '');
 }
 function weatherText(w) {
   if (!w) return '';
@@ -1478,6 +1612,7 @@ function installHelp() {
     ${sec('deskChrome', 'Computer (Chrome or Edge)', '<ol><li>Click the <strong>Install</strong> icon at the right end of the address bar (a screen with a down arrow).</li><li>Or in Chrome: <strong>⋮</strong> menu → <strong>Cast, save, and share</strong> → <strong>Install page as app</strong>. In Edge: <strong>…</strong> menu → <strong>Apps</strong> → <strong>Install this site as an app</strong>.</li><li>The app opens in its own window and appears with your other apps.</li></ol>')}
     ${sec('macSafari', 'Mac (Safari)', '<ol><li>Needs macOS Sonoma or later.</li><li>In Safari choose <strong>File</strong> → <strong>Add to Dock</strong> (or Share button → <strong>Add to Dock</strong>).</li><li>Open the app from the Dock.</li></ol>')}`}
     <p class="sub">Clearing the browser's website data, or deleting the app, erases your boards. Export a backup now and then from Settings → Backup and export.</p>
+    <p><a href="#/settings/help">How to use the app</a></p>
   </div>`;
 }
 
@@ -2059,10 +2194,15 @@ function viewSessionForm(id, q) {
       <div class="field"><label for="spotId">Spot</label>
         <div class="spotpick"><select name="spotId" id="spotId">${spotOptions(v.spotId)}</select><button type="button" data-act="pickSpot" aria-label="Pick spot on map">Map</button></div></div>
       <div class="grid2">
-        <div class="field"><label for="start">Start</label><input type="datetime-local" name="start" id="start" value="${esc(v.start)}"></div>
+        <div class="field"><label for="sdate">Date</label><input type="date" id="sdate" value="${esc((v.start || '').slice(0, 10))}"></div>
+        <div class="field"><label for="stime">Start time</label><input type="time" id="stime" step="300" value="${esc((v.start || '').slice(11, 16))}"></div>
+        <input type="hidden" name="start" id="start" value="${esc(v.start)}">
+      </div>
+      <div class="grid2">
         <div class="field"><label for="duration">Length</label><select name="duration" id="duration"><option value="">–</option>${durs.map(d => `<option value="${d}" ${v.duration === d ? 'selected' : ''}>${d < 60 ? d + ' min' : (d / 60) + ' h'}</option>`).join('')}</select></div>
       </div>
       <div class="swell" id="swellBox" aria-live="polite"></div>
+      ${condEditHTML()}
       ${listOn('waveSize') ? `<div class="field"><label for="f_waveSize">Wave size</label>${pickerHTML('waveSize', v.waveSize, 'waveSize', 'f_waveSize')}</div>` : ''}
       ${listOn('waveDesc') ? `<div class="field"><label for="f_waveDesc">Wave description</label>${pickerHTML('waveDesc', v.waveDesc, 'waveDesc', 'f_waveDesc')}</div>` : ''}
       <div class="field"><span class="lbl">Fins used</span><div id="sessFins"></div></div>
@@ -2084,7 +2224,16 @@ function viewSessionForm(id, q) {
   });
   renderSwell(s && s.swell ? 'ok' : s && s.spotId ? 'none' : 'idle');
   if ($('#f_waveSize')) $('#f_waveSize').addEventListener('change', () => { sform.waveTouched = true; renderSwell(sform.swell ? 'ok' : sform.state || 'idle'); });
+  /* Date and time are separate fields; the hidden "start" field holds both for saving and lookups. */
+  const syncStart = () => {
+    const d = $('#sdate').value, t = $('#stime').value || '00:00';
+    const val = d ? `${d}T${t}` : '';
+    if ($('#start').value !== val) { $('#start').value = val; $('#start').dispatchEvent(new Event('change')); }
+  };
+  ['sdate', 'stime'].forEach(n => $('#' + n).addEventListener('change', syncStart));
   ['spotId', 'start', 'duration'].forEach(n => $('#' + n).addEventListener('change', () => scheduleSwell()));
+  $('#condEdit').addEventListener('input', () => { sform.condEdited = true; });
+  $('#condEdit').addEventListener('change', () => { sform.condEdited = true; });
   if (!s) scheduleSwell(0);
 }
 const roundTime = d => { const r = new Date(d); r.setMinutes(Math.floor(r.getMinutes() / 15) * 15, 0, 0); return r; };
@@ -2114,12 +2263,14 @@ async function lookupSwell() {
   const token = ++sform.token;
   renderSwell('loading');
   const dur = Number($('#duration').value) || 0;
-  fetchWeather(spot, start, dur).then(w => { if (sform && token === sform.token) { sform.weather = w; renderSwell(sform.state === 'loading' ? 'loading' : sform.state, sform.msg); } })
+  fetchWeather(spot, start, dur).then(w => { if (sform && token === sform.token && !sform.condEdited) { sform.weather = w; renderSwell(sform.state === 'loading' ? 'loading' : sform.state, sform.msg); } })
     .catch(() => { if (sform && token === sform.token) { sform.weather = null; renderSwell(sform.state, sform.msg); } });
   try {
     const sw = await fetchSwell(spot, start, dur);
     if (!sform || token !== sform.token || !$('#swellBox')) return;
-    sform.tide = sw.tide || null; delete sw.tide;
+    const tide = sw.tide || null; delete sw.tide;
+    if (sform.condEdited) { renderSwell('ok'); return; }
+    sform.tide = tide;
     sform.swell = sw;
     const sug = suggestWaveSize(sw);
     sform.suggested = sug ? sug.id : null;
@@ -2134,6 +2285,7 @@ async function lookupSwell() {
 function renderSwell(state, msg) {
   const box = $('#swellBox');
   if (!box) return;
+  if (!sform.condEdited) fillCondInputs();
   sform.state = state; sform.msg = msg;
   const extra = `${sform.tide ? `<div class="cond"><span>Tide</span>${esc(tideText(sform.tide))}</div>` : ''}${sform.weather ? `<div class="cond"><span>Weather</span>${esc(weatherText(sform.weather))}</div>` : ''}`;
   if (state === 'idle') box.innerHTML = `<span class="sub">Pick a spot and time to look up the swell, tide and weather.</span>`;
@@ -2150,11 +2302,83 @@ function renderSwell(state, msg) {
       <div class="row2">${sel && sug && cur !== sug ? `<button type="button" data-act="useSuggestion">Use ${esc(shortSize(sug))}</button>` : ''}<button type="button" data-act="retrySwell">Refresh</button></div>`;
   }
 }
+/* ---------- conditions editor ----------
+   Swell, tide and weather are looked up automatically, but every value can be corrected by hand.
+   Once you change one, later lookups leave your values alone until you tap Refresh. */
+const SKY = [[0, 'Clear'], [1, 'Mostly clear'], [2, 'Partly cloudy'], [3, 'Overcast'], [45, 'Fog'], [53, 'Drizzle'], [63, 'Rain'], [65, 'Heavy rain'], [80, 'Showers'], [95, 'Thunderstorm']];
+const hUnit = () => prefs.units === 'm' ? 'm' : 'ft';
+const tUnit = () => prefs.units === 'm' ? '°C' : '°F';
+const toH = m => m == null ? '' : prefs.units === 'm' ? +m.toFixed(2) : +(m * 3.281).toFixed(1);
+const fromH = v => v === '' || v == null || isNaN(+v) ? null : prefs.units === 'm' ? +v : +v / 3.281;
+const toT = c => c == null ? '' : prefs.units === 'm' ? +c.toFixed(1) : Math.round(c * 9 / 5 + 32);
+const fromT = v => v === '' || isNaN(+v) ? null : prefs.units === 'm' ? +v : (+v - 32) * 5 / 9;
+const toKt = ms => ms == null ? '' : Math.round(ms * 1.944);
+const fromKt = v => v === '' || isNaN(+v) ? null : +v / 1.944;
+const num = v => v === '' || isNaN(+v) ? null : +v;
+function dirSelect(id) {
+  return `<select id="${id}"><option value="">–</option>${COMPASS.map((c, i) => `<option value="${i * 22.5}">${c}</option>`).join('')}</select>`;
+}
+function condEditHTML() {
+  const f = (id, label, attrs = '') => `<div class="field"><label for="${id}">${label}</label><input id="${id}" inputmode="decimal" ${attrs}></div>`;
+  const sel = (id, label, opts) => `<div class="field"><label for="${id}">${label}</label><select id="${id}"><option value="">–</option>${opts.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></div>`;
+  return `<details class="condedit" id="condEdit"><summary>Edit swell, tide and weather</summary>
+    <h4>Swell</h4>
+    <div class="grid3">${f('c_swH', `Height (${hUnit()})`)}${f('c_swP', 'Period (s)')}<div class="field"><label for="c_swD">From</label>${dirSelect('c_swD')}</div></div>
+    <div class="grid3">${f('c_wwH', `Wind waves (${hUnit()})`)}</div>
+    <h4>Tide</h4>
+    <div class="grid3">${f('c_tH', `Height (${hUnit()})`, 'inputmode="text"')}${sel('c_tS', 'Stage', [['low', 'Low'], ['mid', 'Mid'], ['high', 'High']])}${sel('c_tT', 'Trend', [['rising', 'Rising'], ['falling', 'Falling'], ['slack', 'Slack']])}</div>
+    <h4>Weather</h4>
+    <div class="grid3">${f('c_wS', 'Wind (kt)')}${f('c_wG', 'Gusts (kt)')}<div class="field"><label for="c_wD">Wind from</label>${dirSelect('c_wD')}</div></div>
+    <div class="grid3">${f('c_aT', `Air (${tUnit()})`, 'inputmode="text"')}${sel('c_sky', 'Sky', SKY)}</div>
+    <div class="sub" style="margin-bottom:8px">Your changes are kept when you save. Tap Refresh above to go back to the looked-up values.</div>
+  </details>`;
+}
+function nearestDir(sel, deg) {
+  if (!sel) return;
+  if (deg == null) { sel.value = ''; return; }
+  sel.value = String((Math.round((((deg % 360) + 360) % 360) / 22.5) % 16) * 22.5);
+}
+function fillCondInputs() {
+  if (!$('#condEdit')) return;
+  const sw = sform.swell || {}, t = sform.tide || {}, w = sform.weather || {};
+  $('#c_swH').value = toH(sw.swellH ?? sw.waveH);
+  $('#c_swP').value = (sw.swellP ?? sw.waveP) == null ? '' : Math.round(sw.swellP ?? sw.waveP);
+  nearestDir($('#c_swD'), sw.swellDir ?? sw.waveDir);
+  $('#c_wwH').value = toH(sw.windWaveH);
+  $('#c_tH').value = toH(t.h);
+  $('#c_tS').value = t.stage || '';
+  $('#c_tT').value = t.trend || '';
+  $('#c_wS').value = toKt(w.windSpd);
+  $('#c_wG').value = toKt(w.gust);
+  nearestDir($('#c_wD'), w.windDir);
+  $('#c_aT').value = toT(w.temp);
+  const sky = $('#c_sky');
+  if (w.code != null && ![...sky.options].some(o => o.value === String(w.code))) sky.insertAdjacentHTML('beforeend', `<option value="${w.code}">${esc(WMO[w.code] || 'Code ' + w.code)}</option>`);
+  sky.value = w.code == null ? '' : String(w.code);
+}
+function readCondInputs() {
+  const v = id => $('#' + id).value.trim();
+  const swH = fromH(v('c_swH')), swP = num(v('c_swP')), swD = num(v('c_swD')), wwH = fromH(v('c_wwH'));
+  if ([swH, swP, swD, wwH].some(x => x != null)) {
+    const base = sform.swell || {};
+    sform.swell = { ...base, swellH: swH, swellP: swP, swellDir: swD, windWaveH: wwH, manual: true };
+    /* Your swell replaces the model's combined-wave values for display and the board pick. */
+    if (swH != null) { sform.swell.waveH = null; sform.swell.waveP = null; sform.swell.waveDir = null; }
+    const sug = suggestWaveSize(sform.swell);
+    sform.suggested = sug ? sug.id : null;
+  } else sform.swell = null;
+  const tH = fromH(v('c_tH')), tS = v('c_tS'), tT = v('c_tT');
+  sform.tide = tH != null || tS || tT ? { ...(sform.tide || {}), h: tH, stage: tS || null, trend: tT || null, turns: [], manual: true } : null;
+  const wS = fromKt(v('c_wS')), wG = fromKt(v('c_wG')), wD = num(v('c_wD')), aT = fromT(v('c_aT')), sky = num(v('c_sky'));
+  sform.weather = [wS, wG, wD, aT, sky].some(x => x != null) ? { ...(sform.weather || {}), windSpd: wS, gust: wG, windDir: wD, temp: aT, code: sky, manual: true } : null;
+}
+
 async function saveSession(form) {
   const fd = new FormData(form);
   const boardId = fd.get('boardId'), spotId = fd.get('spotId'), start = fd.get('start');
   if (!boardId) { $('#sessErr').textContent = 'Choose a board.'; $('#boardId').focus(); return; }
   if (!start) { $('#sessErr').textContent = 'Enter the start date and time.'; $('#start').focus(); return; }
+  if (sform.condEdited) readCondInputs();
   const existing = sform.id ? S.sessions.find(x => x.id === sform.id) : null;
   const s = existing ? { ...existing } : { id: 'session:' + newId(), createdAt: new Date().toISOString() };
   Object.assign(s, {
@@ -2574,6 +2798,52 @@ async function renderPick(spotId) {
 /* =========================================================
    SETTINGS
    ========================================================= */
+/* ---------- How to use ---------- */
+function viewHelp() {
+  setTop('How to use', '#/settings');
+  const sec = (title, body, open) => `<details class="install help"${open ? ' open' : ''}><summary>${title}</summary>${body}</details>`;
+  setMain(`<div class="card installhelp helpdoc">
+    <p>Quiver keeps track of your surfboards, fins and surf sessions, and shows swell, tide, weather and buoys on a map. Tap a topic to open it.</p>
+    ${sec('Install it and where your data lives', `<ul>
+      <li>Everything you enter is saved <strong>only on this device</strong>, in the browser's storage. Nothing syncs between devices.</li>
+      <li>Add the app to your home screen (iPhone: Share → Add to Home Screen; Android Chrome: ⋮ → Install app; computer Chrome or Edge: the install icon in the address bar; Mac Safari: File → Add to Dock). Do this before adding boards: on iPhone the home-screen app has its own storage, separate from Safari.</li>
+      <li>Export a backup now and then: Settings → Backup and export. Restore it on another device to move your data.</li>
+      <li>If the app looks out of date, use Settings → <strong>Refresh app</strong>. A bar also appears when a new version is ready.</li></ul>`, true)}
+    ${sec('Boards', `<ul>
+      <li>Tap <strong>+</strong> on the Boards page to add a board: model, shaper, size, construction, fins, rocker, rails, tail, purchase price, notes and a photo.</li>
+      <li>Switch between table, tiles and full-page views at the top; swipe through boards in full-page view. Sort and filter by type or shaper.</li>
+      <li>Open a board to see its sessions, stats and paired fins. Edit it from there.</li>
+      <li>When a board leaves the quiver, <strong>Retire</strong> it with a reason (sold, broken, eroded to dust, given away, other) and the sale price if sold. Retired boards hide unless you tick Show retired.</li></ul>`)}
+    ${sec('Fins', `<ul>
+      <li>Add fin sets on the Fins page: setup, shape, brand, size, material, flex, foil and condition.</li>
+      <li><strong>Pair</strong> fins with the boards they fit (a set can go with many boards, and a board with many sets). Paired fins show up when you log a session on that board.</li></ul>`)}
+    ${sec('Logging and editing sessions', `<ul>
+      <li>Log a session from the Sessions page or a board's page: board, spot, date, start time, length, wave size, wave description, fins used, a fun rating (1–5 stars) and notes.</li>
+      <li>Pick the spot from the list or tap <strong>Map</strong> to choose it on a map. Tap an empty place on that map to add a new spot.</li>
+      <li>Once a spot and time are set, the app looks up the <strong>swell, tide and weather</strong> for that hour and suggests a wave size. Adjust anything that was different at the beach.</li>
+      <li>To change a logged session, tap it in any session list. Every value can be changed. Open <strong>Edit swell, tide and weather</strong> to correct the looked-up conditions; your values are kept until you tap Refresh.</li>
+      <li>Delete a session from the bottom of its edit page.</li></ul>`)}
+    ${sec('Stats and the board pick', `<ul>
+      <li>The Stats tab shows totals, your most ridden and most fun boards and spots, fun by tide and sessions per month. Some cards unlock after you've logged enough sessions.</li>
+      <li><strong>Board pick</strong> looks at the current swell, tide and wind near your chosen spot and ranks your boards by how much fun you had on them in similar conditions. Higher fun ratings count for much more.</li></ul>`)}
+    ${sec('The map', `<ul>
+      <li>Colored dots are spots you've surfed (size = sessions, color = average fun). Small white dots are spots you haven't surfed; turn them on or off with <strong>All spots</strong> in the header.</li>
+      <li>Tap a spot for its sessions and a 5-day forecast (CDIP in California, Open-Meteo elsewhere). Tap a buoy for the latest readings, a 24-hour chart and a forecast; blue buoys are CDIP buoys and include CDIP's own plots.</li>
+      <li>Buttons on the right: zoom, <strong>full screen</strong>, <strong>find my location</strong> and the <strong>layers</strong> list (Hydro, Topo or Imagery base maps; buoys; CDIP wave height or peak period).</li>
+      <li>With a CDIP layer on, the panel at the bottom steps from Now through the forecast hours.</li>
+      <li>Tap the <strong>magnifier</strong> (top left) to search: matching surf spots show first as you type, then press Search for towns and addresses.</li>
+      <li>Zoom in to see spot names. The web address updates as you move the map, so you can bookmark or share the exact view.</li></ul>`)}
+    ${sec('Settings', `<ul>
+      <li>Edit the choices offered on forms (board types, fin systems, wave sizes and more). Add values, hide ones you don't use, or turn a whole field off.</li>
+      <li><strong>Surf spots</strong>: search, rename, move, hide or delete spots. A spot with sessions can't be deleted; move those sessions to another spot first, or hide it.</li>
+      <li>Units (feet or meters), backup and export (including CSV files for spreadsheets), and Refresh app.</li></ul>`)}
+    ${sec('Where the data comes from', `<ul>
+      <li>Wave forecasts and map layers: data courtesy of <a href="https://cdip.ucsd.edu/" target="_blank" rel="noopener">CDIP</a>, Scripps Institution of Oceanography.</li>
+      <li>Swell, tide and weather: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0). Tide is modeled sea level, not a tide table.</li>
+      <li>Buoys: NOAA National Data Buoy Center. Base maps: USGS The National Map. Place search: OpenStreetMap (Nominatim).</li>
+      <li>Forecasts and suggestions are model estimates. Check the beach.</li></ul>`)}
+  </div>`);
+}
 function viewSettings() {
   setTop('Settings');
   const last = S.meta.lastBackup;
@@ -2584,6 +2854,7 @@ function viewSettings() {
   };
   const groups = [...new Set(LISTS.map(l => l.group))];
   setMain(`
+    <div class="card"><a class="row" href="#/settings/help"><span class="grow"><span class="label">How to use</span><br><span class="sub">A quick guide to every part of the app</span></span><span class="chev" aria-hidden="true">&#8250;</span></a></div>
     ${groups.map(g => `<h2 class="sec">${esc(g)} lists</h2><div class="card">${LISTS.filter(l => l.group === g).map(listRow).join('')}</div>`).join('')}
     <p class="note">These are the choices offered when you add a board or log a session. Open a list to turn the whole field off if you don't use it.</p>
     <h2 class="sec">Spots</h2>
@@ -2927,7 +3198,7 @@ document.addEventListener('click', async e => {
       case 'retireBoard': { const b = boardById(id); await putMany('boards', [{ ...b, retired: true, retiredAt: new Date().toISOString().slice(0, 10) }]); await loadAll(); closeDialog(); toast('Board retired. Add the reason below.'); if (location.hash === `#/board/${id}/edit`) route(); else location.replace(`#/board/${id}/edit`); setTimeout(() => { const el = $('#retireBox'); if (el) el.scrollIntoView({ block: 'center' }); }, 100); break; }
       case 'fun': { const n = Number(el.dataset.v); sform.fun = sform.fun === n ? 0 : n; renderStars(); break; }
       case 'pickSpot': openSpotPicker(); break;
-      case 'retrySwell': scheduleSwell(0); break;
+      case 'retrySwell': sform.condEdited = false; scheduleSwell(0); break;
       case 'useSuggestion': $('#f_waveSize').value = sform.suggested; sform.waveTouched = false; renderSwell('ok'); break;
       case 'deleteSession': confirmDialog('Delete this session?', "This can't be undone.", `<button class="danger" data-act="deleteSessionYes" data-id="${esc(id)}">Delete session</button>`); break;
       case 'deleteSessionYes': await del('sessions', id); await loadAll(); closeDialog(); toast('Session deleted'); goBack('#/sessions'); break;
@@ -3054,6 +3325,7 @@ function route() {
     case 'map': return viewMap(q);
     case 'stats': return viewStats();
     case 'settings':
+      if (parts[1] === 'help') return viewHelp();
       if (parts[1] === 'list') return viewList(parts[2]);
       if (parts[1] === 'spots') return parts[2] === 'new' ? viewSpotForm(null) : viewSpots();
       if (parts[1] === 'spot') return viewSpotForm(parts[2]);
