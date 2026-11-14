@@ -295,6 +295,14 @@ table.bt { border-collapse: collapse; margin: 8px 0 4px; font-size: 13px; width:
 table.bt th { text-align: left; color: var(--muted); font-weight: 500; padding: 2px 10px 2px 0; vertical-align: top; white-space: nowrap; }
 table.bt td { padding: 2px 0; }
 .spark { color: var(--accent); margin-top: 6px; }
+.fc { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+.fc .fct { font-weight: 650; margin-bottom: 4px; }
+.fc svg .ln { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
+.fc svg .area { fill: var(--accent); opacity: .15; }
+.fc svg .tick { stroke: var(--line); stroke-width: 1; }
+.fc svg text { font-size: 9px; fill: var(--muted); }
+.fct-days td, .fct-days th { padding-right: 8px; white-space: nowrap; }
+.spotgroup .sec .sub { font-weight: 400; text-transform: none; letter-spacing: 0; }
 .leaflet-control-layers { border-radius: 10px !important; }
 .leaflet-control-layers-toggle { width: 44px !important; height: 44px !important; }
 .leaflet-control-layers-expanded { padding: 8px 12px; font-size: 15px; background: var(--surface); color: var(--ink); }
@@ -321,7 +329,7 @@ table.bt td { padding: 2px 0; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 7 (coast-wide buoys, tide and weather, stats)';
+const BUILD = 'Build 8 (coast-wide spots, CDIP forecasts)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -335,6 +343,7 @@ const BASEMAPS = {
     maxNativeZoom: 19, attribution: '&copy; Esri, Maxar, Earthstar' }
 };
 const BUOY_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/buoys.json';
+const FORECAST_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/forecasts.json';
 /* NOAA buoys near Ventura. Positions here are a fallback; the data file carries NDBC's current positions. */
 const BUOYS = [
   ['46053', 'East Santa Barbara', 34.241, -119.839], ['46217', 'Anacapa Passage', 34.167, -119.435],
@@ -433,8 +442,24 @@ async function seed() {
     await putMany('options', l.values.map((v, i) => ({ id: l.key + ':' + slug(v), list: l.key, value: v, order: i, builtIn: true, hidden: false })));
     await setMeta('seeded:' + l.key, true);
   }
+  /* Built-in spots come from spots.json (West and East coasts). Existing built-in spots keep the user's
+     name, position and hidden state; they only gain region and order. Falls back to the Ventura list offline. */
+  if (!done.has('spots2')) {
+    let list = null;
+    try { const r = await fetch('spots.json', { cache: 'no-cache' }); if (r.ok) list = (await r.json()).spots; } catch (e) {}
+    if (Array.isArray(list) && list.length) {
+      const have = new Map((await getAll('spots')).map(x => [x.id, x]));
+      await putMany('spots', list.map((x, i) => {
+        const old = have.get(x.id), extra = { region: x.region, coast: x.coast, ca: !!x.ca, order: i, builtIn: true };
+        return old ? { ...old, ...extra } : { id: x.id, name: x.name, lat: x.lat, lon: x.lon, hidden: false, ...extra };
+      }));
+      await setMeta('seeded:spots2', true);
+      await setMeta('seeded:spots', true);
+      done.add('spots');
+    }
+  }
   if (!done.has('spots')) {
-    await putMany('spots', SEED_SPOTS.map(([name, lat, lon], i) => ({ id: 'spot:' + slug(name), name, lat, lon, order: i, builtIn: true, hidden: false })));
+    await putMany('spots', SEED_SPOTS.map(([name, lat, lon], i) => ({ id: 'spot:' + slug(name), name, lat, lon, order: i, builtIn: true, hidden: false, region: 'Ventura', coast: 'West Coast', ca: true })));
     await setMeta('seeded:spots', true);
   }
 }
@@ -600,6 +625,8 @@ function makeMap(el, opts = {}) {
   const zoomClass = () => el.classList.toggle('far', map.getZoom() < 8);
   map.on('zoomend', zoomClass);
   if (opts.zoomControl !== false) L.control.zoom({ position: 'topright' }).addTo(map);
+  /* Spot dots draw on a canvas with a wide tap tolerance so they're easy to hit with a finger. */
+  map.spotRenderer = L.canvas({ tolerance: 14, padding: 0.5 });
   const bases = { map: baseLayer('map'), imagery: baseLayer('imagery') };
   const cur = bases[prefs.baseMap] ? prefs.baseMap : 'map';
   bases[cur].addTo(map);
@@ -723,7 +750,7 @@ const fmtWind = ms => ms == null ? '' : `${Math.round(ms * 1.944)} kt`;
 function buoyPopup(b, r, data) {
   if (!r || !r.time) return `<div class="popup-title">${esc(b.name)} <span class="sub">#${esc(b.id)}</span></div>
     <div class="sub">${data ? 'No recent reading from this buoy.' : "Buoy readings haven't loaded yet. They need a connection, and the data job has to have run at least once."}</div>
-    <div class="popup-links"><a href="https://www.ndbc.noaa.gov/station_page.php?station=${encodeURIComponent(b.id)}" target="_blank" rel="noopener">NOAA page</a></div>`;
+    ${buoyLinks(b)}`;
   const ps = primarySwell(r);
   const row = (k, v) => v ? `<tr><th>${k}</th><td>${v}</td></tr>` : '';
   const swell = (h, p, d) => h == null ? '' : `${fmtHeight(h)}${p != null ? ` @ ${Math.round(p)} s` : ''}${d ? ` from ${esc(d)}` : ''}`;
@@ -740,7 +767,7 @@ function buoyPopup(b, r, data) {
       ${row('Steepness', r.steep ? esc(r.steep.toLowerCase().replace('_', ' ')) : '')}
     </table>
     ${sparkline(r.history)}
-    <div class="popup-links"><a href="https://www.ndbc.noaa.gov/station_page.php?station=${encodeURIComponent(b.id)}" target="_blank" rel="noopener">NOAA page</a></div>`;
+    ${buoyLinks(b)}`;
 }
 function buoyLayer() {
   const group = L.layerGroup();
@@ -758,12 +785,103 @@ function buoyLayer() {
         m.on('click', e => L.DomEvent.stopPropagation(e));
         markers.set(b.id, m);
       } else { m.setLatLng(pos); m.setIcon(buoyIcon(b, r)); }
-      m.bindPopup(buoyPopup(b, r, data), { maxWidth: 280, autoPanPaddingTopLeft: [12, 120], autoPanPaddingBottomRight: [12, 40] });
+      const base = buoyPopup(b, r, data);
+      m.off('popupopen');
+      m.bindPopup(base + (b.lat != null ? FC_LOADING : ''), { maxWidth: 290, autoPanPaddingTopLeft: [12, 120], autoPanPaddingBottomRight: [12, 40] });
+      m.on('popupopen', e => fillForecast(e.popup, base, () => buoyForecast(b)));
     }
   };
   draw(S.buoyData || S.meta.buoys || null);
   loadBuoyData().then(d => { if (d) draw(d); });
   return group;
+}
+
+/* ---------- 5-day forecasts: CDIP (California) or Open-Meteo ---------- */
+const FC_LOADING = '<div class="fc"><div class="sub">Loading the 5-day forecast…</div></div>';
+const cdipNumber = b => { const m = /\((\d{3})\)/.exec(b.name || ''); return m ? m[1] : null; };
+function buoyLinks(b) {
+  const n = cdipNumber(b);
+  return `<div class="popup-links">${n ? `<a href="https://cdip.ucsd.edu/m/products/?stn=${n}p1" target="_blank" rel="noopener">CDIP page</a>` : ''}<a href="https://www.ndbc.noaa.gov/station_page.php?station=${encodeURIComponent(b.id)}" target="_blank" rel="noopener">NOAA page</a></div>`;
+}
+let fcFetch = null;
+async function loadForecasts() {
+  const cached = S.fcData || S.meta.forecasts || null;
+  if (S.fcData && Date.now() - S.fcLoadedAt < 30 * 60 * 1000) return S.fcData;
+  if (!fcFetch) fcFetch = (async () => {
+    try {
+      const res = await fetch(`${FORECAST_URL}?t=${Math.floor(Date.now() / 600000)}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const d = await res.json();
+      S.fcData = d; S.fcLoadedAt = Date.now();
+      setMeta('forecasts', d).catch(() => {});
+      return d;
+    } catch (e) { return cached; } finally { fcFetch = null; }
+  })();
+  return fcFetch;
+}
+const omCache = new Map();
+async function openMeteoForecast(lat, lon) {
+  const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+  const hit = omCache.get(key);
+  if (hit && Date.now() - hit.at < 30 * 60 * 1000) return hit.fc;
+  const params = new URLSearchParams({ latitude: lat.toFixed(4), longitude: lon.toFixed(4), hourly: 'wave_height,wave_period,wave_direction,swell_wave_peak_period,swell_wave_direction', forecast_days: '6', timezone: 'GMT', cell_selection: 'sea' });
+  const res = await fetch(`${MARINE_URL}?${params}`);
+  if (!res.ok) throw new Error('forecast unavailable');
+  const j = await res.json(), h = j.hourly || {};
+  const idx = (h.time || []).map((t, i) => [t, i]).filter(([t]) => Number(t.slice(11, 13)) % 3 === 0 && new Date(t + 'Z') >= Date.now() - 3 * 3600 * 1000);
+  if (!idx.length) throw new Error('no forecast');
+  const pick = k => idx.map(([, i]) => h[k] ? h[k][i] : null);
+  const fc = { t0: idx[0][0] + 'Z', step: 3, hs: pick('wave_height'), tp: pick('swell_wave_peak_period').map((v, n) => v ?? pick('wave_period')[n]), dp: pick('swell_wave_direction').map((v, n) => v ?? pick('wave_direction')[n]), source: 'Open-Meteo wave model' };
+  omCache.set(key, { at: Date.now(), fc });
+  return fc;
+}
+async function buoyForecast(b) {
+  const d = await loadForecasts();
+  const c = d && d.buoys && d.buoys[b.id];
+  if (c) return { ...c, source: `CDIP model at the buoy (${c.site})`, link: `https://cdip.ucsd.edu/m/products/?stn=${c.cdip}p1` };
+  return openMeteoForecast(b.lat, b.lon);
+}
+async function spotForecast(sp) {
+  const d = await loadForecasts();
+  const c = d && d.spots && d.spots[sp.id];
+  if (c) return { ...c, source: `CDIP nearshore model (site ${c.site}, 10 m depth)`, link: `https://cdip.ucsd.edu/m/forecast/?wave_model=${sp.lat > 34.6 ? 'norcal' : 'socal'}&layer=waveHs` };
+  return openMeteoForecast(sp.lat, sp.lon);
+}
+function circMean(degs) {
+  let x = 0, y = 0;
+  for (const d of degs) if (d != null) { x += Math.cos(d * Math.PI / 180); y += Math.sin(d * Math.PI / 180); }
+  if (!x && !y) return null;
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+function forecastHTML(fc) {
+  const t0 = new Date(fc.t0.length === 17 ? fc.t0.replace('Z', ':00Z') : fc.t0).getTime();
+  const pts = fc.hs.map((h, i) => ({ t: t0 + i * fc.step * 3600 * 1000, h, p: fc.tp && fc.tp[i], d: fc.dp && fc.dp[i] })).filter(p => p.h != null && p.t >= Date.now() - fc.step * 3600 * 1000);
+  if (pts.length < 4) return '<div class="fc"><div class="sub">No forecast available here right now.</div></div>';
+  const end = pts[0].t + 5 * 86400000, use = pts.filter(p => p.t < end);
+  const days = new Map();
+  for (const p of use) { const k = new Date(p.t).toDateString(); if (!days.has(k)) days.set(k, []); days.get(k).push(p); }
+  const rows = [...days].slice(0, 5).map(([k, ps]) => {
+    const hs = ps.map(p => p.h), per = ps.map(p => p.p).filter(x => x != null), dir = circMean(ps.map(p => p.d));
+    const lo = Math.min(...hs), hi = Math.max(...hs);
+    const range = prefs.units === 'm' ? `${lo.toFixed(1)}–${hi.toFixed(1)} m` : `${(lo * 3.281).toFixed(1)}–${(hi * 3.281).toFixed(1)} ft`;
+    return `<tr><th>${esc(new Date(ps[0].t).toLocaleDateString(undefined, { weekday: 'short' }))}</th><td>${range}</td><td>${per.length ? Math.round(Math.max(...per)) + ' s' : ''}</td><td>${dir != null ? compass(dir) : ''}</td></tr>`;
+  }).join('');
+  const W = 250, H = 64, tA = use[0].t, tB = use[use.length - 1].t, hmax = Math.max(...use.map(p => p.h), 0.3);
+  const x = t => 2 + (t - tA) / Math.max(1, tB - tA) * (W - 4), y = v => H - 12 - v / hmax * (H - 22);
+  const line = use.map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(1)} ${y(p.h).toFixed(1)}`).join(' ');
+  const ticks = [...days.keys()].slice(1, 5).map(k => { const t = new Date(k).getTime(); return t > tA && t < tB ? `<line x1="${x(t).toFixed(1)}" x2="${x(t).toFixed(1)}" y1="2" y2="${H - 12}" class="tick"/><text x="${(x(t) + 3).toFixed(1)}" y="${H - 2}">${esc(new Date(t).toLocaleDateString(undefined, { weekday: 'short' }))}</text>` : ''; }).join('');
+  return `<div class="fc"><div class="fct">5-day forecast <span class="sub">· peak ${esc(fmtHeight(hmax))}</span></div>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="Wave height forecast for 5 days">${ticks}<path d="${line} L${x(tB).toFixed(1)} ${H - 12} L${x(tA).toFixed(1)} ${H - 12} Z" class="area"/><path d="${line}" class="ln"/></svg>
+    <table class="bt fct-days"><tr><th></th><th>Height</th><th>Period</th><th>From</th></tr>${rows}</table>
+    <div class="sub">${esc(fc.source || '')}. Heights are significant wave height.${fc.link ? ` <a href="${fc.link}" target="_blank" rel="noopener">CDIP forecast</a>` : ''}</div></div>`;
+}
+async function fillForecast(popup, base, get) {
+  try {
+    const fc = await get();
+    if (popup.isOpen()) { popup.setContent(base + forecastHTML(fc)); popup.update(); }
+  } catch (e) {
+    if (popup.isOpen()) { popup.setContent(base + `<div class="fc"><div class="sub">Couldn't load the forecast${navigator.onLine === false ? " (you're offline)" : ''}.</div></div>`); popup.update(); }
+  }
 }
 
 /* ---------- photos ---------- */
@@ -1534,9 +1652,15 @@ const roundTime = d => { const r = new Date(d); r.setMinutes(Math.floor(r.getMin
 function lastOf(field) { const s = [...S.sessions].sort((a, b) => b.start.localeCompare(a.start))[0]; return s ? s[field] : ''; }
 const lastBoardId = () => { const id = lastOf('boardId'); const b = boardById(id); return b && !b.retired ? id : ''; };
 const lastSpotId = () => lastOf('spotId');
+const spotGroup = s => s.builtIn === false ? 'Your spots' : (s.region || 'Other spots');
+function spotGroups(list) {
+  const groups = new Map();
+  for (const sp of list) { const g = spotGroup(sp); if (!groups.has(g)) groups.set(g, []); groups.get(g).push(sp); }
+  return [...groups].sort((a, b) => (a[0] === 'Your spots' ? -1 : b[0] === 'Your spots' ? 1 : 0));
+}
 function spotOptions(current) {
   const list = spotsSorted().filter(s => !s.hidden || s.id === current);
-  return `<option value="">Choose a spot</option>${list.map(s => `<option value="${esc(s.id)}" ${s.id === current ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}`;
+  return `<option value="">Choose a spot</option>${spotGroups(list).map(([g, ss]) => `<optgroup label="${esc(g)}">${ss.map(s => `<option value="${esc(s.id)}" ${s.id === current ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</optgroup>`).join('')}`;
 }
 function renderStars() {
   $('#stars').innerHTML = [1, 2, 3, 4, 5].map(n => `<button type="button" role="radio" aria-checked="${sform.fun === n}" aria-label="${plural(n, 'star')}" class="${n <= sform.fun ? 'on' : ''}" data-act="fun" data-v="${n}">★</button>`).join('');
@@ -1616,11 +1740,13 @@ function openSpotPicker() {
   const map = makeMap($('#pickMap'), { buoys: true });
   if (!map) return;
   const local = mounted.maps.pop();
+  S.pickMap = local;
   dialogCleanup = () => { try { local.stop(); local.off(); local.remove(); } catch (e) {} };
   const cur = $('#spotId') && $('#spotId').value;
   const pts = [];
   for (const sp of spotsSorted().filter(x => !x.hidden || x.id === cur)) {
-    const m = L.circleMarker([sp.lat, sp.lon], { radius: sp.id === cur ? 11 : 8, color: '#fff', weight: 2, fillColor: sp.id === cur ? '#e0a526' : '#0f7f8c', fillOpacity: 0.95, bubblingMouseEvents: false }).addTo(map);
+    const m = L.circleMarker([sp.lat, sp.lon], { renderer: map.spotRenderer, radius: sp.id === cur ? 11 : 8, color: '#fff', weight: 2, fillColor: sp.id === cur ? '#e0a526' : '#0f7f8c', fillOpacity: 0.95, bubblingMouseEvents: false }).addTo(map);
+    m.spotId = sp.id;
     m.bindTooltip(esc(sp.name), { direction: 'top', offset: [0, -8] });
     m.on('click', e => { L.DomEvent.stopPropagation(e); chooseSpot(sp.id); });
     pts.push([sp.lat, sp.lon]);
@@ -1682,10 +1808,14 @@ function spotsMap(el, sessions, { small, showAll } = {}) {
     if (!list.length && (!showAll || sp.hidden)) continue;
     const a = avg(list.map(s => s.fun).filter(Boolean));
     const m = L.circleMarker([sp.lat, sp.lon], {
-      radius: list.length ? Math.min(26, 7 + 4 * Math.sqrt(list.length)) : 5,
+      renderer: map.spotRenderer,
+      radius: list.length ? Math.min(26, 7 + 4 * Math.sqrt(list.length)) : 6,
       color: '#fff', weight: 2, fillColor: list.length ? funColor(a) : '#8a9a9f', fillOpacity: list.length ? 0.9 : 0.6
     }).addTo(map);
-    m.bindPopup(spotSummary(sp, list), { autoPanPaddingTopLeft: [12, 120], autoPanPaddingBottomRight: [12, 40] });
+    m.spotId = sp.id;
+    const base = spotSummary(sp, list);
+    m.bindPopup(base + (small ? '' : FC_LOADING), { maxWidth: 290, autoPanPaddingTopLeft: [12, 120], autoPanPaddingBottomRight: [12, 40] });
+    if (!small) m.on('popupopen', e => fillForecast(e.popup, base, () => spotForecast(sp)));
     if (list.length) pts.push([sp.lat, sp.lon]);
   }
   if (pts.length === 1) map.setView(pts[0], 13, { animate: false });
@@ -1974,11 +2104,24 @@ async function deleteOption(id) {
 /* ---------- spot management ---------- */
 function viewSpots() {
   setTop('Surf spots', '#/settings', `<a class="hact plus" href="#/settings/spots/new" aria-label="Add spot">+</a>`);
-  const rows = spotsSorted().map(sp => {
+  const row = sp => {
     const n = sessionsFor('spotId', sp.id).length;
-    return `<a class="row ${sp.hidden ? 'hidden-opt' : ''}" href="#/settings/spot/${encodeURIComponent(sp.id)}"><span class="grow"><span class="label">${esc(sp.name)}</span>${sp.hidden ? '<span class="tag">Hidden</span>' : ''}${sp.builtIn ? '' : '<span class="tag">Added</span>'}<br><span class="sub">${n ? plural(n, 'session') : 'Not surfed yet'}</span></span><span class="chev" aria-hidden="true">&#8250;</span></a>`;
-  }).join('');
-  setMain(`<div class="card">${rows}</div><p class="note">Built-in spot locations are approximate. Open a spot and drag its pin to put it exactly where you surf. You can also add spots from the map when logging a session.</p>`);
+    return `<a class="row ${sp.hidden ? 'hidden-opt' : ''}" data-name="${esc((sp.name + ' ' + spotGroup(sp)).toLowerCase())}" href="#/settings/spot/${encodeURIComponent(sp.id)}"><span class="grow"><span class="label">${esc(sp.name)}</span>${sp.hidden ? '<span class="tag">Hidden</span>' : ''}${sp.builtIn ? '' : '<span class="tag">Added</span>'}<br><span class="sub">${n ? plural(n, 'session') : 'Not surfed yet'}</span></span><span class="chev" aria-hidden="true">&#8250;</span></a>`;
+  };
+  setMain(`<div class="field"><input type="search" id="spotFilter" placeholder="Search ${S.spots.length} spots or regions" aria-label="Search spots" autocomplete="off"></div>
+    ${spotGroups(spotsSorted()).map(([g, ss]) => `<section class="spotgroup"><h2 class="sec">${esc(g)} <span class="sub">(${ss.length})</span></h2><div class="card">${ss.map(row).join('')}</div></section>`).join('')}
+    <div class="empty" id="spotNone" hidden><div class="big">No spots match</div></div>
+    <p class="note">Built-in spot locations are approximate. Open a spot and drag its pin to put it exactly where you surf. You can also add spots from the map when logging a session.</p>`);
+  $('#spotFilter').addEventListener('input', e => {
+    const q = e.target.value.trim().toLowerCase();
+    let any = false;
+    document.querySelectorAll('.spotgroup').forEach(sec => {
+      let shown = 0;
+      sec.querySelectorAll('a.row').forEach(a => { const hit = !q || a.dataset.name.includes(q); a.hidden = !hit; if (hit) shown++; });
+      sec.hidden = !shown; if (shown) any = true;
+    });
+    $('#spotNone').hidden = any;
+  });
 }
 let spotEdit = null;
 function viewSpotForm(id) {
