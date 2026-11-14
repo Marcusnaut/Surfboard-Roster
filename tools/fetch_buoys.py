@@ -91,16 +91,23 @@ def station_names():
     except Exception as e:  # noqa: BLE001
         print(f"activestations: {e}", file=sys.stderr)
         return {}
-    return {s.get("id", "").upper(): (s.get("name") or "").strip() for s in root.iter("station")}
+    return {s.get("id", "").upper(): ((s.get("name") or "").strip(), s.get("type") or "") for s in root.iter("station")}
 
 
-def candidates(now):
-    """Wave-reporting stations inside the coast boxes, from latest_obs.txt."""
+def candidates(now, names):
+    """Stations inside the coast boxes that report waves or are moored buoys, from latest_obs.txt.
+
+    latest_obs only holds each station's newest row, which is often a weather-only report, so a
+    buoy can show no wave height there; moored buoys are kept and checked against their .spec file.
+    Great Lakes stations (ids starting 45) are skipped."""
     rows = parse_table(get(f"{BASE}/data/latest_obs/latest_obs.txt"))
     out = []
     for r in rows:
+        sid = r.get("STN", "").upper()
         lat, lon = num(r.get("LAT")), num(r.get("LON"))
-        if lat is None or lon is None or num(r.get("WVHT")) is None:
+        if lat is None or lon is None or sid.startswith("45"):
+            continue
+        if num(r.get("WVHT")) is None and names.get(sid, ("", ""))[1] != "buoy":
             continue
         region = region_of(lat, lon)
         t = stamp(r)
@@ -123,7 +130,7 @@ def tidy_name(raw, sid):
 def buoy(row, region, names):
     sid = row["STN"].upper()
     b = {
-        "id": sid, "name": tidy_name(names.get(sid), sid), "region": region,
+        "id": sid, "name": tidy_name(names.get(sid, ("", ""))[0], sid), "region": region,
         "lat": num(row.get("LAT")), "lon": num(row.get("LON")),
         "time": iso(stamp(row)),
         "wvht": num(row.get("WVHT")), "dpd": num(row.get("DPD")), "apd": num(row.get("APD")), "mwd": num(row.get("MWD")),
@@ -159,6 +166,10 @@ def buoy(row, region, names):
         seen.add(key)
         hist.append({"t": iso(t), "wvht": num(r.get("WVHT")), "swH": num(r.get("SwH"))})
     b["history"] = list(reversed(hist))
+    if b.get("wvht") is None and b.get("swH") is None:
+        return None  # not a wave buoy, or no recent waves
+    if s and stamp(s) and (datetime.now(timezone.utc) - stamp(s)).total_seconds() > MAX_AGE_HOURS * 3600 and num(row.get("WVHT")) is None:
+        return None
     return {k: v for k, v in b.items() if v is not None}
 
 
@@ -166,9 +177,9 @@ def main():
     out_path = sys.argv[1] if len(sys.argv) > 1 else "buoys.json"
     now = datetime.now(timezone.utc)
     names = station_names()
-    cands = candidates(now)
+    cands = candidates(now, names)
     with ThreadPoolExecutor(max_workers=8) as pool:
-        buoys = list(pool.map(lambda c: buoy(c[0], c[1], names), cands))
+        buoys = [b for b in pool.map(lambda c: buoy(c[0], c[1], names), cands) if b]
     buoys.sort(key=lambda b: (b["region"], -b["lat"]))
     data = {"updated": iso(now), "source": "NOAA National Data Buoy Center", "regions": [r[0] for r in REGIONS], "buoys": buoys}
     with open(out_path, "w", encoding="utf-8") as f:
