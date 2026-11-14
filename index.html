@@ -127,6 +127,8 @@ textarea { padding: 10px 12px; min-height: 96px; resize: vertical; }
 .note { color: var(--muted); font-size: 13px; margin: 8px 4px 0; }
 .stack { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; }
 .actions-row { display: flex; gap: 8px; margin-top: 18px; }
+.savebar { position: sticky; bottom: calc(env(safe-area-inset-bottom) + 53px); z-index: 900; margin: 18px -16px 0; padding: 10px 16px; background: linear-gradient(to bottom, transparent, var(--bg) 14px); display: flex; }
+.savebar button { flex: 1; min-height: 50px; font-size: 17px; box-shadow: 0 2px 10px rgba(0,0,0,.15); }
 .actions-row > * { flex: 1; }
 dialog {
   border: 0; border-radius: 18px; padding: 20px; width: min(92vw, 420px);
@@ -302,7 +304,7 @@ table.bt td { padding: 2px 0; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 5.2 (construction list)';
+const BUILD = 'Build 6 (pinned save, purchase and retire details)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -334,6 +336,7 @@ const LISTS = [
   { key: 'rocker', name: 'Rocker profile', group: 'Boards', store: 'boards', values: ['Flat', 'Low', 'Medium', 'High', 'Low entry / high exit', 'High entry / low exit'] },
   { key: 'rails', name: 'Rails', group: 'Boards', store: 'boards', values: ['Soft (50/50)', 'Medium', 'Hard (down)', 'Boxy', 'Pinched', 'Tucked edge'] },
   { key: 'construction', name: 'Construction', group: 'Boards', store: 'boards', values: ['PU', 'Epoxy (EPS)', 'PU / epoxy resin', 'Tuflite', 'XTR', 'Varial', 'Helium', 'Thunderbolt', 'Carbon wrap', 'Soft-top', 'Wood'] },
+  { key: 'retireReason', name: 'Retire reason', group: 'Boards', store: 'boards', values: ['Sold', 'Broken', 'Eroded to dust', 'Given away', 'Other'] },
   { key: 'tail', name: 'Tail shape', group: 'Boards', store: 'boards', values: ['Squash', 'Round', 'Rounded pin', 'Pin', 'Swallow', 'Fish', 'Diamond', 'Square', 'Bat'] },
   { key: 'finSetup', name: 'Fin configuration', group: 'Fins', store: 'fins', values: ['Single', 'Twin', 'Twin + trailer', 'Tri (thruster)', 'Quad', 'Quad rears', 'Twinzer', 'Canards', '2+1 side bites', 'Bonzer', '5-fin set'] },
   { key: 'finShape', name: 'Fin shape', group: 'Fins', store: 'fins', values: ['Upright', 'Raked', 'Keel', 'Pivot', 'Hatchet', 'Dolphin', 'Cutaway', 'All-round performance', 'Side bite', 'Trailer'] },
@@ -486,6 +489,8 @@ function funStars(n) {
   const r = Math.round(n);
   return `<span class="fun" aria-label="${n} out of 5">${'★'.repeat(r)}<span class="off">${'★'.repeat(5 - r)}</span></span>`;
 }
+const money = n => n == null || isNaN(n) ? '' : n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: n % 1 ? 2 : 0 });
+const SOLD = 'retireReason:sold';
 const avg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
 const fmtAvg = n => n == null ? '–' : n.toFixed(1);
 const COMPASS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
@@ -936,12 +941,16 @@ function viewBoard(id) {
   const best = topBy(list.filter(x => x.fun), 'waveSize', shortSize);
   const specs = [
     ['Length', fmtLen(b.length)], ['Width', fmtFrac(b.width)], ['Thickness', fmtFrac(b.thickness)], ['Volume', b.volume ? `${b.volume} L` : ''],
-    ...boardListsOn().map(k => [listByKey(k).name, optLabel(b[k])])
+    ...boardListsOn().map(k => [listByKey(k).name, optLabel(b[k])]),
+    ['Purchase price', money(b.purchasePrice)],
+    ['Retired', b.retired ? [optLabel(b.retireReason), b.retiredAt ? fmtDate(b.retiredAt + 'T00:00') : ''].filter(Boolean).join(', ') || 'Yes' : ''],
+    ['Sold for', b.retired && b.retireReason === SOLD ? money(b.soldPrice) : '']
   ].filter(([, v]) => v);
+  const net = b.purchasePrice != null ? b.purchasePrice - (b.retired && b.retireReason === SOLD && b.soldPrice != null ? b.soldPrice : 0) : null;
   setTop(boardName(b), '#/boards', `<a class="hact" href="#/board/${esc(id)}/edit">Edit</a>`);
   setMain(`
     <div class="hero">${photoBox(b, false)}</div>
-    <div class="title-block"><h2>${esc(boardName(b))}${b.retired ? ' <span class="tag">Retired</span>' : ''}</h2><div class="sub">${esc(b.shaper || 'Shaper not set')}</div></div>
+    <div class="title-block"><h2>${esc(boardName(b))}${b.retired ? ` <span class="tag">${esc(b.retireReason ? optLabel(b.retireReason) : 'Retired')}</span>` : ''}</h2><div class="sub">${esc(b.shaper || 'Shaper not set')}</div></div>
     <div class="actions-row"><a class="btn primary" href="#/sessions/new?board=${esc(id)}">Log a session</a></div>
     <h2 class="sec">Stats</h2>
     <div class="stats">
@@ -950,6 +959,8 @@ function viewBoard(id) {
       <div class="stat"><div class="v">${s.last ? esc(fmtDate(s.last)) : '–'}</div><div class="k">Last surfed</div></div>
       <div class="stat"><div class="v">${fav ? esc(fav.label) : '–'}</div><div class="k">Most surfed spot</div></div>
       <div class="stat" style="grid-column:1/-1"><div class="v">${best ? esc(best.label) : '–'}</div><div class="k">Most fun in (highest average fun by wave size)</div></div>
+      ${net != null ? `<div class="stat"><div class="v">${esc(money(net))}</div><div class="k">${b.retired && b.retireReason === SOLD && b.soldPrice != null ? 'Net cost after sale' : 'Cost'}</div></div>
+      <div class="stat"><div class="v">${s.count ? esc(money(net / s.count)) : '–'}</div><div class="k">Cost per session</div></div>` : ''}
       ${bestFins(list) ? `<div class="stat" style="grid-column:1/-1"><div class="v">${esc(finName(bestFins(list).fin))}</div><div class="k">Most fun fins on this board (${fmtAvg(bestFins(list).avg)} over ${plural(bestFins(list).count, 'session')})</div></div>` : ''}
     </div>
     ${list.filter(x => x.fun && x.waveSize).length >= 2 ? `<h2 class="sec">Fun by wave size</h2><div class="card chartbox"><canvas id="chFun" aria-label="Average fun by wave size"></canvas></div>` : ''}
@@ -1023,11 +1034,27 @@ function viewBoardForm(id) {
       ${boardListsOn().map(k => `<div class="field"><label for="f_${k}">${esc(listByKey(k).name)}</label>${pickerHTML(k, v[k], k, 'f_' + k)}</div>`).join('')}
       <h2 class="sec">Notes</h2>
       <div class="field"><textarea name="notes" id="notes" aria-label="Notes" maxlength="4000" placeholder="Fin setup, dings, how it rides...">${esc(v.notes)}</textarea></div>
-      ${b ? `<label class="check"><input type="checkbox" name="retired" ${v.retired ? 'checked' : ''}> Retired (hidden from lists and the session picker)</label>` : ''}
-      <div class="actions-row"><button class="primary" type="submit">Save board</button></div>
+      <h2 class="sec">Cost</h2>
+      <div class="field"><label for="purchasePrice">Purchase price ($)</label><input type="number" name="purchasePrice" id="purchasePrice" inputmode="decimal" step="0.01" min="0" max="100000" value="${v.purchasePrice ?? ''}" placeholder="0"></div>
+      ${b ? `<h2 class="sec">Status</h2>
+      <label class="check"><input type="checkbox" name="retired" id="retiredChk" ${v.retired ? 'checked' : ''}> Retired (hidden from lists and the session picker)</label>
+      <div id="retireBox" ${v.retired ? '' : 'hidden'}>
+        ${listOn('retireReason') ? `<div class="field"><label for="f_retireReason">Reason</label>${pickerHTML('retireReason', v.retireReason, 'retireReason', 'f_retireReason')}</div>` : ''}
+        <div class="field" id="soldBox" ${v.retireReason === SOLD ? '' : 'hidden'}><label for="soldPrice">Sold for ($)</label><input type="number" name="soldPrice" id="soldPrice" inputmode="decimal" step="0.01" min="0" max="100000" value="${v.soldPrice ?? ''}" placeholder="0"></div>
+      </div>` : ''}
+      <div class="savebar"><button class="primary" type="submit">Save board</button></div>
       ${b ? `<div class="actions-row"><button type="button" class="danger" data-act="deleteBoard" data-id="${esc(id)}">Delete board</button></div>` : ''}
       <p class="note">Missing a value in a list? Add it in Settings.</p>
     </form>`);
+  if ($('#retiredChk')) {
+    const sync = () => {
+      $('#retireBox').hidden = !$('#retiredChk').checked;
+      const r = $('#f_retireReason');
+      $('#soldBox').hidden = !(r && r.value === SOLD);
+    };
+    $('#retiredChk').addEventListener('change', sync);
+    if ($('#f_retireReason')) $('#f_retireReason').addEventListener('change', () => { sync(); if ($('#f_retireReason').value === SOLD) $('#soldPrice').focus(); });
+  }
   $('#photoInput').addEventListener('change', async e => {
     const f = e.target.files[0];
     if (!f) return;
@@ -1048,7 +1075,12 @@ async function saveBoard(form) {
   const num = k => { const x = fd.get(k); return x === '' || x == null ? null : Number(x); };
   const existing = bform.id ? boardById(bform.id) : null;
   const b = existing ? { ...existing } : { id: 'board:' + newId(), createdAt: new Date().toISOString() };
-  Object.assign(b, { model, shaper, length: num('length'), width: num('width'), thickness: num('thickness'), volume: num('volume'), notes: (fd.get('notes') || '').trim(), retired: fd.get('retired') === 'on' });
+  const retired = fd.get('retired') === 'on';
+  const reason = retired ? (listOn('retireReason') ? fd.get('retireReason') || '' : existing && existing.retireReason || '') : '';
+  Object.assign(b, { model, shaper, length: num('length'), width: num('width'), thickness: num('thickness'), volume: num('volume'), notes: (fd.get('notes') || '').trim(),
+    purchasePrice: num('purchasePrice'), retired, retireReason: reason, soldPrice: retired && reason === SOLD ? num('soldPrice') : null,
+    retiredAt: retired ? (existing && existing.retired && existing.retiredAt) || new Date().toISOString().slice(0, 10) : null });
+  if ((b.purchasePrice != null && (isNaN(b.purchasePrice) || b.purchasePrice < 0)) || (b.soldPrice != null && (isNaN(b.soldPrice) || b.soldPrice < 0))) { $('#boardErr').textContent = 'Prices should be amounts in dollars.'; return; }
   for (const k of boardListsOn()) b[k] = fd.get(k) || '';
   if (b.volume != null && (isNaN(b.volume) || b.volume < 0)) { $('#boardErr').textContent = 'Volume should be a number of liters.'; return; }
   const oldPhoto = existing && existing.photoId;
@@ -1238,7 +1270,7 @@ function viewFinForm(id) {
       <h2 class="sec">Notes</h2>
       <div class="field"><textarea name="notes" aria-label="Notes" maxlength="4000" placeholder="Where they work best, fronts vs rears, damage...">${esc(v.notes)}</textarea></div>
       ${f ? `<label class="check"><input type="checkbox" name="retired" ${v.retired ? 'checked' : ''}> Retired (hidden from lists and pickers)</label>` : ''}
-      <div class="actions-row"><button class="primary" type="submit">Save fins</button></div>
+      <div class="savebar"><button class="primary" type="submit">Save fins</button></div>
       ${f ? `<div class="actions-row"><button type="button" class="danger" data-act="deleteFin" data-id="${esc(id)}">Delete fins</button></div>` : ''}
       <p class="note">Missing a value in a list? Add it in Settings.</p>
     </form>`);
@@ -1383,7 +1415,7 @@ function viewSessionForm(id, q) {
       <div class="field"><span class="lbl" id="funLbl">Fun</span><div class="stars" role="radiogroup" aria-labelledby="funLbl" id="stars"></div></div>
       <div class="field"><label for="snotes">Notes</label><textarea name="notes" id="snotes" maxlength="4000" placeholder="Crowd, tide, what worked...">${esc(v.notes)}</textarea></div>
       <div class="err" id="sessErr" role="alert"></div>
-      <div class="actions-row"><button class="primary" type="submit">Save session</button></div>
+      <div class="savebar"><button class="primary" type="submit">Save session</button></div>
       ${s ? `<div class="actions-row"><button type="button" class="danger" data-act="deleteSession" data-id="${esc(id)}">Delete session</button></div>` : ''}
     </form>`);
   renderStars();
@@ -1704,7 +1736,7 @@ function viewSpotForm(id) {
       <div class="field"><span class="lbl">Location: drag the pin or tap the map</span><div class="card"><div id="spotMap" style="height:300px"></div></div>
         <div class="sub" id="spotCoords" style="margin:6px 4px 0"></div></div>
       <div class="err" id="spotErr" role="alert"></div>
-      <div class="actions-row"><button class="primary" type="submit">Save spot</button></div>
+      <div class="savebar"><button class="primary" type="submit">Save spot</button></div>
       ${sp ? `<div class="actions-row"><button type="button" data-act="toggleSpot" data-id="${esc(sp.id)}">${sp.hidden ? 'Show in spot list' : 'Hide from spot list'}</button></div>
       <div class="actions-row"><button type="button" class="danger" data-act="deleteSpot" data-id="${esc(sp.id)}">Delete spot</button></div>
       <p class="note">${n ? `Used by ${plural(n, 'session')}.` : 'No sessions here yet.'}</p>` : ''}
@@ -1824,10 +1856,10 @@ function csv(rows) {
   }).join(',')).join('\r\n');
 }
 async function exportCSV() {
-  const boards = [['Model', 'Shaper', 'Length', 'Width (in)', 'Thickness (in)', 'Volume (L)', ...BOARD_LISTS.map(k => listByKey(k).name), 'Retired', 'Sessions', 'Average fun', 'Notes']];
+  const boards = [['Model', 'Shaper', 'Length', 'Width (in)', 'Thickness (in)', 'Volume (L)', ...BOARD_LISTS.map(k => listByKey(k).name), 'Purchase price', 'Retired', 'Retire reason', 'Retired on', 'Sold for', 'Sessions', 'Average fun', 'Notes']];
   for (const b of [...S.boards].sort((a, c) => boardName(a).localeCompare(boardName(c)))) {
     const st = statsOf(sessionsFor('boardId', b.id));
-    boards.push([b.model, b.shaper, fmtLen(b.length), b.width, b.thickness, b.volume, ...BOARD_LISTS.map(k => optLabel(b[k])), b.retired ? 'Yes' : '', st.count, st.avgFun == null ? '' : st.avgFun.toFixed(2), b.notes]);
+    boards.push([b.model, b.shaper, fmtLen(b.length), b.width, b.thickness, b.volume, ...BOARD_LISTS.map(k => optLabel(b[k])), b.purchasePrice ?? '', b.retired ? 'Yes' : '', optLabel(b.retireReason), b.retiredAt || '', b.soldPrice ?? '', st.count, st.avgFun == null ? '' : st.avgFun.toFixed(2), b.notes]);
   }
   const sessions = [['Date', 'Time', 'Board', 'Spot', 'Latitude', 'Longitude', 'Duration (min)', 'Wave size', 'Wave description', 'Fun', 'Swell height (ft)', 'Swell period (s)', 'Swell direction (deg)', 'Notes']];
   for (const s of [...S.sessions].sort((a, c) => a.start.localeCompare(c.start))) {
@@ -1901,7 +1933,7 @@ document.addEventListener('click', async e => {
         break;
       }
       case 'deleteBoardAll': await deleteBoard(id, true); break;
-      case 'retireBoard': { const b = boardById(id); await putMany('boards', [{ ...b, retired: true }]); await loadAll(); closeDialog(); toast('Board retired'); location.replace(`#/board/${id}`); break; }
+      case 'retireBoard': { const b = boardById(id); await putMany('boards', [{ ...b, retired: true, retiredAt: new Date().toISOString().slice(0, 10) }]); await loadAll(); closeDialog(); toast('Board retired. Add the reason below.'); if (location.hash === `#/board/${id}/edit`) route(); else location.replace(`#/board/${id}/edit`); setTimeout(() => { const el = $('#retireBox'); if (el) el.scrollIntoView({ block: 'center' }); }, 100); break; }
       case 'fun': { const n = Number(el.dataset.v); sform.fun = sform.fun === n ? 0 : n; renderStars(); break; }
       case 'pickSpot': openSpotPicker(); break;
       case 'retrySwell': scheduleSwell(0); break;
