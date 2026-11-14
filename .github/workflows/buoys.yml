@@ -43,7 +43,11 @@ jobs:
           curl -fsSL "https://raw.githubusercontent.com/${REPO}/data/forecasts.json" -o prev_forecasts.json || true
           python3 tools/fetch_forecasts.py out/buoys.json spots.json out/forecasts.json prev_forecasts.json || cp prev_forecasts.json out/forecasts.json || true
       - name: List CDIP wave-height grid times
-        run: python3 tools/fetch_wave_grid.py out/wavegrid.json || true
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/${REPO}/data/wavegrid.json" -o prev_wavegrid.json || true
+          python3 tools/fetch_wave_grid.py out/wavegrid.json prev_wavegrid.json || cp prev_wavegrid.json out/wavegrid.json || true
       - name: Publish to the data branch
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}

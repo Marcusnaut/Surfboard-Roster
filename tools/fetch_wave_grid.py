@@ -4,12 +4,13 @@ The app draws these grids as a map layer straight from CDIP's WMS server, but it
 to know which hours exist. Browsers can't always read CDIP's capabilities document
 (no CORS), so this script writes the list to wavegrid.json on the data branch.
 
-Usage: python3 tools/fetch_wave_grid.py out/wavegrid.json
+Usage: python3 tools/fetch_wave_grid.py out/wavegrid.json [previous wavegrid.json]
 """
 
 import json
 import re
 import sys
+import time
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
@@ -53,11 +54,23 @@ def expand(text):
     return sorted(set(out))
 
 
+def fetch(url, tries=4):
+    """CDIP sometimes answers 403 or times out from GitHub's runners; retry with a pause."""
+    last = None
+    for i in range(tries):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/xml,text/xml,*/*"})
+            with urllib.request.urlopen(req, timeout=60) as r:
+                return r.read()
+        except Exception as ex:  # noqa: BLE001
+            last = ex
+            time.sleep(5 * (i + 1))
+    raise last
+
+
 def times(kind):
     url = WMS.format(kind=kind) + "?service=WMS&version=1.3.0&request=GetCapabilities"
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        root = ET.fromstring(r.read())
+    root = ET.fromstring(fetch(url))
     for layer in root.iter():
         if not layer.tag.endswith("Layer"):
             continue
@@ -72,14 +85,19 @@ def times(kind):
 
 def main():
     out_path = sys.argv[1]
+    prev_path = sys.argv[2] if len(sys.argv) > 2 else ""
+    try:
+        prev = json.load(open(prev_path)) if prev_path else {}
+    except Exception:  # noqa: BLE001
+        prev = {}
     out = {"updated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
            "url": WMS.format(kind="{kind}"), "layer": LAYER}
     for kind in ("nowcast", "forecast"):
         try:
             out[kind] = times(kind)
         except Exception as ex:  # noqa: BLE001
-            print(f"{kind}: {ex}")
-            out[kind] = []
+            print(f"{kind}: {ex}; keeping the previous list")
+            out[kind] = prev.get(kind) or []
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(out, f, separators=(",", ":"))
     print(f"Wrote {out_path}: {len(out['nowcast'])} nowcast and {len(out['forecast'])} forecast steps")
