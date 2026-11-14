@@ -1,0 +1,3857 @@
+{
+"note": "Built-in surf spots. Coordinates are approximate; adjust in the app.",
+"spots": [
+{
+"id": "spot:hobuck-beach",
+"name": "Hobuck Beach",
+"lat": 48.336,
+"lon": -124.672,
+"region": "Washington",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:shi-shi-beach",
+"name": "Shi Shi Beach",
+"lat": 48.27,
+"lon": -124.69,
+"region": "Washington",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:salt-creek-wa",
+"name": "Salt Creek (WA)",
+"lat": 48.165,
+"lon": -123.705,
+"region": "Washington",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:crescent-bay",
+"name": "Crescent Bay",
+"lat": 48.162,
+"lon": -123.731,
+"region": "Washington",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:la-push-first-beach",
+"name": "La Push First Beach",
+"lat": 47.902,
+"lon": -124.64,
+"region": "Washington",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:ruby-beach",
+"name": "Ruby Beach",
+"lat": 47.711,
+"lon": -124.415,
+"region": "Washington",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:kalaloch",
+"name": "Kalaloch",
+"lat": 47.607,
+"lon": -124.374,
+"region": "Washington",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:moclips",
+"name": "Moclips",
+"lat": 47.24,
+"lon": -124.22,
+"region": "Washington",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:copalis-beach",
+"name": "Copalis Beach",
+"lat": 47.115,
+"lon": -124.18,
+"region": "Washington",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:ocean-shores",
+"name": "Ocean Shores",
+"lat": 46.973,
+"lon": -124.18,
+"region": "Washington",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:westport-jetty",
+"name": "Westport Jetty",
+"lat": 46.906,
+"lon": -124.116,
+"region": "Washington",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:westport-half-moon-bay",
+"name": "Westport Half Moon Bay",
+"lat": 46.9,
+"lon": -124.108,
+"region": "Washington",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:long-beach-wa",
+"name": "Long Beach (WA)",
+"lat": 46.352,
+"lon": -124.064,
+"region": "Washington",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:seaview",
+"name": "Seaview",
+"lat": 46.333,
+"lon": -124.059,
+"region": "Washington",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:waikiki-beach-cape-disappointment",
+"name": "Waikiki Beach (Cape Disappointment)",
+"lat": 46.281,
+"lon": -124.059,
+"region": "Washington",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:fort-stevens",
+"name": "Fort Stevens",
+"lat": 46.178,
+"lon": -123.979,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:seaside-cove",
+"name": "Seaside Cove",
+"lat": 45.982,
+"lon": -123.935,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:seaside-point",
+"name": "Seaside Point",
+"lat": 45.974,
+"lon": -123.955,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:indian-beach",
+"name": "Indian Beach",
+"lat": 45.931,
+"lon": -123.981,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:cannon-beach",
+"name": "Cannon Beach",
+"lat": 45.892,
+"lon": -123.963,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:arch-cape",
+"name": "Arch Cape",
+"lat": 45.802,
+"lon": -123.965,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:short-sand-beach",
+"name": "Short Sand Beach",
+"lat": 45.759,
+"lon": -123.962,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:manzanita",
+"name": "Manzanita",
+"lat": 45.718,
+"lon": -123.937,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:rockaway-beach-or",
+"name": "Rockaway Beach (OR)",
+"lat": 45.613,
+"lon": -123.944,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:cape-kiwanda",
+"name": "Cape Kiwanda",
+"lat": 45.216,
+"lon": -123.973,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:neskowin",
+"name": "Neskowin",
+"lat": 45.103,
+"lon": -123.983,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:roads-end",
+"name": "Roads End",
+"lat": 45.006,
+"lon": -124.008,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:nelscott-reef",
+"name": "Nelscott Reef",
+"lat": 44.958,
+"lon": -124.034,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:gleneden-beach",
+"name": "Gleneden Beach",
+"lat": 44.88,
+"lon": -124.04,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:otter-rock",
+"name": "Otter Rock",
+"lat": 44.745,
+"lon": -124.064,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:agate-beach",
+"name": "Agate Beach",
+"lat": 44.66,
+"lon": -124.059,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:nye-beach",
+"name": "Nye Beach",
+"lat": 44.636,
+"lon": -124.065,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:south-beach-jetty-newport",
+"name": "South Beach Jetty (Newport)",
+"lat": 44.61,
+"lon": -124.068,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:seal-rock",
+"name": "Seal Rock",
+"lat": 44.497,
+"lon": -124.083,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:waldport",
+"name": "Waldport",
+"lat": 44.425,
+"lon": -124.08,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:yachats",
+"name": "Yachats",
+"lat": 44.31,
+"lon": -124.108,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:florence-south-jetty",
+"name": "Florence South Jetty",
+"lat": 43.995,
+"lon": -124.14,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:winchester-bay",
+"name": "Winchester Bay",
+"lat": 43.668,
+"lon": -124.215,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:horsfall-beach",
+"name": "Horsfall Beach",
+"lat": 43.445,
+"lon": -124.27,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:bastendorff-beach",
+"name": "Bastendorff Beach",
+"lat": 43.344,
+"lon": -124.343,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:bandon",
+"name": "Bandon",
+"lat": 43.11,
+"lon": -124.43,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:battle-rock-port-orford",
+"name": "Battle Rock (Port Orford)",
+"lat": 42.739,
+"lon": -124.497,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:hubbard-creek",
+"name": "Hubbard Creek",
+"lat": 42.716,
+"lon": -124.468,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:gold-beach",
+"name": "Gold Beach",
+"lat": 42.42,
+"lon": -124.425,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:lone-ranch",
+"name": "Lone Ranch",
+"lat": 42.1,
+"lon": -124.34,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:harris-beach",
+"name": "Harris Beach",
+"lat": 42.065,
+"lon": -124.315,
+"region": "Oregon",
+"coast": "West Coast",
+"ca": false
+},
+{
+"id": "spot:point-st-george",
+"name": "Point St. George",
+"lat": 41.785,
+"lon": -124.255,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:south-beach-crescent-city",
+"name": "South Beach (Crescent City)",
+"lat": 41.735,
+"lon": -124.191,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:klamath-river-mouth",
+"name": "Klamath River Mouth",
+"lat": 41.546,
+"lon": -124.083,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:gold-bluffs-beach",
+"name": "Gold Bluffs Beach",
+"lat": 41.37,
+"lon": -124.07,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:camel-rock",
+"name": "Camel Rock",
+"lat": 41.05,
+"lon": -124.11,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:moonstone-beach",
+"name": "Moonstone Beach",
+"lat": 41.03,
+"lon": -124.113,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:clam-beach",
+"name": "Clam Beach",
+"lat": 40.995,
+"lon": -124.116,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:north-jetty-humboldt",
+"name": "North Jetty (Humboldt)",
+"lat": 40.77,
+"lon": -124.237,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:south-jetty-humboldt",
+"name": "South Jetty (Humboldt)",
+"lat": 40.763,
+"lon": -124.236,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:centerville-beach",
+"name": "Centerville Beach",
+"lat": 40.56,
+"lon": -124.36,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:shelter-cove",
+"name": "Shelter Cove",
+"lat": 40.025,
+"lon": -124.072,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:usal",
+"name": "Usal",
+"lat": 39.832,
+"lon": -123.85,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:westport-ca",
+"name": "Westport (CA)",
+"lat": 39.637,
+"lon": -123.784,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:ten-mile",
+"name": "Ten Mile",
+"lat": 39.55,
+"lon": -123.77,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:virgin-creek",
+"name": "Virgin Creek",
+"lat": 39.471,
+"lon": -123.805,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:big-river-mendocino",
+"name": "Big River (Mendocino)",
+"lat": 39.302,
+"lon": -123.795,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:point-arena-cove",
+"name": "Point Arena Cove",
+"lat": 38.913,
+"lon": -123.712,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:gualala-rivermouth",
+"name": "Gualala Rivermouth",
+"lat": 38.766,
+"lon": -123.538,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:salmon-creek",
+"name": "Salmon Creek",
+"lat": 38.351,
+"lon": -123.068,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:doran-beach",
+"name": "Doran Beach",
+"lat": 38.311,
+"lon": -123.039,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:dillon-beach",
+"name": "Dillon Beach",
+"lat": 38.25,
+"lon": -122.966,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:point-reyes-beach",
+"name": "Point Reyes Beach",
+"lat": 38.06,
+"lon": -122.99,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:drakes-beach",
+"name": "Drakes Beach",
+"lat": 38.029,
+"lon": -122.962,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:limantour",
+"name": "Limantour",
+"lat": 38.027,
+"lon": -122.88,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:bolinas-patch",
+"name": "Bolinas Patch",
+"lat": 37.906,
+"lon": -122.682,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:stinson-beach",
+"name": "Stinson Beach",
+"lat": 37.9,
+"lon": -122.646,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:muir-beach",
+"name": "Muir Beach",
+"lat": 37.86,
+"lon": -122.576,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:fort-point",
+"name": "Fort Point",
+"lat": 37.81,
+"lon": -122.477,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:kelly-s-cove",
+"name": "Kelly's Cove",
+"lat": 37.773,
+"lon": -122.512,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:ocean-beach-noriega",
+"name": "Ocean Beach (Noriega)",
+"lat": 37.754,
+"lon": -122.509,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:ocean-beach-sloat",
+"name": "Ocean Beach (Sloat)",
+"lat": 37.737,
+"lon": -122.507,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:fort-funston",
+"name": "Fort Funston",
+"lat": 37.715,
+"lon": -122.503,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:sharp-park",
+"name": "Sharp Park",
+"lat": 37.636,
+"lon": -122.495,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:pacifica-pier",
+"name": "Pacifica Pier",
+"lat": 37.633,
+"lon": -122.497,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:rockaway-beach-pacifica",
+"name": "Rockaway Beach (Pacifica)",
+"lat": 37.61,
+"lon": -122.497,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:linda-mar",
+"name": "Linda Mar",
+"lat": 37.594,
+"lon": -122.503,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:montara",
+"name": "Montara",
+"lat": 37.546,
+"lon": -122.515,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:princeton-jetty",
+"name": "Princeton Jetty",
+"lat": 37.496,
+"lon": -122.488,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:mavericks",
+"name": "Mavericks",
+"lat": 37.494,
+"lon": -122.502,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:dunes-beach-half-moon-bay",
+"name": "Dunes Beach (Half Moon Bay)",
+"lat": 37.47,
+"lon": -122.448,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:san-gregorio",
+"name": "San Gregorio",
+"lat": 37.322,
+"lon": -122.402,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:pomponio",
+"name": "Pomponio",
+"lat": 37.296,
+"lon": -122.408,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:pescadero",
+"name": "Pescadero",
+"lat": 37.264,
+"lon": -122.413,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:ano-nuevo",
+"name": "Ano Nuevo",
+"lat": 37.109,
+"lon": -122.33,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:waddell-creek",
+"name": "Waddell Creek",
+"lat": 37.095,
+"lon": -122.277,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:scott-creek",
+"name": "Scott Creek",
+"lat": 37.041,
+"lon": -122.23,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:davenport-landing",
+"name": "Davenport Landing",
+"lat": 37.023,
+"lon": -122.217,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:seacliff",
+"name": "Seacliff",
+"lat": 36.972,
+"lon": -121.913,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:capitola",
+"name": "Capitola",
+"lat": 36.971,
+"lon": -121.95,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:rio-del-mar",
+"name": "Rio Del Mar",
+"lat": 36.966,
+"lon": -121.906,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:santa-cruz-rivermouth",
+"name": "Santa Cruz Rivermouth",
+"lat": 36.963,
+"lon": -122.012,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:private-s",
+"name": "Private's",
+"lat": 36.963,
+"lon": -121.96,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:26th-avenue",
+"name": "26th Avenue",
+"lat": 36.962,
+"lon": -121.983,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:cowell-s",
+"name": "Cowell's",
+"lat": 36.961,
+"lon": -122.024,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:the-hook",
+"name": "The Hook",
+"lat": 36.959,
+"lon": -121.964,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:wilder-ranch",
+"name": "Wilder Ranch",
+"lat": 36.958,
+"lon": -122.085,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:pleasure-point",
+"name": "Pleasure Point",
+"lat": 36.954,
+"lon": -121.971,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:mitchell-s-cove",
+"name": "Mitchell's Cove",
+"lat": 36.953,
+"lon": -122.042,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:sewer-peak",
+"name": "Sewer Peak",
+"lat": 36.953,
+"lon": -121.973,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:natural-bridges",
+"name": "Natural Bridges",
+"lat": 36.951,
+"lon": -122.059,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:steamer-lane",
+"name": "Steamer Lane",
+"lat": 36.951,
+"lon": -122.025,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:manresa",
+"name": "Manresa",
+"lat": 36.93,
+"lon": -121.865,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:sunset-state-beach",
+"name": "Sunset State Beach",
+"lat": 36.889,
+"lon": -121.833,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:moss-landing",
+"name": "Moss Landing",
+"lat": 36.802,
+"lon": -121.789,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:marina-state-beach",
+"name": "Marina State Beach",
+"lat": 36.696,
+"lon": -121.81,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:lover-s-point",
+"name": "Lover's Point",
+"lat": 36.627,
+"lon": -121.916,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:asilomar",
+"name": "Asilomar",
+"lat": 36.616,
+"lon": -121.94,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:carmel-beach",
+"name": "Carmel Beach",
+"lat": 36.553,
+"lon": -121.929,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:carmel-rivermouth",
+"name": "Carmel Rivermouth",
+"lat": 36.536,
+"lon": -121.929,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:garrapata",
+"name": "Garrapata",
+"lat": 36.466,
+"lon": -121.928,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:andrew-molera",
+"name": "Andrew Molera",
+"lat": 36.285,
+"lon": -121.865,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:sand-dollar-beach",
+"name": "Sand Dollar Beach",
+"lat": 35.925,
+"lon": -121.47,
+"region": "Northern California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:pico-creek",
+"name": "Pico Creek",
+"lat": 35.615,
+"lon": -121.15,
+"region": "Central California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:moonstone-beach-cambria",
+"name": "Moonstone Beach (Cambria)",
+"lat": 35.574,
+"lon": -121.112,
+"region": "Central California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:cayucos-pier",
+"name": "Cayucos Pier",
+"lat": 35.448,
+"lon": -120.907,
+"region": "Central California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:morro-rock",
+"name": "Morro Rock",
+"lat": 35.373,
+"lon": -120.866,
+"region": "Central California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:morro-bay-sandspit",
+"name": "Morro Bay Sandspit",
+"lat": 35.335,
+"lon": -120.86,
+"region": "Central California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:hazard-canyon",
+"name": "Hazard Canyon",
+"lat": 35.29,
+"lon": -120.885,
+"region": "Central California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:avila-beach",
+"name": "Avila Beach",
+"lat": 35.179,
+"lon": -120.733,
+"region": "Central California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:port-san-luis",
+"name": "Port San Luis",
+"lat": 35.17,
+"lon": -120.753,
+"region": "Central California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:shell-beach",
+"name": "Shell Beach",
+"lat": 35.155,
+"lon": -120.672,
+"region": "Central California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:pismo-beach-pier",
+"name": "Pismo Beach Pier",
+"lat": 35.139,
+"lon": -120.644,
+"region": "Central California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:grover-beach",
+"name": "Grover Beach",
+"lat": 35.12,
+"lon": -120.632,
+"region": "Central California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:oceano-dunes",
+"name": "Oceano Dunes",
+"lat": 35.09,
+"lon": -120.63,
+"region": "Central California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:guadalupe-dunes",
+"name": "Guadalupe Dunes",
+"lat": 34.966,
+"lon": -120.65,
+"region": "Central California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:surf-beach",
+"name": "Surf Beach",
+"lat": 34.683,
+"lon": -120.605,
+"region": "Central California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:jalama",
+"name": "Jalama",
+"lat": 34.505,
+"lon": -120.502,
+"region": "Central California",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:government-point",
+"name": "Government Point",
+"lat": 34.453,
+"lon": -120.455,
+"region": "Santa Barbara",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:cojo",
+"name": "Cojo",
+"lat": 34.454,
+"lon": -120.4,
+"region": "Santa Barbara",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:refugio",
+"name": "Refugio",
+"lat": 34.462,
+"lon": -120.071,
+"region": "Santa Barbara",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:el-capitan",
+"name": "El Capitan",
+"lat": 34.457,
+"lon": -120.024,
+"region": "Santa Barbara",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:haskell-s",
+"name": "Haskell's",
+"lat": 34.428,
+"lon": -119.913,
+"region": "Santa Barbara",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:sands-coal-oil-point",
+"name": "Sands (Coal Oil Point)",
+"lat": 34.408,
+"lon": -119.878,
+"region": "Santa Barbara",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:devereux",
+"name": "Devereux",
+"lat": 34.411,
+"lon": -119.873,
+"region": "Santa Barbara",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:campus-point",
+"name": "Campus Point",
+"lat": 34.405,
+"lon": -119.843,
+"region": "Santa Barbara",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:leadbetter",
+"name": "Leadbetter",
+"lat": 34.402,
+"lon": -119.7,
+"region": "Santa Barbara",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:sandspit",
+"name": "Sandspit",
+"lat": 34.404,
+"lon": -119.687,
+"region": "Santa Barbara",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:hammond-s-reef",
+"name": "Hammond's Reef",
+"lat": 34.417,
+"lon": -119.638,
+"region": "Santa Barbara",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:miramar",
+"name": "Miramar",
+"lat": 34.418,
+"lon": -119.627,
+"region": "Santa Barbara",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:summerland",
+"name": "Summerland",
+"lat": 34.418,
+"lon": -119.598,
+"region": "Santa Barbara",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:carpinteria-state-beach",
+"name": "Carpinteria State Beach",
+"lat": 34.39,
+"lon": -119.517,
+"region": "Santa Barbara",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:tar-pits",
+"name": "Tar Pits",
+"lat": 34.387,
+"lon": -119.505,
+"region": "Santa Barbara",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:rincon",
+"name": "Rincon",
+"lat": 34.3735,
+"lon": -119.4768,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:la-conchita",
+"name": "La Conchita",
+"lat": 34.3637,
+"lon": -119.4466,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:mussel-shoals-little-rincon",
+"name": "Mussel Shoals (Little Rincon)",
+"lat": 34.3557,
+"lon": -119.4389,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:oil-piers",
+"name": "Oil Piers",
+"lat": 34.3478,
+"lon": -119.4262,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:hobson",
+"name": "Hobson",
+"lat": 34.3315,
+"lon": -119.403,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:pitas-point",
+"name": "Pitas Point",
+"lat": 34.3173,
+"lon": -119.3899,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:mondos",
+"name": "Mondos",
+"lat": 34.3195,
+"lon": -119.3835,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:faria",
+"name": "Faria",
+"lat": 34.3199,
+"lon": -119.3776,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:solimar",
+"name": "Solimar",
+"lat": 34.3108,
+"lon": -119.3615,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:emma-wood",
+"name": "Emma Wood",
+"lat": 34.2853,
+"lon": -119.3257,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:stanley-s",
+"name": "Stanley's",
+"lat": 34.2825,
+"lon": -119.318,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:ventura-overhead",
+"name": "Ventura Overhead",
+"lat": 34.281,
+"lon": -119.315,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:c-street-surfers-point",
+"name": "C Street (Surfers Point)",
+"lat": 34.2752,
+"lon": -119.301,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:ventura-pier",
+"name": "Ventura Pier",
+"lat": 34.2741,
+"lon": -119.2914,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:san-buenaventura-state-beach",
+"name": "San Buenaventura State Beach",
+"lat": 34.268,
+"lon": -119.278,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:ventura-harbor-south-jetty",
+"name": "Ventura Harbor (South Jetty)",
+"lat": 34.2445,
+"lon": -119.2695,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:santa-clara-rivermouth",
+"name": "Santa Clara Rivermouth",
+"lat": 34.2337,
+"lon": -119.264,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:mcgrath",
+"name": "McGrath",
+"lat": 34.2268,
+"lon": -119.2595,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:mandalay",
+"name": "Mandalay",
+"lat": 34.21,
+"lon": -119.253,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:oxnard-shores",
+"name": "Oxnard Shores",
+"lat": 34.1985,
+"lon": -119.249,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:hollywood-beach",
+"name": "Hollywood Beach",
+"lat": 34.166,
+"lon": -119.235,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:silver-strand",
+"name": "Silver Strand",
+"lat": 34.1575,
+"lon": -119.225,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:port-hueneme",
+"name": "Port Hueneme",
+"lat": 34.144,
+"lon": -119.205,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:point-mugu",
+"name": "Point Mugu",
+"lat": 34.085,
+"lon": -119.06,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:county-line",
+"name": "County Line",
+"lat": 34.051,
+"lon": -118.964,
+"region": "Ventura",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:leo-carrillo",
+"name": "Leo Carrillo",
+"lat": 34.044,
+"lon": -118.938,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:staircase",
+"name": "Staircase",
+"lat": 34.04,
+"lon": -118.903,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:zuma",
+"name": "Zuma",
+"lat": 34.02,
+"lon": -118.825,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:point-dume",
+"name": "Point Dume",
+"lat": 34.002,
+"lon": -118.806,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:paradise-cove",
+"name": "Paradise Cove",
+"lat": 34.019,
+"lon": -118.786,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:latigo",
+"name": "Latigo",
+"lat": 34.031,
+"lon": -118.745,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:malibu-surfrider",
+"name": "Malibu (Surfrider)",
+"lat": 34.036,
+"lon": -118.678,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:big-rock",
+"name": "Big Rock",
+"lat": 34.038,
+"lon": -118.611,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:topanga",
+"name": "Topanga",
+"lat": 34.038,
+"lon": -118.582,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:sunset-point",
+"name": "Sunset Point",
+"lat": 34.039,
+"lon": -118.556,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:will-rogers",
+"name": "Will Rogers",
+"lat": 34.035,
+"lon": -118.536,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:santa-monica-pier",
+"name": "Santa Monica Pier",
+"lat": 34.008,
+"lon": -118.499,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:venice-breakwater",
+"name": "Venice Breakwater",
+"lat": 33.988,
+"lon": -118.479,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:venice-pier",
+"name": "Venice Pier",
+"lat": 33.977,
+"lon": -118.468,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:dockweiler",
+"name": "Dockweiler",
+"lat": 33.93,
+"lon": -118.437,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:el-porto",
+"name": "El Porto",
+"lat": 33.9,
+"lon": -118.42,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:manhattan-beach-pier",
+"name": "Manhattan Beach Pier",
+"lat": 33.884,
+"lon": -118.411,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:hermosa-pier",
+"name": "Hermosa Pier",
+"lat": 33.862,
+"lon": -118.402,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:redondo-breakwater",
+"name": "Redondo Breakwater",
+"lat": 33.842,
+"lon": -118.396,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:avenue-c-redondo",
+"name": "Avenue C (Redondo)",
+"lat": 33.828,
+"lon": -118.392,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:torrance-beach",
+"name": "Torrance Beach",
+"lat": 33.812,
+"lon": -118.392,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:haggerty-s",
+"name": "Haggerty's",
+"lat": 33.795,
+"lon": -118.395,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:bluff-cove",
+"name": "Bluff Cove",
+"lat": 33.792,
+"lon": -118.413,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:palos-verdes-cove",
+"name": "Palos Verdes Cove",
+"lat": 33.791,
+"lon": -118.42,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:lunada-bay",
+"name": "Lunada Bay",
+"lat": 33.77,
+"lon": -118.425,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:royal-palms",
+"name": "Royal Palms",
+"lat": 33.716,
+"lon": -118.322,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:cabrillo-beach",
+"name": "Cabrillo Beach",
+"lat": 33.708,
+"lon": -118.283,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:point-fermin",
+"name": "Point Fermin",
+"lat": 33.706,
+"lon": -118.293,
+"region": "Los Angeles",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:seal-beach-pier",
+"name": "Seal Beach Pier",
+"lat": 33.738,
+"lon": -118.106,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:surfside",
+"name": "Surfside",
+"lat": 33.728,
+"lon": -118.087,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:bolsa-chica",
+"name": "Bolsa Chica",
+"lat": 33.693,
+"lon": -118.048,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:goldenwest",
+"name": "Goldenwest",
+"lat": 33.672,
+"lon": -118.014,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:huntington-beach-pier",
+"name": "Huntington Beach Pier",
+"lat": 33.655,
+"lon": -118.004,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:huntington-state-beach",
+"name": "Huntington State Beach",
+"lat": 33.635,
+"lon": -117.97,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:56th-street-newport",
+"name": "56th Street (Newport)",
+"lat": 33.627,
+"lon": -117.952,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:newport-river-jetties",
+"name": "Newport River Jetties",
+"lat": 33.616,
+"lon": -117.935,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:blackies",
+"name": "Blackies",
+"lat": 33.607,
+"lon": -117.93,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:newport-point",
+"name": "Newport Point",
+"lat": 33.598,
+"lon": -117.893,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:the-wedge",
+"name": "The Wedge",
+"lat": 33.593,
+"lon": -117.882,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:corona-del-mar",
+"name": "Corona del Mar",
+"lat": 33.592,
+"lon": -117.874,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:crystal-cove",
+"name": "Crystal Cove",
+"lat": 33.574,
+"lon": -117.84,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:crescent-bay-laguna",
+"name": "Crescent Bay (Laguna)",
+"lat": 33.545,
+"lon": -117.803,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:brooks-street",
+"name": "Brooks Street",
+"lat": 33.538,
+"lon": -117.783,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:thalia-street",
+"name": "Thalia Street",
+"lat": 33.533,
+"lon": -117.775,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:aliso-creek",
+"name": "Aliso Creek",
+"lat": 33.51,
+"lon": -117.751,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:salt-creek",
+"name": "Salt Creek",
+"lat": 33.476,
+"lon": -117.725,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:strands",
+"name": "Strands",
+"lat": 33.47,
+"lon": -117.719,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:doheny",
+"name": "Doheny",
+"lat": 33.461,
+"lon": -117.688,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:poche",
+"name": "Poche",
+"lat": 33.443,
+"lon": -117.651,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:san-clemente-pier",
+"name": "San Clemente Pier",
+"lat": 33.419,
+"lon": -117.621,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:t-street",
+"name": "T Street",
+"lat": 33.416,
+"lon": -117.617,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:cottons",
+"name": "Cottons",
+"lat": 33.391,
+"lon": -117.6,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:uppers",
+"name": "Uppers",
+"lat": 33.386,
+"lon": -117.594,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:middles",
+"name": "Middles",
+"lat": 33.385,
+"lon": -117.592,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:lowers",
+"name": "Lowers",
+"lat": 33.383,
+"lon": -117.589,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:church",
+"name": "Church",
+"lat": 33.379,
+"lon": -117.585,
+"region": "Orange County",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:san-onofre-old-man-s",
+"name": "San Onofre (Old Man's)",
+"lat": 33.373,
+"lon": -117.565,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:oceanside-harbor",
+"name": "Oceanside Harbor",
+"lat": 33.205,
+"lon": -117.396,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:oceanside-pier",
+"name": "Oceanside Pier",
+"lat": 33.194,
+"lon": -117.386,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:carlsbad-state-beach",
+"name": "Carlsbad State Beach",
+"lat": 33.153,
+"lon": -117.352,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:tamarack",
+"name": "Tamarack",
+"lat": 33.146,
+"lon": -117.346,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:warm-water-jetty",
+"name": "Warm Water Jetty",
+"lat": 33.137,
+"lon": -117.341,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:terra-mar",
+"name": "Terra Mar",
+"lat": 33.113,
+"lon": -117.326,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:ponto",
+"name": "Ponto",
+"lat": 33.087,
+"lon": -117.312,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:grandview",
+"name": "Grandview",
+"lat": 33.074,
+"lon": -117.309,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:beacons",
+"name": "Beacons",
+"lat": 33.064,
+"lon": -117.306,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:stone-steps",
+"name": "Stone Steps",
+"lat": 33.059,
+"lon": -117.306,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:moonlight-beach",
+"name": "Moonlight Beach",
+"lat": 33.048,
+"lon": -117.297,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:d-street",
+"name": "D Street",
+"lat": 33.045,
+"lon": -117.296,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:swami-s",
+"name": "Swami's",
+"lat": 33.035,
+"lon": -117.293,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:pipes-cardiff",
+"name": "Pipes (Cardiff)",
+"lat": 33.027,
+"lon": -117.287,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:cardiff-reef",
+"name": "Cardiff Reef",
+"lat": 33.015,
+"lon": -117.282,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:seaside-reef",
+"name": "Seaside Reef",
+"lat": 33.0,
+"lon": -117.28,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:fletcher-cove",
+"name": "Fletcher Cove",
+"lat": 32.991,
+"lon": -117.274,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:del-mar-15th-street",
+"name": "Del Mar (15th Street)",
+"lat": 32.958,
+"lon": -117.268,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:torrey-pines",
+"name": "Torrey Pines",
+"lat": 32.93,
+"lon": -117.26,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:black-s-beach",
+"name": "Black's Beach",
+"lat": 32.881,
+"lon": -117.253,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:scripps-pier",
+"name": "Scripps Pier",
+"lat": 32.866,
+"lon": -117.255,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:la-jolla-shores",
+"name": "La Jolla Shores",
+"lat": 32.858,
+"lon": -117.257,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:windansea",
+"name": "Windansea",
+"lat": 32.83,
+"lon": -117.282,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:big-rock-la-jolla",
+"name": "Big Rock (La Jolla)",
+"lat": 32.823,
+"lon": -117.282,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:bird-rock",
+"name": "Bird Rock",
+"lat": 32.816,
+"lon": -117.274,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:tourmaline",
+"name": "Tourmaline",
+"lat": 32.805,
+"lon": -117.264,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:pacific-beach-pier",
+"name": "Pacific Beach Pier",
+"lat": 32.797,
+"lon": -117.257,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:mission-beach",
+"name": "Mission Beach",
+"lat": 32.776,
+"lon": -117.253,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:ocean-beach-pier",
+"name": "Ocean Beach Pier",
+"lat": 32.749,
+"lon": -117.256,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:sunset-cliffs",
+"name": "Sunset Cliffs",
+"lat": 32.727,
+"lon": -117.257,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:coronado",
+"name": "Coronado",
+"lat": 32.684,
+"lon": -117.183,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:silver-strand-coronado",
+"name": "Silver Strand (Coronado)",
+"lat": 32.63,
+"lon": -117.142,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:imperial-beach-pier",
+"name": "Imperial Beach Pier",
+"lat": 32.578,
+"lon": -117.135,
+"region": "San Diego",
+"coast": "West Coast",
+"ca": true
+},
+{
+"id": "spot:reid-state-park",
+"name": "Reid State Park",
+"lat": 43.78,
+"lon": -69.725,
+"region": "Maine",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:popham-beach",
+"name": "Popham Beach",
+"lat": 43.738,
+"lon": -69.796,
+"region": "Maine",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:higgins-beach",
+"name": "Higgins Beach",
+"lat": 43.563,
+"lon": -70.276,
+"region": "Maine",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:scarborough-beach",
+"name": "Scarborough Beach",
+"lat": 43.551,
+"lon": -70.311,
+"region": "Maine",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:old-orchard-beach",
+"name": "Old Orchard Beach",
+"lat": 43.513,
+"lon": -70.374,
+"region": "Maine",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:fortunes-rocks",
+"name": "Fortunes Rocks",
+"lat": 43.414,
+"lon": -70.405,
+"region": "Maine",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:gooch-s-beach",
+"name": "Gooch's Beach",
+"lat": 43.344,
+"lon": -70.488,
+"region": "Maine",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:wells-beach",
+"name": "Wells Beach",
+"lat": 43.317,
+"lon": -70.563,
+"region": "Maine",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:ogunquit",
+"name": "Ogunquit",
+"lat": 43.256,
+"lon": -70.59,
+"region": "Maine",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:short-sands-york",
+"name": "Short Sands (York)",
+"lat": 43.176,
+"lon": -70.607,
+"region": "Maine",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:long-sands-york",
+"name": "Long Sands (York)",
+"lat": 43.163,
+"lon": -70.618,
+"region": "Maine",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:rye-rocks",
+"name": "Rye Rocks",
+"lat": 43.003,
+"lon": -70.743,
+"region": "New Hampshire",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:jenness-beach",
+"name": "Jenness Beach",
+"lat": 42.997,
+"lon": -70.757,
+"region": "New Hampshire",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:the-wall-north-hampton",
+"name": "The Wall (North Hampton)",
+"lat": 42.948,
+"lon": -70.785,
+"region": "New Hampshire",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:hampton-beach",
+"name": "Hampton Beach",
+"lat": 42.909,
+"lon": -70.81,
+"region": "New Hampshire",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:salisbury-beach",
+"name": "Salisbury Beach",
+"lat": 42.833,
+"lon": -70.81,
+"region": "Massachusetts",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:plum-island",
+"name": "Plum Island",
+"lat": 42.762,
+"lon": -70.8,
+"region": "Massachusetts",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:good-harbor",
+"name": "Good Harbor",
+"lat": 42.62,
+"lon": -70.627,
+"region": "Massachusetts",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:nahant",
+"name": "Nahant",
+"lat": 42.425,
+"lon": -70.928,
+"region": "Massachusetts",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:nantasket",
+"name": "Nantasket",
+"lat": 42.276,
+"lon": -70.858,
+"region": "Massachusetts",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:race-point",
+"name": "Race Point",
+"lat": 42.081,
+"lon": -70.233,
+"region": "Massachusetts",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:head-of-the-meadow",
+"name": "Head of the Meadow",
+"lat": 42.052,
+"lon": -70.088,
+"region": "Massachusetts",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:newcomb-hollow",
+"name": "Newcomb Hollow",
+"lat": 41.95,
+"lon": -69.988,
+"region": "Massachusetts",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:marconi",
+"name": "Marconi",
+"lat": 41.891,
+"lon": -69.958,
+"region": "Massachusetts",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:coast-guard-beach",
+"name": "Coast Guard Beach",
+"lat": 41.855,
+"lon": -69.947,
+"region": "Massachusetts",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:nauset-beach",
+"name": "Nauset Beach",
+"lat": 41.791,
+"lon": -69.938,
+"region": "Massachusetts",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:squibnocket",
+"name": "Squibnocket",
+"lat": 41.316,
+"lon": -70.777,
+"region": "Massachusetts",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:cisco-beach-nantucket",
+"name": "Cisco Beach (Nantucket)",
+"lat": 41.25,
+"lon": -70.143,
+"region": "Massachusetts",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:second-beach-middletown",
+"name": "Second Beach (Middletown)",
+"lat": 41.488,
+"lon": -71.248,
+"region": "Rhode Island",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:first-beach-easton-s",
+"name": "First Beach (Easton's)",
+"lat": 41.485,
+"lon": -71.285,
+"region": "Rhode Island",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:ruggles",
+"name": "Ruggles",
+"lat": 41.464,
+"lon": -71.293,
+"region": "Rhode Island",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:narragansett-town-beach",
+"name": "Narragansett Town Beach",
+"lat": 41.436,
+"lon": -71.456,
+"region": "Rhode Island",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:matunuck",
+"name": "Matunuck",
+"lat": 41.375,
+"lon": -71.54,
+"region": "Rhode Island",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:point-judith",
+"name": "Point Judith",
+"lat": 41.362,
+"lon": -71.481,
+"region": "Rhode Island",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:misquamicut",
+"name": "Misquamicut",
+"lat": 41.322,
+"lon": -71.808,
+"region": "Rhode Island",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:turtle-cove-montauk-point",
+"name": "Turtle Cove (Montauk Point)",
+"lat": 41.071,
+"lon": -71.857,
+"region": "New York",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:ditch-plains",
+"name": "Ditch Plains",
+"lat": 41.04,
+"lon": -71.918,
+"region": "New York",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:hither-hills",
+"name": "Hither Hills",
+"lat": 41.004,
+"lon": -72.014,
+"region": "New York",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:flying-point",
+"name": "Flying Point",
+"lat": 40.871,
+"lon": -72.384,
+"region": "New York",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:shinnecock-inlet",
+"name": "Shinnecock Inlet",
+"lat": 40.839,
+"lon": -72.477,
+"region": "New York",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:westhampton-rogers-beach",
+"name": "Westhampton (Rogers Beach)",
+"lat": 40.792,
+"lon": -72.63,
+"region": "New York",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:smith-point",
+"name": "Smith Point",
+"lat": 40.735,
+"lon": -72.858,
+"region": "New York",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:kismet-fire-island",
+"name": "Kismet (Fire Island)",
+"lat": 40.635,
+"lon": -73.205,
+"region": "New York",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:robert-moses",
+"name": "Robert Moses",
+"lat": 40.625,
+"lon": -73.264,
+"region": "New York",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:gilgo-beach",
+"name": "Gilgo Beach",
+"lat": 40.618,
+"lon": -73.394,
+"region": "New York",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:jones-beach",
+"name": "Jones Beach",
+"lat": 40.586,
+"lon": -73.509,
+"region": "New York",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:lido-beach",
+"name": "Lido Beach",
+"lat": 40.585,
+"lon": -73.618,
+"region": "New York",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:rockaway-90th-street",
+"name": "Rockaway 90th Street",
+"lat": 40.585,
+"lon": -73.81,
+"region": "New York",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:long-beach-ny",
+"name": "Long Beach (NY)",
+"lat": 40.584,
+"lon": -73.66,
+"region": "New York",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:sandy-hook",
+"name": "Sandy Hook",
+"lat": 40.44,
+"lon": -73.985,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:sea-bright",
+"name": "Sea Bright",
+"lat": 40.36,
+"lon": -73.972,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:monmouth-beach",
+"name": "Monmouth Beach",
+"lat": 40.334,
+"lon": -73.976,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:long-branch",
+"name": "Long Branch",
+"lat": 40.3,
+"lon": -73.977,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:deal",
+"name": "Deal",
+"lat": 40.25,
+"lon": -73.994,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:asbury-park",
+"name": "Asbury Park",
+"lat": 40.22,
+"lon": -73.998,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:belmar-16th-avenue",
+"name": "Belmar 16th Avenue",
+"lat": 40.173,
+"lon": -74.015,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:spring-lake",
+"name": "Spring Lake",
+"lat": 40.152,
+"lon": -74.022,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:manasquan-inlet",
+"name": "Manasquan Inlet",
+"lat": 40.103,
+"lon": -74.034,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:point-pleasant",
+"name": "Point Pleasant",
+"lat": 40.087,
+"lon": -74.036,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:bay-head",
+"name": "Bay Head",
+"lat": 40.068,
+"lon": -74.04,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:lavallette",
+"name": "Lavallette",
+"lat": 39.975,
+"lon": -74.067,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:seaside-heights",
+"name": "Seaside Heights",
+"lat": 39.944,
+"lon": -74.07,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:island-beach-state-park",
+"name": "Island Beach State Park",
+"lat": 39.84,
+"lon": -74.085,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:barnegat-light",
+"name": "Barnegat Light",
+"lat": 39.761,
+"lon": -74.105,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:ship-bottom",
+"name": "Ship Bottom",
+"lat": 39.645,
+"lon": -74.177,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:holgate",
+"name": "Holgate",
+"lat": 39.553,
+"lon": -74.245,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:brigantine",
+"name": "Brigantine",
+"lat": 39.41,
+"lon": -74.36,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:atlantic-city",
+"name": "Atlantic City",
+"lat": 39.355,
+"lon": -74.428,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:ventnor",
+"name": "Ventnor",
+"lat": 39.338,
+"lon": -74.475,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:margate",
+"name": "Margate",
+"lat": 39.325,
+"lon": -74.505,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:ocean-city-nj",
+"name": "Ocean City (NJ)",
+"lat": 39.27,
+"lon": -74.575,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:strathmere",
+"name": "Strathmere",
+"lat": 39.2,
+"lon": -74.655,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:wildwood",
+"name": "Wildwood",
+"lat": 38.99,
+"lon": -74.81,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:cape-may-cove",
+"name": "Cape May Cove",
+"lat": 38.928,
+"lon": -74.92,
+"region": "New Jersey",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:herring-point-cape-henlopen",
+"name": "Herring Point (Cape Henlopen)",
+"lat": 38.773,
+"lon": -75.084,
+"region": "Delaware and Maryland",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:rehoboth-beach",
+"name": "Rehoboth Beach",
+"lat": 38.716,
+"lon": -75.075,
+"region": "Delaware and Maryland",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:indian-river-inlet",
+"name": "Indian River Inlet",
+"lat": 38.61,
+"lon": -75.065,
+"region": "Delaware and Maryland",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:bethany-beach",
+"name": "Bethany Beach",
+"lat": 38.54,
+"lon": -75.054,
+"region": "Delaware and Maryland",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:ocean-city-45th-street-md",
+"name": "Ocean City 45th Street (MD)",
+"lat": 38.38,
+"lon": -75.064,
+"region": "Delaware and Maryland",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:ocean-city-inlet-md",
+"name": "Ocean City Inlet (MD)",
+"lat": 38.326,
+"lon": -75.087,
+"region": "Delaware and Maryland",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:assateague-md",
+"name": "Assateague (MD)",
+"lat": 38.2,
+"lon": -75.15,
+"region": "Delaware and Maryland",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:assateague-va",
+"name": "Assateague (VA)",
+"lat": 37.902,
+"lon": -75.343,
+"region": "Virginia",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:virginia-beach-pier",
+"name": "Virginia Beach Pier",
+"lat": 36.851,
+"lon": -75.972,
+"region": "Virginia",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:first-street-jetty",
+"name": "First Street Jetty",
+"lat": 36.832,
+"lon": -75.97,
+"region": "Virginia",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:croatan-beach",
+"name": "Croatan Beach",
+"lat": 36.814,
+"lon": -75.968,
+"region": "Virginia",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:sandbridge",
+"name": "Sandbridge",
+"lat": 36.723,
+"lon": -75.919,
+"region": "Virginia",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:corolla",
+"name": "Corolla",
+"lat": 36.38,
+"lon": -75.828,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:duck-pier",
+"name": "Duck Pier",
+"lat": 36.183,
+"lon": -75.751,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:kitty-hawk",
+"name": "Kitty Hawk",
+"lat": 36.066,
+"lon": -75.7,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:kill-devil-hills",
+"name": "Kill Devil Hills",
+"lat": 36.023,
+"lon": -75.668,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:nags-head-pier",
+"name": "Nags Head Pier",
+"lat": 35.945,
+"lon": -75.613,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:jennette-s-pier",
+"name": "Jennette's Pier",
+"lat": 35.91,
+"lon": -75.595,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:oregon-inlet",
+"name": "Oregon Inlet",
+"lat": 35.77,
+"lon": -75.528,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:s-turns",
+"name": "S-Turns",
+"lat": 35.616,
+"lon": -75.469,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:rodanthe-pier",
+"name": "Rodanthe Pier",
+"lat": 35.588,
+"lon": -75.461,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:salvo",
+"name": "Salvo",
+"lat": 35.546,
+"lon": -75.466,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:avon-pier",
+"name": "Avon Pier",
+"lat": 35.348,
+"lon": -75.5,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:cape-hatteras-lighthouse",
+"name": "Cape Hatteras Lighthouse",
+"lat": 35.25,
+"lon": -75.52,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:frisco-pier",
+"name": "Frisco Pier",
+"lat": 35.221,
+"lon": -75.62,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:ocracoke",
+"name": "Ocracoke",
+"lat": 35.12,
+"lon": -75.92,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:atlantic-beach-nc",
+"name": "Atlantic Beach (NC)",
+"lat": 34.698,
+"lon": -76.74,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:emerald-isle",
+"name": "Emerald Isle",
+"lat": 34.664,
+"lon": -76.99,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:north-topsail-beach",
+"name": "North Topsail Beach",
+"lat": 34.47,
+"lon": -77.475,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:surf-city-pier",
+"name": "Surf City Pier",
+"lat": 34.427,
+"lon": -77.546,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:topsail-beach",
+"name": "Topsail Beach",
+"lat": 34.36,
+"lon": -77.637,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:crystal-pier-wrightsville",
+"name": "Crystal Pier (Wrightsville)",
+"lat": 34.225,
+"lon": -77.783,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:wrightsville-beach-c-street",
+"name": "Wrightsville Beach C Street",
+"lat": 34.209,
+"lon": -77.794,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:masonboro-inlet",
+"name": "Masonboro Inlet",
+"lat": 34.185,
+"lon": -77.815,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:carolina-beach",
+"name": "Carolina Beach",
+"lat": 34.033,
+"lon": -77.893,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:kure-beach-pier",
+"name": "Kure Beach Pier",
+"lat": 33.997,
+"lon": -77.905,
+"region": "North Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:cherry-grove-pier",
+"name": "Cherry Grove Pier",
+"lat": 33.83,
+"lon": -78.633,
+"region": "South Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:myrtle-beach",
+"name": "Myrtle Beach",
+"lat": 33.689,
+"lon": -78.88,
+"region": "South Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:surfside-beach-sc",
+"name": "Surfside Beach (SC)",
+"lat": 33.607,
+"lon": -78.972,
+"region": "South Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:garden-city-pier",
+"name": "Garden City Pier",
+"lat": 33.578,
+"lon": -79.001,
+"region": "South Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:pawleys-island",
+"name": "Pawleys Island",
+"lat": 33.432,
+"lon": -79.12,
+"region": "South Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:isle-of-palms",
+"name": "Isle of Palms",
+"lat": 32.785,
+"lon": -79.78,
+"region": "South Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:sullivan-s-island",
+"name": "Sullivan's Island",
+"lat": 32.759,
+"lon": -79.84,
+"region": "South Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:the-washout-folly-beach",
+"name": "The Washout (Folly Beach)",
+"lat": 32.663,
+"lon": -79.912,
+"region": "South Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:folly-beach-pier",
+"name": "Folly Beach Pier",
+"lat": 32.652,
+"lon": -79.937,
+"region": "South Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:hunting-island",
+"name": "Hunting Island",
+"lat": 32.375,
+"lon": -80.44,
+"region": "South Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:coligny-beach-hilton-head",
+"name": "Coligny Beach (Hilton Head)",
+"lat": 32.142,
+"lon": -80.749,
+"region": "South Carolina",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:tybee-north-beach",
+"name": "Tybee North Beach",
+"lat": 32.02,
+"lon": -80.843,
+"region": "Georgia",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:tybee-island-pier",
+"name": "Tybee Island Pier",
+"lat": 31.992,
+"lon": -80.846,
+"region": "Georgia",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:st-simons-east-beach",
+"name": "St. Simons East Beach",
+"lat": 31.149,
+"lon": -81.373,
+"region": "Georgia",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:jekyll-island",
+"name": "Jekyll Island",
+"lat": 31.07,
+"lon": -81.403,
+"region": "Georgia",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:fernandina-main-beach",
+"name": "Fernandina Main Beach",
+"lat": 30.676,
+"lon": -81.427,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:hanna-park",
+"name": "Hanna Park",
+"lat": 30.373,
+"lon": -81.405,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:atlantic-beach-fl",
+"name": "Atlantic Beach (FL)",
+"lat": 30.335,
+"lon": -81.397,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:neptune-beach",
+"name": "Neptune Beach",
+"lat": 30.311,
+"lon": -81.393,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:jacksonville-beach-pier",
+"name": "Jacksonville Beach Pier",
+"lat": 30.284,
+"lon": -81.389,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:mickler-s-landing",
+"name": "Mickler's Landing",
+"lat": 30.162,
+"lon": -81.358,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:vilano-beach",
+"name": "Vilano Beach",
+"lat": 29.919,
+"lon": -81.297,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:st-augustine-pier",
+"name": "St. Augustine Pier",
+"lat": 29.856,
+"lon": -81.264,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:crescent-beach-fl",
+"name": "Crescent Beach (FL)",
+"lat": 29.765,
+"lon": -81.248,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:matanzas-inlet",
+"name": "Matanzas Inlet",
+"lat": 29.716,
+"lon": -81.234,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:flagler-pier",
+"name": "Flagler Pier",
+"lat": 29.48,
+"lon": -81.123,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:ormond-beach",
+"name": "Ormond Beach",
+"lat": 29.287,
+"lon": -81.05,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:daytona-pier",
+"name": "Daytona Pier",
+"lat": 29.227,
+"lon": -81.005,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:ponce-inlet",
+"name": "Ponce Inlet",
+"lat": 29.081,
+"lon": -80.919,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:new-smyrna-inlet",
+"name": "New Smyrna Inlet",
+"lat": 29.065,
+"lon": -80.91,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:playalinda",
+"name": "Playalinda",
+"lat": 28.656,
+"lon": -80.623,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:cocoa-beach-pier",
+"name": "Cocoa Beach Pier",
+"lat": 28.368,
+"lon": -80.601,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:lori-wilson-park",
+"name": "Lori Wilson Park",
+"lat": 28.334,
+"lon": -80.604,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:satellite-beach",
+"name": "Satellite Beach",
+"lat": 28.177,
+"lon": -80.59,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:indialantic-boardwalk",
+"name": "Indialantic Boardwalk",
+"lat": 28.087,
+"lon": -80.565,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:spanish-house",
+"name": "Spanish House",
+"lat": 28.036,
+"lon": -80.553,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:sebastian-inlet",
+"name": "Sebastian Inlet",
+"lat": 27.862,
+"lon": -80.446,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:vero-beach",
+"name": "Vero Beach",
+"lat": 27.64,
+"lon": -80.36,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:fort-pierce-inlet",
+"name": "Fort Pierce Inlet",
+"lat": 27.47,
+"lon": -80.288,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:stuart-beach",
+"name": "Stuart Beach",
+"lat": 27.2,
+"lon": -80.168,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:bathtub-reef",
+"name": "Bathtub Reef",
+"lat": 27.183,
+"lon": -80.165,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:coral-cove",
+"name": "Coral Cove",
+"lat": 26.983,
+"lon": -80.077,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:jupiter-inlet",
+"name": "Jupiter Inlet",
+"lat": 26.945,
+"lon": -80.072,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:juno-pier",
+"name": "Juno Pier",
+"lat": 26.894,
+"lon": -80.054,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:reef-road",
+"name": "Reef Road",
+"lat": 26.733,
+"lon": -80.033,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:lake-worth-pier",
+"name": "Lake Worth Pier",
+"lat": 26.612,
+"lon": -80.034,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:boynton-inlet",
+"name": "Boynton Inlet",
+"lat": 26.545,
+"lon": -80.042,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:delray-beach",
+"name": "Delray Beach",
+"lat": 26.46,
+"lon": -80.06,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:boca-inlet",
+"name": "Boca Inlet",
+"lat": 26.336,
+"lon": -80.071,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:deerfield-pier",
+"name": "Deerfield Pier",
+"lat": 26.317,
+"lon": -80.074,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:pompano-pier",
+"name": "Pompano Pier",
+"lat": 26.233,
+"lon": -80.086,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:hollywood-beach-fl",
+"name": "Hollywood Beach (FL)",
+"lat": 26.011,
+"lon": -80.115,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:sunny-isles",
+"name": "Sunny Isles",
+"lat": 25.93,
+"lon": -80.12,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:haulover",
+"name": "Haulover",
+"lat": 25.903,
+"lon": -80.12,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+},
+{
+"id": "spot:south-beach-miami",
+"name": "South Beach (Miami)",
+"lat": 25.765,
+"lon": -80.132,
+"region": "Florida",
+"coast": "East Coast",
+"ca": false
+}
+]
+}

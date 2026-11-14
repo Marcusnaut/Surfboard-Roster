@@ -1,5 +1,6 @@
-# Fetches the latest NOAA buoy readings near Ventura every 30 minutes and publishes
-# them as buoys.json on the `data` branch, which the app reads for the map's buoy layer.
+# Fetches the latest NOAA buoy readings for the US West and East coasts every 30 minutes and
+# CDIP 5-day forecasts for California buoys and spots (refreshed every ~6 hours), and publishes
+# them as buoys.json and forecasts.json on the `data` branch, which the app reads.
 # GitHub may run scheduled jobs a few minutes late, and pauses them if the repository
 # has no activity for 60 days (re-enable under Actions if that happens).
 name: Update buoy data
@@ -8,6 +9,11 @@ on:
   schedule:
     - cron: "7,37 * * * *"
   workflow_dispatch:
+    inputs:
+      force_forecasts:
+        description: "Refresh CDIP forecasts now"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -19,7 +25,7 @@ concurrency:
 jobs:
   fetch:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -28,6 +34,13 @@ jobs:
         run: |
           mkdir -p out
           python3 tools/fetch_buoys.py out/buoys.json
+      - name: Fetch forecasts
+        env:
+          REPO: ${{ github.repository }}
+          FORCE_FORECASTS: ${{ inputs.force_forecasts && '1' || '' }}
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/${REPO}/data/forecasts.json" -o prev_forecasts.json || true
+          python3 tools/fetch_forecasts.py out/buoys.json spots.json out/forecasts.json prev_forecasts.json || cp prev_forecasts.json out/forecasts.json || true
       - name: Publish to the data branch
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -37,6 +50,6 @@ jobs:
           git init -q -b data
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add buoys.json
+          git add -A
           git commit -q -m "Buoy data $(date -u +%Y-%m-%dT%H:%MZ)"
           git push -q -f "https://x-access-token:${TOKEN}@github.com/${REPO}.git" data
