@@ -249,6 +249,14 @@ label.btn input { display: none; }
 .leaflet-container { font: inherit; background: var(--tag); }
 .leaflet-container.imagery { background: #1d2a2f; }
 .map-legend { position: absolute; z-index: 500; left: 10px; top: 10px; right: 66px; background: var(--surface); color: var(--ink); border-radius: 12px; padding: 8px 12px; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,.18); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.wave-ctl { background: var(--surface); color: var(--ink); border-radius: 12px; padding: 6px 10px 8px; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,.18); width: 230px; margin-bottom: 30px !important; }
+.wave-ctl .wrow { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.wave-ctl .wrow button { min-width: 40px; min-height: 36px; border: 0; border-radius: 10px; background: var(--chip, rgba(0,0,0,.06)); color: inherit; font-size: 22px; line-height: 1; }
+.wave-ctl .wrow button:disabled { opacity: .35; }
+.wave-ctl .wt { font-weight: 600; text-align: center; flex: 1; }
+.wave-ctl .wleg { display: block; width: 100%; height: 12px; margin-top: 6px; border-radius: 3px; }
+.wave-ctl .wticks { display: flex; justify-content: space-between; font-size: 11px; }
+.wave-ctl .sub { font-size: 11px; margin-top: 2px; }
 .map-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 3px; vertical-align: middle; }
 .leaflet-popup-content { font-size: 14px; line-height: 1.4; margin: 12px 14px; }
 .leaflet-popup-content a { color: var(--accent); }
@@ -333,7 +341,7 @@ svg.chart text.unit { font-weight: 600; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 8.1 (scrolling popups, chart axes)';
+const BUILD = 'Build 8.2 (CDIP wave-height layer)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -348,6 +356,11 @@ const BASEMAPS = {
 };
 const BUOY_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/buoys.json';
 const FORECAST_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/forecasts.json';
+const WAVEGRID_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/wavegrid.json';
+/* CDIP's California wave-height grid (0.01°), drawn as image tiles by CDIP's own WMS server. */
+const WAVE_WMS = 'https://thredds.cdip.ucsd.edu/thredds/wms/cdip/model/MOP_grids/CA_0.01_';
+const WAVE_MAX_M = 6.096; /* 20 ft, the top of CDIP's own color scale */
+const WAVE_BOUNDS = [[31.99, -125.0], [42.0, -116.99]];
 /* NOAA buoys near Ventura. Positions here are a fallback; the data file carries NDBC's current positions. */
 const BUOYS = [
   ['46053', 'East Santa Barbara', 34.241, -119.839], ['46217', 'Anacapa Passage', 34.167, -119.435],
@@ -470,7 +483,7 @@ async function seed() {
 
 /* ---------- in-memory state ---------- */
 const S = { options: [], boards: [], sessions: [], spots: [], photos: new Map(), meta: {}, fins: [], finLinks: [] };
-const PREF_DEFAULTS = { boardsView: 'tiles', boardSort: 'model', filterType: '', filterShaper: '', showRetired: false, pagerIndex: 0, units: 'ft', sessionSort: 'newest', finsView: 'table', finSort: 'name', filterFinSetup: '', showRetiredFins: false, showAllSpots: true, statsSpot: '', disabledLists: [], baseMap: 'map', showBuoys: true };
+const PREF_DEFAULTS = { boardsView: 'tiles', boardSort: 'model', filterType: '', filterShaper: '', showRetired: false, pagerIndex: 0, units: 'ft', sessionSort: 'newest', finsView: 'table', finSort: 'name', filterFinSetup: '', showRetiredFins: false, showAllSpots: true, statsSpot: '', disabledLists: [], baseMap: 'map', showBuoys: true, showWaves: false };
 let prefs = { ...PREF_DEFAULTS };
 async function loadAll() {
   const [options, boards, sessions, spots, photos, meta, fins, finLinks] = await Promise.all(STORES.map(getAll));
@@ -640,6 +653,9 @@ function makeMap(el, opts = {}) {
     const layer = buoyLayer();
     overlays['Buoys'] = layer;
     if (prefs.showBuoys) layer.addTo(map);
+    const waves = waveLayer(map);
+    overlays[WAVE_NAME] = waves;
+    if (prefs.showWaves) waves.addTo(map);
   }
   if (layersControl !== false) {
     L.control.layers({ [BASEMAPS.map.label]: bases.map, [BASEMAPS.imagery.label]: bases.imagery }, overlays, { position: 'topright', collapsed: true }).addTo(map);
@@ -648,13 +664,98 @@ function makeMap(el, opts = {}) {
       el.classList.toggle('imagery', key === 'imagery');
       savePrefs({ baseMap: key });
     });
-    map.on('overlayadd overlayremove', e => { if (e.name === 'Buoys') savePrefs({ showBuoys: e.type === 'overlayadd' }); });
+    map.on('overlayadd overlayremove', e => {
+      if (e.name === 'Buoys') savePrefs({ showBuoys: e.type === 'overlayadd' });
+      if (e.name === WAVE_NAME) savePrefs({ showWaves: e.type === 'overlayadd' });
+    });
   }
   map.setView(DEFAULT_VIEW.center, DEFAULT_VIEW.zoom);
   zoomClass();
   mounted.maps.push(map);
   setTimeout(() => { try { if (map._container && map._container.isConnected) map.invalidateSize(); } catch (e) {} }, 50);
   return map;
+}
+/* ---------- CDIP wave-height layer ---------- */
+const WAVE_NAME = 'Wave height (CDIP, Calif.)';
+let gridFetch = null;
+async function loadWaveGrid() {
+  if (S.gridData && Date.now() - S.gridLoadedAt < 20 * 60 * 1000) return S.gridData;
+  if (!gridFetch) gridFetch = (async () => {
+    try {
+      const res = await fetch(`${WAVEGRID_URL}?t=${Math.floor(Date.now() / 600000)}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      S.gridData = await res.json(); S.gridLoadedAt = Date.now();
+    } catch (e) { /* keep whatever we had; the layer still works without a forecast list */ }
+    gridFetch = null;
+    return S.gridData || null;
+  })();
+  return gridFetch;
+}
+function waveSteps(grid) {
+  const now = Date.now();
+  const nc = (grid && grid.nowcast) || [];
+  const steps = [{ kind: 'nowcast', time: nc.length ? nc[nc.length - 1] : null, now: true }];
+  for (const t of (grid && grid.forecast) || []) if (Date.parse(t) > now + 30 * 60 * 1000) steps.push({ kind: 'forecast', time: t });
+  return steps;
+}
+function waveStepLabel(st) {
+  const when = st.time ? new Date(st.time).toLocaleString([], { weekday: 'short', hour: 'numeric' }) : '';
+  return st.now ? `Now${when ? ` <span class="sub">(${esc(when)})</span>` : ''}` : esc(when);
+}
+function waveLegendTicks() {
+  return prefs.units === 'm' ? ['0', '1.5', '3', '4.6', '6.1 m'] : ['0', '5', '10', '15', '20 ft'];
+}
+function waveLayer(map) {
+  if (!map.getPane('waves')) { const p = map.createPane('waves'); p.style.zIndex = 350; p.style.pointerEvents = 'none'; }
+  const layer = L.tileLayer.wms(WAVE_WMS + 'nowcast.nc', {
+    layers: 'waveHs', styles: 'raster/cdip', format: 'image/png', transparent: true, version: '1.3.0',
+    colorscalerange: `0,${WAVE_MAX_M}`, numcolorbands: 250, abovemaxcolor: 'extend',
+    opacity: 0.7, pane: 'waves', bounds: L.latLngBounds(WAVE_BOUNDS), maxZoom: 19,
+    attribution: '<a href="https://cdip.ucsd.edu/" target="_blank" rel="noopener">CDIP</a>'
+  });
+  let steps = waveSteps(null), idx = 0, ctl = null;
+  const show = () => {
+    const st = steps[idx] || steps[0];
+    layer.setUrl(WAVE_WMS + st.kind + '.nc', true);
+    if (st.time) layer.wmsParams.time = st.time; else delete layer.wmsParams.time;
+    layer.redraw();
+    if (ctl) {
+      const c = ctl.getContainer();
+      c.querySelector('.wt').innerHTML = waveStepLabel(st);
+      c.querySelector('[data-w="prev"]').disabled = idx <= 0;
+      c.querySelector('[data-w="next"]').disabled = idx >= steps.length - 1;
+    }
+  };
+  const Ctl = L.Control.extend({
+    options: { position: 'bottomleft' },
+    onAdd() {
+      const d = L.DomUtil.create('div', 'wave-ctl');
+      const leg = `${WAVE_WMS}nowcast.nc?REQUEST=GetLegendGraphic&LAYERS=waveHs&PALETTE=cdip&COLORSCALERANGE=0,${WAVE_MAX_M}&NUMCOLORBANDS=250&COLORBARONLY=true&VERTICAL=false&WIDTH=220&HEIGHT=14`;
+      d.innerHTML = `<div class="wrow"><button type="button" data-w="prev" aria-label="Earlier">&lsaquo;</button><span class="wt">Now</span><button type="button" data-w="next" aria-label="Later">&rsaquo;</button></div>
+        <img class="wleg" alt="" src="${leg}"><div class="wticks">${waveLegendTicks().map(t => `<span>${t}</span>`).join('')}</div>
+        <div class="sub">Wave height · California · data courtesy of <a href="https://cdip.ucsd.edu/" target="_blank" rel="noopener">CDIP</a></div>`;
+      L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d);
+      d.addEventListener('click', e => {
+        const b = e.target.closest('[data-w]'); if (!b) return;
+        idx = Math.max(0, Math.min(steps.length - 1, idx + (b.dataset.w === 'next' ? 1 : -1)));
+        show();
+      });
+      return d;
+    }
+  });
+  layer.on('add', () => {
+    if (!ctl) ctl = new Ctl().addTo(map);
+    show();
+    loadWaveGrid().then(g => {
+      if (!g || !layer._map) return;
+      const cur = steps[idx];
+      steps = waveSteps(g);
+      idx = cur && !cur.now ? Math.max(0, steps.findIndex(s => s.time === cur.time)) : 0;
+      show();
+    });
+  });
+  layer.on('remove', () => { if (ctl) { ctl.remove(); ctl = null; } });
+  return layer;
 }
 function funColor(a) { return a == null ? '#8a9a9f' : a < 2.5 ? '#c8553d' : a < 3.75 ? '#e0a526' : '#1f9d8f'; }
 function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
@@ -850,20 +951,20 @@ async function openMeteoForecast(lat, lon) {
   const idx = (h.time || []).map((t, i) => [t, i]).filter(([t]) => Number(t.slice(11, 13)) % 3 === 0 && new Date(t + 'Z') >= Date.now() - 3 * 3600 * 1000);
   if (!idx.length) throw new Error('no forecast');
   const pick = k => idx.map(([, i]) => h[k] ? h[k][i] : null);
-  const fc = { t0: idx[0][0] + 'Z', step: 3, hs: pick('wave_height'), tp: pick('swell_wave_peak_period').map((v, n) => v ?? pick('wave_period')[n]), dp: pick('swell_wave_direction').map((v, n) => v ?? pick('wave_direction')[n]), source: 'Open-Meteo wave model' };
+  const fc = { t0: idx[0][0] + 'Z', step: 3, hs: pick('wave_height'), tp: pick('swell_wave_peak_period').map((v, n) => v ?? pick('wave_period')[n]), dp: pick('swell_wave_direction').map((v, n) => v ?? pick('wave_direction')[n]), source: 'Open-Meteo.com wave model (CC BY 4.0)' };
   omCache.set(key, { at: Date.now(), fc });
   return fc;
 }
 async function buoyForecast(b) {
   const d = await loadForecasts();
   const c = d && d.buoys && d.buoys[b.id];
-  if (c) return { ...c, source: `CDIP model at the buoy (${c.site})`, link: `https://cdip.ucsd.edu/m/products/?stn=${c.cdip}p1` };
+  if (c) return { ...c, source: `Data courtesy of CDIP (model at the buoy, ${c.site})`, link: `https://cdip.ucsd.edu/m/products/?stn=${c.cdip}p1` };
   return openMeteoForecast(b.lat, b.lon);
 }
 async function spotForecast(sp) {
   const d = await loadForecasts();
   const c = d && d.spots && d.spots[sp.id];
-  if (c) return { ...c, source: `CDIP nearshore model (site ${c.site}, 10 m depth)`, link: `https://cdip.ucsd.edu/m/forecast/?wave_model=${sp.lat > 34.6 ? 'norcal' : 'socal'}&layer=waveHs` };
+  if (c) return { ...c, source: `Data courtesy of CDIP (nearshore model, site ${c.site}, 10 m depth)`, link: `https://cdip.ucsd.edu/m/forecast/?wave_model=${sp.lat > 34.6 ? 'norcal' : 'socal'}&layer=waveHs` };
   return openMeteoForecast(sp.lat, sp.lon);
 }
 function circMean(degs) {
@@ -2038,7 +2139,11 @@ function viewSettings() {
     <p class="note">Everything is stored only on this device. Export a backup now and then, and keep the file somewhere safe. CSV files open in Numbers, Excel or Google Sheets.</p>
     <h2 class="sec">About</h2>
     <div class="card"><div class="row"><span class="grow"><span class="label">Surfboard Tracker</span><br><span class="sub">${esc(BUILD)}</span></span></div>
-      <div class="row"><span class="grow sub">Swell data: Open-Meteo Marine API. Buoys: NOAA National Data Buoy Center, updated about every 30 minutes. Maps and imagery: © Esri and contributors.</span></div></div>`);
+      <div class="row"><span class="grow sub">Data sources (personal, non-commercial use):<br>
+        · Wave forecasts and wave-height map: data courtesy of <a href="https://cdip.ucsd.edu/" target="_blank" rel="noopener">CDIP</a>, Scripps Institution of Oceanography.<br>
+        · Swell, tide and weather: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>, licensed <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.<br>
+        · Buoys: <a href="https://www.ndbc.noaa.gov/" target="_blank" rel="noopener">NOAA National Data Buoy Center</a> (US public data), updated about every 30 minutes.<br>
+        · Maps and imagery: © Esri and its data providers.</span></div></div>`);
 }
 function viewList(key) {
   const list = listByKey(key);
