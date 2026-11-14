@@ -377,7 +377,7 @@ svg.chart text.unit { font-weight: 600; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 9.2 (spot labels, dark unsurfed dots, layer list close button)';
+const BUILD = 'Build 9.3 (white unsurfed dots)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -2081,12 +2081,12 @@ function spotsMap(el, sessions, { small, showAll, state } = {}) {
     if (!list.length && (small ? !showAll : false)) continue;
     if (!list.length && sp.hidden) continue;
     const a = avg(list.map(s => s.fun).filter(Boolean));
-    /* Surfed spots: sized by sessions, colored by fun. Not surfed yet: a small solid dark gray dot. */
+    /* Surfed spots: sized by sessions, colored by fun. Not surfed yet: a small white dot with a dark gray outline. */
     const m = L.circleMarker([sp.lat, sp.lon], list.length ? {
       renderer: map.spotRenderer, radius: Math.min(26, 7 + 4 * Math.sqrt(list.length)),
       color: '#fff', weight: 2, fillColor: funColor(a), fillOpacity: 0.9
     } : {
-      renderer: map.spotRenderer, radius: 4, color: '#26292b', weight: 1, fillColor: '#33373a', fillOpacity: 1
+      renderer: map.spotRenderer, radius: 3, color: '#33373a', weight: 1.5, fillColor: '#ffffff', fillOpacity: 1
     }).addTo(list.length ? map : unsurfed);
     m.spotId = sp.id;
     labelItems.push({ m, name: sp.name, rank: list.length });
