@@ -257,6 +257,7 @@ label.btn input { display: none; }
 .wave-ctl .wleg { display: block; width: 100%; height: 12px; margin-top: 6px; border-radius: 3px; }
 .wave-ctl .wticks { display: flex; justify-content: space-between; font-size: 11px; }
 .wave-ctl .sub { font-size: 11px; margin-top: 2px; }
+.map-legend .sharebtn { min-height: 32px; padding: 0 10px; font-size: 13px; margin-left: auto; }
 .map-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 3px; vertical-align: middle; }
 .leaflet-popup-content { font-size: 14px; line-height: 1.4; margin: 12px 14px; }
 .leaflet-popup-content a { color: var(--accent); }
@@ -341,7 +342,7 @@ svg.chart text.unit { font-weight: 600; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 8.3 (USGS base maps)';
+const BUILD = 'Build 8.4 (shareable map links)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -637,7 +638,8 @@ function baseLayer(key) {
 }
 function makeMap(el, opts = {}) {
   if (typeof L === 'undefined') { el.innerHTML = '<div class="empty">Map unavailable.</div>'; return null; }
-  const { buoys, layersControl, ...mapOpts } = opts;
+  const { buoys, layersControl, state, ...mapOpts } = opts;
+  const st = state || {};
   const map = L.map(el, { attributionControl: false, ...mapOpts, zoomControl: false });
   L.control.attribution({ prefix: false, position: 'bottomright' }).addTo(map);
   const zoomClass = () => el.classList.toggle('far', map.getZoom() < 8);
@@ -646,22 +648,26 @@ function makeMap(el, opts = {}) {
   /* Spot dots draw on a canvas with a wide tap tolerance so they're easy to hit with a finger. */
   map.spotRenderer = L.canvas({ tolerance: 14, padding: 0.5 });
   const bases = Object.fromEntries(Object.keys(BASEMAPS).map(k => [k, baseLayer(k)]));
-  const cur = bases[prefs.baseMap] ? prefs.baseMap : 'map';
+  const cur = st.base && bases[st.base] ? st.base : bases[prefs.baseMap] ? prefs.baseMap : 'map';
+  map.baseKey = cur;
   bases[cur].addTo(map);
   el.classList.toggle('imagery', !!BASEMAPS[cur].dark);
   const overlays = {};
+  map.overlayLayers = overlays;
   if (buoys) {
     const layer = buoyLayer();
     overlays['Buoys'] = layer;
-    if (prefs.showBuoys) layer.addTo(map);
-    const waves = waveLayer(map);
+    if (st.overlays ? st.overlays.has('buoys') : prefs.showBuoys) layer.addTo(map);
+    const waves = waveLayer(map, st.waveTime);
     overlays[WAVE_NAME] = waves;
-    if (prefs.showWaves) waves.addTo(map);
+    map.waveLayer = waves;
+    if (st.overlays ? st.overlays.has('waves') : prefs.showWaves) waves.addTo(map);
   }
   if (layersControl !== false) {
     L.control.layers(Object.fromEntries(Object.keys(BASEMAPS).map(k => [BASEMAPS[k].label, bases[k]])), overlays, { position: 'topright', collapsed: true }).addTo(map);
     map.on('baselayerchange', e => {
       const key = Object.keys(bases).find(k => bases[k] === e.layer) || 'map';
+      map.baseKey = key;
       el.classList.toggle('imagery', !!BASEMAPS[key].dark);
       savePrefs({ baseMap: key });
     });
@@ -706,7 +712,7 @@ function waveStepLabel(st) {
 function waveLegendTicks() {
   return prefs.units === 'm' ? ['0', '1.5', '3', '4.6', '6.1 m'] : ['0', '5', '10', '15', '20 ft'];
 }
-function waveLayer(map) {
+function waveLayer(map, startTime) {
   if (!map.getPane('waves')) { const p = map.createPane('waves'); p.style.zIndex = 350; p.style.pointerEvents = 'none'; }
   const layer = L.tileLayer.wms(WAVE_WMS + 'nowcast.nc', {
     layers: 'waveHs', styles: 'raster/cdip', format: 'image/png', transparent: true, version: '1.3.0',
@@ -726,7 +732,9 @@ function waveLayer(map) {
       c.querySelector('[data-w="prev"]').disabled = idx <= 0;
       c.querySelector('[data-w="next"]').disabled = idx >= steps.length - 1;
     }
+    map.fire('wavestep');
   };
+  layer.stepTime = () => { const st = steps[idx]; return st && !st.now ? st.time : null; };
   const Ctl = L.Control.extend({
     options: { position: 'bottomleft' },
     onAdd() {
@@ -751,7 +759,10 @@ function waveLayer(map) {
       if (!g || !layer._map) return;
       const cur = steps[idx];
       steps = waveSteps(g);
-      idx = cur && !cur.now ? Math.max(0, steps.findIndex(s => s.time === cur.time)) : 0;
+      const want = cur && !cur.now ? cur.time : startTime;
+      startTime = null;
+      /* A shared link may name an hour that has since passed: use the first step at or after it. */
+      idx = want ? Math.max(0, steps.findIndex(s => !s.now && Date.parse(s.time) >= Date.parse(want) - 60000)) : 0;
       show();
     });
   });
@@ -1919,8 +1930,8 @@ function spotSummary(sp, list) {
     ${bb ? `<div>Most fun here: <strong>${esc(bb.label)}</strong> (${fmtAvg(bb.avg)})</div>` : ''}
     <div class="popup-links">${st.count ? `<a href="#/sessions?spot=${encodeURIComponent(sp.id)}">Sessions</a>` : ''}<a href="#/sessions/new?spot=${encodeURIComponent(sp.id)}">Log here</a></div>`;
 }
-function spotsMap(el, sessions, { small, showAll } = {}) {
-  const map = makeMap(el, small ? { zoomControl: false, scrollWheelZoom: false, layersControl: false } : { buoys: true });
+function spotsMap(el, sessions, { small, showAll, state } = {}) {
+  const map = makeMap(el, small ? { zoomControl: false, scrollWheelZoom: false, layersControl: false } : { buoys: true, state });
   if (!map) return;
   const bySpot = new Map();
   for (const s of sessions) if (s.spotId) { const g = bySpot.get(s.spotId) || []; g.push(s); bySpot.set(s.spotId, g); }
@@ -1940,21 +1951,66 @@ function spotsMap(el, sessions, { small, showAll } = {}) {
     if (!small) m.on('popupopen', e => fillForecast(e.popup, base, () => spotForecast(sp)));
     if (list.length) pts.push([sp.lat, sp.lon]);
   }
-  if (pts.length === 1) map.setView(pts[0], 13, { animate: false });
+  if (state && state.center) map.setView(state.center, state.zoom ?? 11, { animate: false });
+  else if (pts.length === 1) map.setView(pts[0], 13, { animate: false });
   else if (pts.length) map.fitBounds(pts, { padding: [40, 40], maxZoom: 13, animate: false });
   return map;
 }
-function viewMap() {
+/* The map's view lives in the link (#/map?c=lat,lon&z=zoom&b=base&l=layers&spots=all&t=wave hour),
+   so a view can be shared or bookmarked. Opening a link applies it without changing saved settings. */
+function mapStateFrom(q) {
+  const st = {};
+  const c = (q.get('c') || '').split(',').map(Number);
+  if (c.length === 2 && c.every(Number.isFinite) && Math.abs(c[0]) <= 90 && Math.abs(c[1]) <= 180) st.center = c;
+  const z = Number(q.get('z'));
+  if (q.has('z') && Number.isFinite(z)) st.zoom = Math.max(2, Math.min(19, Math.round(z)));
+  const b = (q.get('b') || '').toLowerCase();
+  st.base = Object.keys(BASEMAPS).find(k => BASEMAPS[k].label.toLowerCase() === b || k === b);
+  if (q.has('l')) st.overlays = new Set(q.get('l').toLowerCase().split(',').filter(Boolean));
+  if (q.has('spots')) st.showAll = q.get('spots') !== 'surfed';
+  if (q.get('t') && !isNaN(Date.parse(q.get('t')))) st.waveTime = new Date(q.get('t')).toISOString();
+  return st;
+}
+function mapLink(map) {
+  const c = map.getCenter(), p = [];
+  p.push(`c=${c.lat.toFixed(4)},${c.lng.toFixed(4)}`, `z=${map.getZoom()}`, `b=${BASEMAPS[map.baseKey].label.toLowerCase()}`);
+  const ov = map.overlayLayers || {}, on = [];
+  if (ov['Buoys'] && map.hasLayer(ov['Buoys'])) on.push('buoys');
+  if (map.waveLayer && map.hasLayer(map.waveLayer)) on.push('waves');
+  p.push(`l=${on.join(',') || 'none'}`, `spots=${map.showAll ? 'all' : 'surfed'}`);
+  const t = map.waveLayer && map.hasLayer(map.waveLayer) && map.waveLayer.stepTime();
+  if (t) p.push(`t=${t.replace('.000Z', 'Z')}`);
+  return '#/map?' + p.join('&');
+}
+function viewMap(q = new URLSearchParams()) {
   setTop('Map');
+  const st = mapStateFrom(q);
+  const showAll = st.showAll ?? prefs.showAllSpots;
   const surfed = new Set(S.sessions.map(s => s.spotId).filter(Boolean)).size;
   setMain(`<div style="position:relative"><div id="bigmap"></div>
     <div class="map-legend">
       <span><strong>${S.sessions.length}</strong> sessions · <strong>${surfed}</strong> spots</span>
       <span><span class="dot" style="background:#1f9d8f"></span>fun</span><span><span class="dot" style="background:#e0a526"></span>ok</span><span><span class="dot" style="background:#c8553d"></span>meh</span>
-      <label class="check" style="min-height:28px"><input type="checkbox" data-pref="showAllSpots" ${prefs.showAllSpots ? 'checked' : ''}> All spots</label>
+      <label class="check" style="min-height:28px"><input type="checkbox" data-mapspots ${showAll ? 'checked' : ''}> All spots</label>
+      <button type="button" class="sharebtn" data-act="share-map">Share view</button>
     </div></div>`, true);
   measure();
-  spotsMap($('#bigmap'), S.sessions, { showAll: prefs.showAllSpots || !S.sessions.length });
+  const map = spotsMap($('#bigmap'), S.sessions, { showAll: showAll || !S.sessions.length, state: st });
+  if (!map) return;
+  map.showAll = showAll;
+  let timer = null;
+  const sync = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      if (!map._container || !map._container.isConnected || !location.hash.startsWith('#/map')) return;
+      const h = mapLink(map);
+      if (location.hash !== h) history.replaceState(null, '', h);
+      const tab = document.querySelector('#tabs a[data-tab="map"]');
+      if (tab) tab.setAttribute('href', h);
+    }, 250);
+  };
+  map.on('moveend baselayerchange overlayadd overlayremove wavestep', sync);
+  sync();
 }
 
 /* =========================================================
@@ -2432,6 +2488,13 @@ document.addEventListener('click', async e => {
   try {
     switch (act) {
       case 'close': closeDialog(); break;
+      case 'share-map': {
+        const url = location.href.split('#')[0] + location.hash;
+        if (navigator.share) { try { await navigator.share({ title: 'Surf map', url }); } catch (err) { /* cancelled */ } }
+        else if (navigator.clipboard) { await navigator.clipboard.writeText(url); toast('Link copied'); }
+        else prompt('Copy this link', url);
+        break;
+      }
       case 'back': goBack(el.dataset.fallback || '#/boards'); break;
       case 'view': await savePrefs({ boardsView: el.dataset.v }); route(); break;
       case 'edit': editDialog(id); break;
@@ -2492,7 +2555,14 @@ document.addEventListener('click', async e => {
 document.addEventListener('change', async e => {
   const el = e.target;
   try {
-    if (el.dataset.pref) {
+    if ('mapspots' in el.dataset) {
+      await savePrefs({ showAllSpots: el.checked });
+      const [path, qs] = location.hash.slice(1).split('?');
+      const q = new URLSearchParams(qs || '');
+      q.set('spots', el.checked ? 'all' : 'surfed');
+      history.replaceState(null, '', '#' + path + '?' + q.toString().replace(/%2C/g, ','));
+      route();
+    } else if (el.dataset.pref) {
       await savePrefs({ [el.dataset.pref]: el.type === 'checkbox' ? el.checked : el.value, ...(el.dataset.pref.startsWith('filter') || el.dataset.pref === 'boardSort' ? { pagerIndex: 0 } : {}) });
       route();
     } else if (el.dataset.listtoggle) {
@@ -2576,7 +2646,7 @@ function route() {
     case 'fin': return parts[2] === 'edit' ? viewFinForm(parts[1]) : viewFin(parts[1]);
     case 'sessions': return parts[1] === 'new' ? viewSessionForm(null, q) : viewSessions(q);
     case 'session': return viewSessionForm(parts[1], q);
-    case 'map': return viewMap();
+    case 'map': return viewMap(q);
     case 'stats': return viewStats();
     case 'settings':
       if (parts[1] === 'list') return viewList(parts[2]);
