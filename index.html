@@ -268,6 +268,13 @@ body.mapfs .leaflet-bottom { bottom: env(safe-area-inset-bottom); }
 /* While a popup is open, the controls step aside so the popup can use the whole map. */
 .leaflet-container.popup-open .wave-ctl, .leaflet-container.popup-open .leaflet-top.leaflet-right { display: none; }
 .wave-ctl.offmap { display: none; }
+.spotlbl { position: absolute; left: 0; top: 0; height: 18px; line-height: 18px; padding: 0 4px; font-size: 12px; font-weight: 600; white-space: nowrap; color: #14272e; text-align: center;
+  text-shadow: 0 0 2px #fff, 0 0 3px #fff, 0 0 4px #fff; }
+.spotlbl.surfed { font-weight: 750; }
+.lc-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -2px -6px 4px 0; font-weight: 650; font-size: 14px; }
+.lc-close { min-height: 36px; min-width: 36px; padding: 0; border: 0; border-radius: 8px; background: var(--chip, rgba(0,0,0,.06)); font-size: 24px; line-height: 1; color: inherit; }
+.leaflet-control-layers:not(.leaflet-control-layers-expanded) .lc-head { display: none; }
+.leaflet-container.imagery .spotlbl { color: #fff; text-shadow: 0 0 2px #000, 0 0 3px #000, 0 0 4px rgba(0,0,0,.8); }
 .wave-ctl { background: var(--surface); color: var(--ink); border-radius: 12px; padding: 6px 10px 8px; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,.18); width: 230px; margin-bottom: 30px !important; }
 .wave-ctl .wrow { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .wave-ctl .wrow button { min-width: 40px; min-height: 36px; border: 0; border-radius: 10px; background: var(--chip, rgba(0,0,0,.06)); color: inherit; font-size: 22px; line-height: 1; }
@@ -370,7 +377,7 @@ svg.chart text.unit { font-weight: 600; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 9.1 (CDIP peak period layer)';
+const BUILD = 'Build 9.2 (spot labels, dark unsurfed dots, layer list close button)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -748,7 +755,14 @@ function makeMap(el, opts = {}) {
     });
   }
   if (layersControl !== false) {
-    L.control.layers(Object.fromEntries(Object.keys(BASEMAPS).map(k => [BASEMAPS[k].label, bases[k]])), overlays, { position: 'topright', collapsed: true }).addTo(map);
+    const lc = L.control.layers(Object.fromEntries(Object.keys(BASEMAPS).map(k => [BASEMAPS[k].label, bases[k]])), overlays, { position: 'topright', collapsed: true }).addTo(map);
+    /* A close (X) button at the top of the open layer list. */
+    const head = L.DomUtil.create('div', 'lc-head');
+    head.innerHTML = '<span>Map layers</span><button type="button" class="lc-close" aria-label="Close layer list">&times;</button>';
+    lc._section.insertBefore(head, lc._section.firstChild);
+    L.DomEvent.disableClickPropagation(head);
+    head.querySelector('.lc-close').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); lc.collapse(); });
+    map.layersCtl = lc;
     map.on('baselayerchange', e => {
       const key = Object.keys(bases).find(k => bases[k] === e.layer) || 'map';
       map.baseKey = key;
@@ -2061,27 +2075,82 @@ function spotsMap(el, sessions, { small, showAll, state } = {}) {
   /* Spots you haven't surfed sit in their own group so "All spots" can show or hide them in place. */
   const unsurfed = L.layerGroup();
   map.unsurfedLayer = unsurfed;
+  const labelItems = [];
   for (const sp of spotsSorted()) {
     const list = bySpot.get(sp.id) || [];
     if (!list.length && (small ? !showAll : false)) continue;
     if (!list.length && sp.hidden) continue;
     const a = avg(list.map(s => s.fun).filter(Boolean));
-    const m = L.circleMarker([sp.lat, sp.lon], {
-      renderer: map.spotRenderer,
-      radius: list.length ? Math.min(26, 7 + 4 * Math.sqrt(list.length)) : 6,
-      color: '#fff', weight: 2, fillColor: list.length ? funColor(a) : '#8a9a9f', fillOpacity: list.length ? 0.9 : 0.6
+    /* Surfed spots: sized by sessions, colored by fun. Not surfed yet: a small solid dark gray dot. */
+    const m = L.circleMarker([sp.lat, sp.lon], list.length ? {
+      renderer: map.spotRenderer, radius: Math.min(26, 7 + 4 * Math.sqrt(list.length)),
+      color: '#fff', weight: 2, fillColor: funColor(a), fillOpacity: 0.9
+    } : {
+      renderer: map.spotRenderer, radius: 4, color: '#26292b', weight: 1, fillColor: '#33373a', fillOpacity: 1
     }).addTo(list.length ? map : unsurfed);
     m.spotId = sp.id;
+    labelItems.push({ m, name: sp.name, rank: list.length });
     const base = spotSummary(sp, list);
     m.bindPopup(base + (small ? '' : FC_LOADING), POPUP_OPTS);
     if (!small) m.on('popupopen', e => fillForecast(e.popup, base, () => spotForecast(sp)));
     if (list.length) pts.push([sp.lat, sp.lon]);
   }
   if (showAll) unsurfed.addTo(map);
+  if (!small) spotLabels(map, labelItems);
   if (state && state.center) map.setView(state.center, state.zoom ?? 11, { animate: false });
   else if (pts.length === 1) map.setView(pts[0], 13, { animate: false });
   else if (pts.length) map.fitBounds(pts, { padding: [40, 40], maxZoom: 13, animate: false });
   return map;
+}
+/* Spot names when zoomed in (zoom 12+). Placed greedily, most-surfed first, trying right, left, above
+   and below each dot, and skipped when they'd overlap another label, dot, buoy or control. */
+const LABEL_ZOOM = 12;
+let labelCtx = null;
+function textWidth(t) {
+  if (!labelCtx) { labelCtx = document.createElement('canvas').getContext('2d'); labelCtx.font = '600 12px ' + getComputedStyle(document.body).fontFamily; }
+  return Math.ceil(labelCtx.measureText(t).width);
+}
+function spotLabels(map, items) {
+  if (!map.getPane('spotlabels')) { const p = map.createPane('spotlabels'); p.style.zIndex = 450; p.style.pointerEvents = 'none'; }
+  const pane = map.getPane('spotlabels');
+  const order = items.slice().sort((a, b) => b.rank - a.rank || a.name.localeCompare(b.name));
+  const hit = (r, list) => list.some(o => r.x < o.x + o.w && r.x + r.w > o.x && r.y < o.y + o.h && r.y + r.h > o.y);
+  const draw = () => {
+    pane.innerHTML = '';
+    pane.style.display = '';
+    if (map.getZoom() < LABEL_ZOOM) return;
+    const size = map.getSize(), box = map.getContainer().getBoundingClientRect();
+    const blocked = [];
+    /* Keep clear of the map's controls and the buoys (with their labels). */
+    map.getContainer().querySelectorAll('.leaflet-control, .buoy .bdot, .buoy .blbl').forEach(e => {
+      const r = e.getBoundingClientRect();
+      if (r.width && r.height) blocked.push({ x: r.left - box.left - 2, y: r.top - box.top - 2, w: r.width + 4, h: r.height + 4 });
+    });
+    const live = order.filter(it => map.hasLayer(it.m)).map(it => ({ it, p: map.latLngToContainerPoint(it.m.getLatLng()), r: it.m.getRadius() }))
+      .filter(o => o.p.x > -50 && o.p.y > -20 && o.p.x < size.x + 50 && o.p.y < size.y + 20);
+    for (const o of live) blocked.push({ x: o.p.x - o.r - 1, y: o.p.y - o.r - 1, w: 2 * o.r + 2, h: 2 * o.r + 2 });
+    const placed = [];
+    const html = [];
+    for (const o of live) {
+      const w = textWidth(o.it.name) + 8, h = 18, g = o.r + 3;
+      const tries = [
+        { x: o.p.x + g, y: o.p.y - h / 2 }, { x: o.p.x - g - w, y: o.p.y - h / 2 },
+        { x: o.p.x - w / 2, y: o.p.y - g - h }, { x: o.p.x - w / 2, y: o.p.y + g }
+      ];
+      const own = { x: o.p.x - o.r - 1, y: o.p.y - o.r - 1, w: 2 * o.r + 2, h: 2 * o.r + 2 };
+      const others = blocked.filter(b => b.x !== own.x || b.y !== own.y);
+      const spot = tries.find(t => t.x >= 2 && t.y >= 2 && t.x + w <= size.x - 2 && t.y + h <= size.y - 2 && !hit({ ...t, w, h }, placed) && !hit({ ...t, w, h }, others));
+      if (!spot) continue;
+      placed.push({ ...spot, w, h });
+      const lp = map.containerPointToLayerPoint([spot.x, spot.y]);
+      html.push(`<div class="spotlbl${o.it.rank ? ' surfed' : ''}" style="transform:translate(${Math.round(lp.x)}px,${Math.round(lp.y)}px);width:${w}px">${esc(o.it.name)}</div>`);
+    }
+    pane.innerHTML = html.join('');
+  };
+  map.on('zoomstart', () => { pane.style.display = 'none'; });
+  map.on('moveend zoomend overlayadd overlayremove spotschange', () => requestAnimationFrame(draw));
+  map.whenReady(() => setTimeout(draw, 60));
+  map.redrawLabels = draw;
 }
 /* The map's view lives in the link (#/map?c=lat,lon&z=zoom&b=base&l=layers&spots=all&t=wave hour),
    so a view can be shared or bookmarked. Opening a link applies it without changing saved settings. */
