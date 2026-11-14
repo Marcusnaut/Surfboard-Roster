@@ -121,7 +121,7 @@ def tidy_name(raw, sid):
     if not raw:
         return f"Buoy {sid}"
     # NDBC names look like "EAST SANTA BARBARA - 12 NM Southwest of Santa Barbara, CA" or "Anacapa Passage, CA (111)".
-    name = raw.split(" - ")[0].strip()
+    name = raw.split(" - ")[0].split("  ")[0].strip()
     if name.isupper():
         name = name.title()
     return name
