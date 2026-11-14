@@ -70,7 +70,7 @@ header.top .hact.plus { font-size: 28px; font-weight: 300; }
 main { padding: 16px 16px calc(env(safe-area-inset-bottom) + 96px); max-width: 720px; margin: 0 auto; }
 main.full { padding: 0; max-width: none; }
 nav.tabs {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000;
+  position: fixed; left: 0; right: 0; bottom: calc(-1 * var(--vgap, 0px)); z-index: 1000;
   background: var(--surface); border-top: 1px solid var(--line);
   display: flex; padding-bottom: env(safe-area-inset-bottom);
 }
@@ -146,13 +146,13 @@ dialog.full .dhead button { color: var(--brand-ink); background: none; border: 0
 dialog.full .dbody { flex: 1; position: relative; }
 dialog.full .dfoot { padding: 12px 16px calc(env(safe-area-inset-bottom) + 12px); border-top: 1px solid var(--line); }
 .err { color: var(--danger); font-size: 13px; min-height: 18px; margin: 4px 4px 0; }
-#updatebar { position: fixed; left: 10px; right: 10px; bottom: calc(env(safe-area-inset-bottom) + 72px); z-index: 2000; display: flex; align-items: center; gap: 8px;
+#updatebar { position: fixed; left: 10px; right: 10px; bottom: calc(env(safe-area-inset-bottom) + 72px - var(--vgap, 0px)); z-index: 2000; display: flex; align-items: center; gap: 8px;
   background: var(--brand); color: var(--brand-ink); border-radius: 12px; padding: 8px 8px 8px 14px; box-shadow: 0 4px 16px rgba(0,0,0,.3); font-size: 14px; }
 #updatebar span { flex: 1; }
 #updatebar .ub-x { background: none; border: 0; color: inherit; font-size: 24px; min-width: 40px; }
 #toast {
   position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: calc(env(safe-area-inset-bottom) + 76px); z-index: 2000;
+  bottom: calc(env(safe-area-inset-bottom) + 76px - var(--vgap, 0px)); z-index: 2000;
   background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 999px;
   font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s; max-width: 90vw; text-align: center;
 }
@@ -275,6 +275,12 @@ body.mapfs .leaflet-bottom { bottom: env(safe-area-inset-bottom); }
 .spotlbl { position: absolute; left: 0; top: 0; height: 18px; line-height: 18px; padding: 0 4px; font-size: 12px; font-weight: 600; white-space: nowrap; color: #14272e; text-align: center;
   text-shadow: 0 0 2px #fff, 0 0 3px #fff, 0 0 4px #fff; }
 .spotlbl.surfed { font-weight: 750; }
+.installhelp { margin-top: 18px; text-align: left; padding: 14px 16px; }
+.installhelp p { margin: 6px 0 10px; }
+details.install { border-top: 1px solid var(--line); padding: 8px 0; }
+details.install summary { font-weight: 650; cursor: pointer; min-height: 32px; display: flex; align-items: center; }
+details.install ol { margin: 6px 0 4px; padding-left: 22px; }
+details.install li { margin: 3px 0; }
 /* The open layer list sits above the bottom-left CDIP panel. */
 .leaflet-top.leaflet-right { z-index: 1001; }
 .lc-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -2px -6px 4px 0; font-weight: 650; font-size: 14px; }
@@ -383,7 +389,7 @@ svg.chart text.unit { font-weight: 600; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 9.4 (refresh button, update notice)';
+const BUILD = 'Build 9.5 (home-screen layout fix, install help)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -719,6 +725,12 @@ function showUpdateBar(next) {
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForUpdate(); });
 function measure() {
+  /* Some iPhone home-screen apps place "fixed to the bottom" items above the real bottom of the screen,
+     leaving a gap. Measure where the bottom actually lands and push the tab bar down by the difference. */
+  let probe = $('#vprobe');
+  if (!probe) { probe = document.createElement('div'); probe.id = 'vprobe'; probe.style.cssText = 'position:fixed;left:0;bottom:0;width:1px;height:0;pointer-events:none;visibility:hidden'; document.body.appendChild(probe); }
+  const gap = Math.max(0, Math.round(window.innerHeight - probe.getBoundingClientRect().top));
+  document.documentElement.style.setProperty('--vgap', (gap > 2 ? gap : 0) + 'px');
   const h = window.innerHeight - $('#top').offsetHeight - $('#tabs').offsetHeight;
   document.documentElement.style.setProperty('--avail', Math.max(300, h) + 'px');
 }
@@ -1353,6 +1365,28 @@ function setTop(title, back, actions = '') {
 const main = () => $('#main');
 function setMain(html, full) { const m = main(); m.classList.toggle('full', !!full); m.innerHTML = html; }
 
+/* How to install the app and where data lives. Shown on the empty Boards page. */
+function installHelp() {
+  const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  const ua = navigator.userAgent;
+  const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  const android = /Android/.test(ua);
+  const mac = !ios && /Macintosh/.test(ua);
+  const chrome = /Chrome|CriOS|Edg/.test(ua);
+  const open = { ios, android, deskChrome: !ios && !android && chrome, macSafari: mac && !chrome };
+  const sec = (key, title, body) => `<details class="install"${open[key] ? ' open' : ''}><summary>${title}</summary>${body}</details>`;
+  return `<div class="card installhelp">
+    <h2 class="sec" style="margin-top:0">${standalone ? 'Your data on this device' : 'Install the app first'}</h2>
+    <p>Your boards, fins and sessions are saved <strong>only on this device</strong>, in this browser's storage. Nothing goes to a server, and nothing syncs between devices.</p>
+    ${standalone ? '<p>You are using the installed app, so you are set. Add your boards here.</p>' : `<p>Install it to your home screen or computer <strong>before</strong> adding boards. On iPhone and iPad the home-screen app keeps its own storage, separate from Safari, so boards added in a browser tab won't show up in the installed app.</p>
+    ${sec('ios', 'iPhone or iPad (Safari or Chrome)', '<ol><li>Open this page in Safari, or in Chrome on iOS 16.4 or later.</li><li>Tap the <strong>Share</strong> button (a square with an up arrow). In Chrome it is in the address bar.</li><li>Scroll down, tap <strong>Add to Home Screen</strong>, then <strong>Add</strong>.</li><li>From now on, open the app from its <strong>Quiver</strong> icon.</li></ol>')}
+    ${sec('android', 'Android (Chrome)', '<ol><li>Open this page in Chrome.</li><li>Tap the <strong>⋮</strong> menu at the top right.</li><li>Tap <strong>Add to Home screen</strong> or <strong>Install app</strong>, then <strong>Install</strong>.</li><li>Open the app from its home-screen icon.</li></ol>')}
+    ${sec('deskChrome', 'Computer (Chrome or Edge)', '<ol><li>Click the <strong>Install</strong> icon at the right end of the address bar (a screen with a down arrow).</li><li>Or in Chrome: <strong>⋮</strong> menu → <strong>Cast, save, and share</strong> → <strong>Install page as app</strong>. In Edge: <strong>…</strong> menu → <strong>Apps</strong> → <strong>Install this site as an app</strong>.</li><li>The app opens in its own window and appears with your other apps.</li></ol>')}
+    ${sec('macSafari', 'Mac (Safari)', '<ol><li>Needs macOS Sonoma or later.</li><li>In Safari choose <strong>File</strong> → <strong>Add to Dock</strong> (or Share button → <strong>Add to Dock</strong>).</li><li>Open the app from the Dock.</li></ol>')}`}
+    <p class="sub">Clearing the browser's website data, or deleting the app, erases your boards. Export a backup now and then from Settings → Backup and export.</p>
+  </div>`;
+}
+
 /* =========================================================
    BOARDS
    ========================================================= */
@@ -1379,7 +1413,7 @@ function photoBox(b, thumb) {
 function viewBoards() {
   setTop('Boards', null, `<a class="hact plus" href="#/boards/new" aria-label="Add board">+</a>`);
   if (!S.boards.length) {
-    setMain(`<div class="empty"><div class="big">No boards yet</div><div>Add your first board to start your quiver.</div><a class="btn primary" href="#/boards/new">Add a board</a></div>`);
+    setMain(`<div class="empty"><div class="big">No boards yet</div><div>Add your first board to start your quiver.</div><a class="btn primary" href="#/boards/new">Add a board</a></div>${installHelp()}`);
     return;
   }
   const { list, st } = filteredBoards();
@@ -2903,6 +2937,9 @@ window.addEventListener('resize', () => {
   clearTimeout(resizeT);
   resizeT = setTimeout(() => { measure(); mounted.maps.forEach(m => { try { m.invalidateSize(); } catch (e) {} }); }, 150);
 });
+/* iOS can settle the home-screen layout a moment after launch or when the app returns; measure again. */
+['pageshow', 'orientationchange'].forEach(ev => window.addEventListener(ev, () => setTimeout(() => window.dispatchEvent(new Event('resize')), 300)));
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(() => window.dispatchEvent(new Event('resize')), 300); });
 
 /* ---------- start ---------- */
 (async function start() {
