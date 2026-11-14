@@ -49,7 +49,6 @@
 [hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; }
 /* Installed app: make the page at least as tall as the screen so iOS lays out to the real bottom. */
-@media (display-mode: standalone) { html, body { min-height: var(--apph, 100vh); } }
 body {
   background: var(--bg); color: var(--ink);
   font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -72,7 +71,7 @@ header.top .hact.plus { font-size: 28px; font-weight: 300; }
 main { padding: 16px 16px calc(env(safe-area-inset-bottom) + 96px); max-width: 720px; margin: 0 auto; }
 main.full { padding: 0; max-width: none; }
 nav.tabs {
-  position: fixed; left: 0; right: 0; bottom: calc(-1 * var(--vgap, 0px)); z-index: 1000;
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000;
   background: var(--surface); border-top: 1px solid var(--line);
   display: flex; padding-bottom: env(safe-area-inset-bottom);
 }
@@ -148,13 +147,13 @@ dialog.full .dhead button { color: var(--brand-ink); background: none; border: 0
 dialog.full .dbody { flex: 1; position: relative; }
 dialog.full .dfoot { padding: 12px 16px calc(env(safe-area-inset-bottom) + 12px); border-top: 1px solid var(--line); }
 .err { color: var(--danger); font-size: 13px; min-height: 18px; margin: 4px 4px 0; }
-#updatebar { position: fixed; left: 10px; right: 10px; bottom: calc(env(safe-area-inset-bottom) + 72px - var(--vgap, 0px)); z-index: 2000; display: flex; align-items: center; gap: 8px;
+#updatebar { position: fixed; left: 10px; right: 10px; bottom: calc(env(safe-area-inset-bottom) + 72px); z-index: 2000; display: flex; align-items: center; gap: 8px;
   background: var(--brand); color: var(--brand-ink); border-radius: 12px; padding: 8px 8px 8px 14px; box-shadow: 0 4px 16px rgba(0,0,0,.3); font-size: 14px; }
 #updatebar span { flex: 1; }
 #updatebar .ub-x { background: none; border: 0; color: inherit; font-size: 24px; min-width: 40px; }
 #toast {
   position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: calc(env(safe-area-inset-bottom) + 76px - var(--vgap, 0px)); z-index: 2000;
+  bottom: calc(env(safe-area-inset-bottom) + 76px); z-index: 2000;
   background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 999px;
   font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s; max-width: 90vw; text-align: center;
 }
@@ -391,7 +390,7 @@ svg.chart text.unit { font-weight: 600; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 9.8 (spot labels perpendicular to the coast)';
+const BUILD = 'Build 9.8.1 (home-screen layout heal after keyboard)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -750,22 +749,28 @@ function showUpdateBar(next) {
   document.body.appendChild(d);
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForUpdate(); });
+/* iPhone home-screen apps have a bug: after the on-screen keyboard closes, the app's window can stay
+   shrunk, so the tab bar floats up and a blank band shows at the bottom. Remember the tallest window
+   seen, and when it's stuck shorter with no keyboard up, force the page to lay out again. */
+let maxVH = window.innerHeight, heals = 0, healing = false;
+const typing = () => { const a = document.activeElement; return !!a && (a.matches('input:not([type=checkbox]):not([type=radio]):not([type=hidden]), textarea, select') || a.isContentEditable); };
+function healViewport() {
+  if (typing() || maxVH - window.innerHeight <= 4) return;
+  const y = window.scrollY;
+  document.body.style.display = 'none';
+  void document.body.offsetHeight;
+  document.body.style.display = '';
+  window.scrollTo(0, y);
+  heals++;
+  setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
+}
+document.addEventListener('focusout', () => setTimeout(healViewport, 160));
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(healViewport, 300); });
 function measure() {
-  /* Some iPhone home-screen apps place "fixed to the bottom" items above the real bottom of the screen,
-     leaving a gap. Measure where the bottom actually lands and push the tab bar down by the difference. */
-  let probe = $('#vprobe');
-  if (!probe) { probe = document.createElement('div'); probe.id = 'vprobe'; probe.style.cssText = 'position:fixed;left:0;bottom:0;width:1px;height:0;pointer-events:none;visibility:hidden'; document.body.appendChild(probe); }
-  /* In the installed app the window fills the whole screen, so the screen's height is the true bottom,
-     even when iOS reports a shorter window. In a browser tab the window height is right. */
+  if (!typing()) maxVH = Math.max(maxVH, window.innerHeight);
   const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
-  const landscape = window.matchMedia && matchMedia('(orientation: landscape)').matches;
-  const screenH = landscape ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
-  const H = standalone && screenH ? Math.max(window.innerHeight, screenH) : window.innerHeight;
-  const gap = Math.max(0, Math.round(H - probe.getBoundingClientRect().top));
-  document.documentElement.style.setProperty('--vgap', (gap > 2 ? gap : 0) + 'px');
-  document.documentElement.style.setProperty('--apph', H + 'px');
-  S.viewInfo = `window ${window.innerHeight}, screen ${screenH}, used ${H}, gap ${gap}${standalone ? ', installed' : ''}`;
-  const h = H - $('#top').offsetHeight - $('#tabs').offsetHeight;
+  S.viewInfo = `window ${window.innerHeight}, tallest ${maxVH}, fixes ${heals}${standalone ? ', installed' : ''}`;
+  const h = window.innerHeight - $('#top').offsetHeight - $('#tabs').offsetHeight;
   document.documentElement.style.setProperty('--avail', Math.max(300, h) + 'px');
 }
 function baseLayer(key) {
@@ -3060,7 +3065,7 @@ window.addEventListener('hashchange', () => { navCount++; closeDialog(); route()
 let resizeT;
 window.addEventListener('resize', () => {
   clearTimeout(resizeT);
-  resizeT = setTimeout(() => { measure(); mounted.maps.forEach(m => { try { m.invalidateSize(); } catch (e) {} }); }, 150);
+  resizeT = setTimeout(() => { measure(); mounted.maps.forEach(m => { try { m.invalidateSize(); } catch (e) {} }); if (!typing() && maxVH - window.innerHeight > 4 && !healing) { healing = true; healViewport(); setTimeout(() => { healing = false; }, 1000); } }, 150);
 });
 /* iOS can settle the home-screen layout a moment after launch or when the app returns; measure again. */
 ['pageshow', 'orientationchange'].forEach(ev => window.addEventListener(ev, () => setTimeout(() => window.dispatchEvent(new Event('resize')), 300)));
