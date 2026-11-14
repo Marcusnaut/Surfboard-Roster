@@ -248,7 +248,26 @@ label.btn input { display: none; }
 #bigmap { height: var(--avail); width: 100%; }
 .leaflet-container { font: inherit; background: var(--tag); }
 .leaflet-container.imagery { background: #1d2a2f; }
-.map-legend { position: absolute; z-index: 500; left: 10px; top: 10px; right: 66px; background: var(--surface); color: var(--ink); border-radius: 12px; padding: 8px 12px; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,.18); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+/* Map legend lives in the header on the Map tab. */
+header.top.maphdr { flex-wrap: wrap; row-gap: 2px; padding-bottom: 6px; }
+header.top.maphdr h1 { flex: 0 0 auto; margin-right: 10px; }
+.map-legend { display: flex; gap: 4px 10px; align-items: center; flex-wrap: wrap; font-size: 13px; flex: 1 1 260px; }
+.map-legend .check { min-height: 30px; color: inherit; }
+.map-legend .check input { accent-color: #fff; }
+.map-legend .sub { color: inherit; opacity: .8; }
+.map-legend .lbuoy { display: inline-flex; align-items: center; gap: 3px; }
+.map-legend .lbuoy svg { width: 15px; height: 15px; background: #fff; border-radius: 4px; padding: 1px; }
+.map-legend .lbuoy.cdip svg path[fill="#ffc531"] { fill: #2f7fe0; }
+/* Full-screen map: header and tab bar hide; the map fills the screen. */
+body.mapfs header.top, body.mapfs nav.tabs { display: none !important; }
+body.mapfs main { padding: 0 !important; max-width: none; }
+body.mapfs .leaflet-top { top: env(safe-area-inset-top); }
+body.mapfs .leaflet-bottom { bottom: env(safe-area-inset-bottom); }
+.fs-btn a { width: 44px !important; height: 44px !important; line-height: 44px !important; font-size: 20px; display: flex !important; align-items: center; justify-content: center; }
+.fs-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+/* While a popup is open, the controls step aside so the popup can use the whole map. */
+.leaflet-container.popup-open .wave-ctl, .leaflet-container.popup-open .leaflet-top.leaflet-right { display: none; }
+.wave-ctl.offmap { display: none; }
 .wave-ctl { background: var(--surface); color: var(--ink); border-radius: 12px; padding: 6px 10px 8px; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,.18); width: 230px; margin-bottom: 30px !important; }
 .wave-ctl .wrow { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .wave-ctl .wrow button { min-width: 40px; min-height: 36px; border: 0; border-radius: 10px; background: var(--chip, rgba(0,0,0,.06)); color: inherit; font-size: 22px; line-height: 1; }
@@ -291,12 +310,14 @@ nav.tabs a { font-size: 10px; }
 .pick .now { font-size: 13px; color: var(--muted); }
 .pick .now div { margin-top: 2px; }
 .buoy-icon { background: none; border: 0; }
-.buoy { position: relative; width: 26px; height: 26px; }
-.buoy .bdot { position: absolute; inset: 0; border-radius: 7px; background: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
-.buoy .bdot svg { width: 22px; height: 22px; }
+.buoy { position: relative; width: 21px; height: 21px; }
+.buoy .bdot { position: absolute; inset: 0; border-radius: 6px; background: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+.buoy .bdot svg { width: 18px; height: 18px; }
+.buoy.cdip .bdot svg path[fill="#ffc531"] { fill: #2f7fe0; }
+.buoy.cdip .blbl { background: rgba(28,84,160,.94); }
 .buoy .blbl .barrow { width: 11px; height: 11px; fill: currentColor; margin-right: 3px; vertical-align: -1px; }
 .leaflet-container.far .buoy .blbl { display: none; }
-.buoy .blbl { position: absolute; left: 30px; top: 50%; transform: translateY(-50%); white-space: nowrap; background: rgba(11,58,74,.92); color: #fff; font-size: 12px; font-weight: 650; padding: 2px 7px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.3); pointer-events: none; }
+.buoy .blbl { position: absolute; left: 25px; top: 50%; transform: translateY(-50%); white-space: nowrap; background: rgba(11,58,74,.92); color: #fff; font-size: 12px; font-weight: 650; padding: 2px 7px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.3); pointer-events: none; }
 .buoy.stale .bdot { opacity: .55; }
 .buoy.stale .blbl { background: rgba(80,95,100,.85); }
 table.bt { border-collapse: collapse; margin: 8px 0 4px; font-size: 13px; width: 100%; }
@@ -312,7 +333,15 @@ svg.chart .grid { stroke: var(--line); stroke-width: 1; }
 svg.chart text { font-size: 9px; fill: var(--muted); }
 svg.chart text.unit { font-weight: 600; }
 /* Popups scroll inside the space between the legend and the tab bar instead of running off screen. */
-.leaflet-popup-content { max-height: min(62vh, calc(var(--avail) - 270px - var(--wavectl, 0px))); overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+.leaflet-popup-content { max-height: calc(var(--avail) - 64px); overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--accent) transparent; }
+.leaflet-popup-content::-webkit-scrollbar { width: 6px; }
+.leaflet-popup-content::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
+/* "More below" hint: a fade and a pill at the bottom of a popup that has more to scroll. */
+.leaflet-popup-content .morehint { position: sticky; bottom: -1px; display: none; margin: -40px -14px 0; height: 40px; background: linear-gradient(rgba(255,255,255,0), var(--surface) 75%); pointer-events: none; text-align: center; }
+.leaflet-popup-content .morehint span { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 650; padding: 2px 10px; border-radius: 999px; }
+.leaflet-popup-content.more .morehint { display: block; }
+.cdipplot { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+.cdipplot img { display: block; width: 100%; height: auto; min-height: 60px; margin-top: 4px; border-radius: 6px; background: #fff; }
 .fct-days td, .fct-days th { padding-right: 8px; white-space: nowrap; }
 .spotgroup .sec .sub { font-weight: 400; text-transform: none; letter-spacing: 0; }
 .leaflet-control-layers { border-radius: 10px !important; }
@@ -341,7 +370,7 @@ svg.chart text.unit { font-weight: 600; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 8.7 (popups clear the wave panel)';
+const BUILD = 'Build 9 (map header legend, full screen, bigger popups, CDIP buoy plots)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -619,11 +648,27 @@ function confirmDialog(title, body, buttons) {
 }
 
 let mounted = { maps: [], charts: [] };
+/* Leaflet can schedule a canvas redraw while a map is being torn down; skip it once the canvas is gone. */
+if (typeof L !== 'undefined' && L.Canvas) {
+  const redraw = L.Canvas.prototype._redraw;
+  L.Canvas.prototype._redraw = function () { if (this._ctx && this._map) return redraw.apply(this, arguments); this._redrawRequest = null; };
+}
 function unmount() {
   mounted.maps.forEach(m => { try { m.stop(); m.off(); m.remove(); } catch (e) {} });
   mounted.charts.forEach(c => { try { c.destroy(); } catch (e) {} });
   mounted = { maps: [], charts: [] };
 }
+function setMapFullscreen(on) {
+  document.body.classList.toggle('mapfs', on);
+  const d = document.documentElement;
+  try {
+    if (on && d.requestFullscreen && !document.fullscreenElement) d.requestFullscreen().catch(() => {});
+    if (!on && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+  } catch (e) { /* iPhone Safari has no page full screen; hiding the bars is enough */ }
+  measure();
+  for (const m of mounted.maps) { try { m.invalidateSize(); } catch (e) {} }
+}
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && document.body.classList.contains('mapfs')) setMapFullscreen(false); });
 function measure() {
   const h = window.innerHeight - $('#top').offsetHeight - $('#tabs').offsetHeight;
   document.documentElement.style.setProperty('--avail', Math.max(300, h) + 'px');
@@ -637,22 +682,39 @@ function baseLayer(key) {
 }
 function makeMap(el, opts = {}) {
   if (typeof L === 'undefined') { el.innerHTML = '<div class="empty">Map unavailable.</div>'; return null; }
-  const { buoys, layersControl, state, ...mapOpts } = opts;
+  const { buoys, layersControl, state, fullscreen, ...mapOpts } = opts;
   const st = state || {};
   const map = L.map(el, { attributionControl: false, ...mapOpts, zoomControl: false });
   L.control.attribution({ prefix: false, position: 'bottomright' }).addTo(map);
   const zoomClass = () => el.classList.toggle('far', map.getZoom() < 8);
   map.on('zoomend', zoomClass);
   if (opts.zoomControl !== false) L.control.zoom({ position: 'topright' }).addTo(map);
-  /* Keep popups clear of the wave-height panel at the bottom left: shorter popups, and pan the spot up above it. */
+  /* An open popup gets the whole map: the controls step aside (CSS) and a hint shows when there's more to scroll. */
   map.on('popupopen', e => {
-    const ctl = el.querySelector('.wave-ctl');
-    const h = ctl ? ctl.offsetHeight + 30 : 0;
-    el.style.setProperty('--wavectl', h + 'px');
-    e.popup.options.autoPanPaddingBottomRight = [12, 40 + h];
-    e.popup.options.autoPanPaddingTopLeft = [12, 200]; /* below the legend and the layers button */
-    if (h) requestAnimationFrame(() => { if (e.popup.isOpen()) { e.popup.update(); if (e.popup._adjustPan) e.popup._adjustPan(); } });
+    el.classList.add('popup-open');
+    requestAnimationFrame(() => { if (e.popup.isOpen()) { e.popup.update(); if (e.popup._adjustPan) e.popup._adjustPan(); popupScrollHint(e.popup); } });
   });
+  map.on('popupclose', () => el.classList.remove('popup-open'));
+  if (opts.fullscreen) {
+    const Fs = L.Control.extend({
+      options: { position: 'topright' },
+      onAdd() {
+        const d = L.DomUtil.create('div', 'leaflet-bar fs-btn');
+        const icon = on => on ? '<svg viewBox="0 0 24 24"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>';
+        d.innerHTML = `<a href="#" role="button" aria-label="Full screen" title="Full screen">${icon(document.body.classList.contains('mapfs'))}</a>`;
+        L.DomEvent.disableClickPropagation(d);
+        d.firstChild.addEventListener('click', ev => {
+          ev.preventDefault();
+          const on = !document.body.classList.contains('mapfs');
+          setMapFullscreen(on);
+          d.firstChild.innerHTML = icon(on);
+          d.firstChild.setAttribute('aria-label', on ? 'Exit full screen' : 'Full screen');
+        });
+        return d;
+      }
+    });
+    new Fs().addTo(map);
+  }
   /* Spot dots draw on a canvas with a wide tap tolerance so they're easy to hit with a finger. */
   map.spotRenderer = L.canvas({ tolerance: 14, padding: 0.5 });
   const bases = Object.fromEntries(Object.keys(BASEMAPS).map(k => [k, baseLayer(k)]));
@@ -760,8 +822,11 @@ function waveLayer(map, startTime) {
       return d;
     }
   });
+  const inView = () => { if (ctl) ctl.getContainer().classList.toggle('offmap', !map.getBounds().intersects(WAVE_BOUNDS)); };
+  map.on('moveend', inView);
   layer.on('add', () => {
     if (!ctl) ctl = new Ctl().addTo(map);
+    inView();
     show();
     loadWaveGrid().then(g => {
       if (!g || !layer._map) return;
@@ -836,8 +901,8 @@ function buoyIcon(b, r) {
   const label = ps ? `${ps.dir ? ps.dir + ' ' : ''}${fmtHeight(ps.h)}` : 'No data';
   const arrow = ps && ps.deg != null ? `<svg class="barrow" viewBox="0 0 20 20" style="transform:rotate(${(ps.deg + 180) % 360}deg)" aria-hidden="true"><path d="M10 2 L15 15 L10 12 L5 15 Z"/></svg>` : '';
   return L.divIcon({
-    className: 'buoy-icon', iconSize: [26, 26], iconAnchor: [13, 13], popupAnchor: [0, -13],
-    html: `<div class="buoy ${stale || !ps ? 'stale' : ''}"><span class="bdot">${BUOY_SVG}</span><span class="blbl">${arrow}${esc(label)}</span></div>`
+    className: 'buoy-icon', iconSize: [21, 21], iconAnchor: [10, 10], popupAnchor: [0, -11],
+    html: `<div class="buoy ${cdipNumber(b) ? 'cdip' : ''} ${stale || !ps ? 'stale' : ''}"><span class="bdot">${BUOY_SVG}</span><span class="blbl">${arrow}${esc(label)}</span></div>`
   });
 }
 function buoyList(data) {
@@ -907,7 +972,8 @@ function buoyPopup(b, r, data) {
       ${row('Steepness', r.steep ? esc(r.steep.toLowerCase().replace('_', ' ')) : '')}
     </table>
     ${sparkline(r.history)}
-    ${buoyLinks(b)}`;
+    ${buoyLinks(b)}
+    ${cdipPlots(b)}`;
 }
 function buoyLayer() {
   const group = L.layerGroup();
@@ -927,7 +993,7 @@ function buoyLayer() {
       } else { m.setLatLng(pos); m.setIcon(buoyIcon(b, r)); }
       const base = buoyPopup(b, r, data);
       m.off('popupopen');
-      m.bindPopup(base + (b.lat != null ? FC_LOADING : ''), { maxWidth: 290, autoPanPaddingTopLeft: [12, 120], autoPanPaddingBottomRight: [12, 40] });
+      m.bindPopup(base + (b.lat != null ? FC_LOADING : ''), POPUP_OPTS);
       m.on('popupopen', e => fillForecast(e.popup, base, () => buoyForecast(b)));
     }
   };
@@ -938,6 +1004,28 @@ function buoyLayer() {
 
 /* ---------- 5-day forecasts: CDIP (California) or Open-Meteo ---------- */
 const FC_LOADING = '<div class="fc"><div class="sub">Loading the 5-day forecast…</div></div>';
+const POPUP_OPTS = { maxWidth: 340, minWidth: 260, autoPanPaddingTopLeft: [8, 8], autoPanPaddingBottomRight: [8, 8] };
+/* CDIP's own plots for its buoys, shown as published (CDIP asks that its products not be altered). */
+function cdipPlots(b) {
+  const n = cdipNumber(b);
+  if (!n) return '';
+  const page = `https://cdip.ucsd.edu/m/products/?stn=${n}p1`;
+  return `<div class="cdipplot"><div class="fct">Swell by direction and period</div>
+      <div class="sub">Where the wave energy is coming from (angle) and its period (rings). Tap to open on CDIP.</div>
+      <a href="${page}" target="_blank" rel="noopener"><img loading="lazy" alt="CDIP polar spectrum for station ${n}" src="https://cdip.ucsd.edu/plots/polar_combo.gd?stn=${n}"></a></div>
+    <div class="cdipplot"><div class="fct">CDIP wave forecast plot</div>
+      <a href="https://cdip.ucsd.edu/m/products/buoy_ww3/?stn=${n}p1" target="_blank" rel="noopener"><img loading="lazy" alt="CDIP wave forecast for station ${n}" src="https://cdip.ucsd.edu/themes/media/images/plots/buoy_ww3.gd?stn=${n}&tz=UTC&units=standard"></a>
+      <div class="sub">Plots: data courtesy of <a href="https://cdip.ucsd.edu/" target="_blank" rel="noopener">CDIP</a>, Scripps Institution of Oceanography.</div></div>`;
+}
+const MORE_HINT = '<div class="morehint"><span>More below &#8595;</span></div>';
+function popupScrollHint(popup) {
+  const el = popup && popup._contentNode;
+  if (!el) return;
+  if (!el.querySelector('.morehint')) el.insertAdjacentHTML('beforeend', MORE_HINT);
+  const check = () => el.classList.toggle('more', el.scrollHeight - el.scrollTop - el.clientHeight > 6);
+  if (!el._hintBound) { el._hintBound = true; el.addEventListener('scroll', check, { passive: true }); el.addEventListener('load', check, true); }
+  check();
+}
 const cdipNumber = b => { const m = /\((\d{3})\)/.exec(b.name || ''); return m ? m[1] : null; };
 function buoyLinks(b) {
   const n = cdipNumber(b);
@@ -1019,7 +1107,7 @@ function forecastHTML(fc) {
 async function fillForecast(popup, base, get) {
   try {
     const fc = await get();
-    if (popup.isOpen()) { popup.setContent(base + forecastHTML(fc)); popup.update(); if (popup._adjustPan) popup._adjustPan(); }
+    if (popup.isOpen()) { popup.setContent(base + forecastHTML(fc)); popup.update(); if (popup._adjustPan) popup._adjustPan(); popupScrollHint(popup); }
   } catch (e) {
     if (popup.isOpen()) { popup.setContent(base + `<div class="fc"><div class="sub">Couldn't load the forecast${navigator.onLine === false ? " (you're offline)" : ''}.</div></div>`); popup.update(); }
   }
@@ -1177,6 +1265,7 @@ function numSelect(name, current, from, to, step, fmt) {
 
 /* ---------- header ---------- */
 function setTop(title, back, actions = '') {
+  $('#top').className = 'top';
   $('#top').innerHTML = (back ? `<button class="back" data-act="back" data-fallback="${esc(back)}" aria-label="Back">&#8249; Back</button>` : '') + `<h1>${esc(title)}</h1>${actions}`;
   document.title = title + ' · Surfboard Tracker';
 }
@@ -1939,7 +2028,7 @@ function spotSummary(sp, list) {
     <div class="popup-links">${st.count ? `<a href="#/sessions?spot=${encodeURIComponent(sp.id)}">Sessions</a>` : ''}<a href="#/sessions/new?spot=${encodeURIComponent(sp.id)}">Log here</a></div>`;
 }
 function spotsMap(el, sessions, { small, showAll, state } = {}) {
-  const map = makeMap(el, small ? { zoomControl: false, scrollWheelZoom: false, layersControl: false } : { buoys: true, state });
+  const map = makeMap(el, small ? { zoomControl: false, scrollWheelZoom: false, layersControl: false } : { buoys: true, state, fullscreen: true });
   if (!map) return;
   const bySpot = new Map();
   for (const s of sessions) if (s.spotId) { const g = bySpot.get(s.spotId) || []; g.push(s); bySpot.set(s.spotId, g); }
@@ -1959,7 +2048,7 @@ function spotsMap(el, sessions, { small, showAll, state } = {}) {
     }).addTo(list.length ? map : unsurfed);
     m.spotId = sp.id;
     const base = spotSummary(sp, list);
-    m.bindPopup(base + (small ? '' : FC_LOADING), { maxWidth: 290, autoPanPaddingTopLeft: [12, 120], autoPanPaddingBottomRight: [12, 40] });
+    m.bindPopup(base + (small ? '' : FC_LOADING), POPUP_OPTS);
     if (!small) m.on('popupopen', e => fillForecast(e.popup, base, () => spotForecast(sp)));
     if (list.length) pts.push([sp.lat, sp.lon]);
   }
@@ -1996,17 +2085,19 @@ function mapLink(map) {
   return '#/map?' + p.join('&');
 }
 function viewMap(q = new URLSearchParams()) {
-  setTop('Map');
   const st = mapStateFrom(q);
   const showAll = st.showAll ?? prefs.showAllSpots;
   const surfed = new Set(S.sessions.map(s => s.spotId).filter(Boolean)).size;
-  setMain(`<div style="position:relative"><div id="bigmap"></div>
-    <div class="map-legend">
-      <span><strong>${S.sessions.length}</strong> session${S.sessions.length === 1 ? '' : 's'} · <strong>${surfed}</strong> spot${surfed === 1 ? '' : 's'}</span>
+  const n = S.sessions.length;
+  setTop('Map', null, `<div class="map-legend">
+      <span><strong>${n}</strong> session${n === 1 ? '' : 's'} · <strong>${surfed}</strong> spot${surfed === 1 ? '' : 's'}</span>
       <span><span class="dot" style="background:#1f9d8f"></span>fun</span><span><span class="dot" style="background:#e0a526"></span>ok</span><span><span class="dot" style="background:#c8553d"></span>meh</span>
-      <label class="check" style="min-height:28px"><input type="checkbox" data-mapspots ${showAll ? 'checked' : ''}> All spots</label>
+      <span class="lbuoy cdip">${BUOY_SVG}CDIP</span><span class="lbuoy">${BUOY_SVG}NOAA</span>
+      <label class="check"><input type="checkbox" data-mapspots ${showAll ? 'checked' : ''}> All spots</label>
       <span class="sub" id="noSurfed" ${!showAll && !surfed ? '' : 'hidden'}>No surfed spots yet</span>
-    </div></div>`, true);
+    </div>`);
+  $('#top').classList.add('maphdr');
+  setMain(`<div style="position:relative"><div id="bigmap"></div></div>`, true);
   measure();
   const map = spotsMap($('#bigmap'), S.sessions, { showAll, state: st });
   if (!map) return;
@@ -2640,6 +2731,7 @@ $('#importFile').addEventListener('change', async e => {
 /* ---------- router ---------- */
 function route() {
   unmount();
+  if (document.body.classList.contains('mapfs') && !location.hash.startsWith('#/map')) setMapFullscreen(false);
   const [path, qs] = (location.hash || '#/boards').slice(2).split('?');
   const parts = path.split('/').map(decodeURIComponent);
   const q = new URLSearchParams(qs || '');
