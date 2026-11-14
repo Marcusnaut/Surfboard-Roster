@@ -146,6 +146,10 @@ dialog.full .dhead button { color: var(--brand-ink); background: none; border: 0
 dialog.full .dbody { flex: 1; position: relative; }
 dialog.full .dfoot { padding: 12px 16px calc(env(safe-area-inset-bottom) + 12px); border-top: 1px solid var(--line); }
 .err { color: var(--danger); font-size: 13px; min-height: 18px; margin: 4px 4px 0; }
+#updatebar { position: fixed; left: 10px; right: 10px; bottom: calc(env(safe-area-inset-bottom) + 72px); z-index: 2000; display: flex; align-items: center; gap: 8px;
+  background: var(--brand); color: var(--brand-ink); border-radius: 12px; padding: 8px 8px 8px 14px; box-shadow: 0 4px 16px rgba(0,0,0,.3); font-size: 14px; }
+#updatebar span { flex: 1; }
+#updatebar .ub-x { background: none; border: 0; color: inherit; font-size: 24px; min-width: 40px; }
 #toast {
   position: fixed; left: 50%; transform: translateX(-50%);
   bottom: calc(env(safe-area-inset-bottom) + 76px); z-index: 2000;
@@ -271,6 +275,8 @@ body.mapfs .leaflet-bottom { bottom: env(safe-area-inset-bottom); }
 .spotlbl { position: absolute; left: 0; top: 0; height: 18px; line-height: 18px; padding: 0 4px; font-size: 12px; font-weight: 600; white-space: nowrap; color: #14272e; text-align: center;
   text-shadow: 0 0 2px #fff, 0 0 3px #fff, 0 0 4px #fff; }
 .spotlbl.surfed { font-weight: 750; }
+/* The open layer list sits above the bottom-left CDIP panel. */
+.leaflet-top.leaflet-right { z-index: 1001; }
 .lc-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -2px -6px 4px 0; font-weight: 650; font-size: 14px; }
 .lc-close { min-height: 36px; min-width: 36px; padding: 0; border: 0; border-radius: 8px; background: var(--chip, rgba(0,0,0,.06)); font-size: 24px; line-height: 1; color: inherit; }
 .leaflet-control-layers:not(.leaflet-control-layers-expanded) .lc-head { display: none; }
@@ -377,7 +383,7 @@ svg.chart text.unit { font-weight: 600; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 9.3 (white unsurfed dots)';
+const BUILD = 'Build 9.4 (refresh button, update notice)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -676,6 +682,42 @@ function setMapFullscreen(on) {
   for (const m of mounted.maps) { try { m.invalidateSize(); } catch (e) {} }
 }
 document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && document.body.classList.contains('mapfs')) setMapFullscreen(false); });
+/* ---------- app updates ----------
+   The home-screen app can stay open for days. When it comes back to the front, check whether a newer
+   build is online and offer a one-tap reload. Settings → About has a Refresh app button that always reloads fresh. */
+async function refreshApp() {
+  toast('Refreshing…');
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.update().catch(() => {})));
+    }
+    if (window.caches) { const keys = await caches.keys(); await Promise.all(keys.map(k => caches.delete(k))); }
+  } catch (e) { /* reload anyway */ }
+  const u = new URL(location.href);
+  u.searchParams.set('v', Date.now().toString(36));
+  location.replace(u.toString());
+}
+let updateChecked = 0;
+async function checkForUpdate() {
+  if (location.protocol !== 'https:' || Date.now() - updateChecked < 5 * 60 * 1000) return;
+  updateChecked = Date.now();
+  try {
+    const res = await fetch(`index.html?check=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) return;
+    const m = /const BUILD = '([^']+)'/.exec(await res.text());
+    if (m && m[1] !== BUILD) showUpdateBar(m[1]);
+  } catch (e) { /* offline */ }
+}
+function showUpdateBar(next) {
+  if ($('#updatebar')) return;
+  const d = document.createElement('div');
+  d.id = 'updatebar';
+  d.innerHTML = `<span>A new version is ready (${esc(next.replace(/ [(].*/, ''))}).</span><button type="button" data-act="refresh-app" class="primary">Update</button><button type="button" class="ub-x" aria-label="Later">&times;</button>`;
+  d.querySelector('.ub-x').addEventListener('click', () => d.remove());
+  document.body.appendChild(d);
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForUpdate(); });
 function measure() {
   const h = window.innerHeight - $('#top').offsetHeight - $('#tabs').offsetHeight;
   document.documentElement.style.setProperty('--avail', Math.max(300, h) + 'px');
@@ -2394,7 +2436,7 @@ function viewSettings() {
     </div></div>
     <p class="note">Everything is stored only on this device. Export a backup now and then, and keep the file somewhere safe. CSV files open in Numbers, Excel or Google Sheets.</p>
     <h2 class="sec">About</h2>
-    <div class="card"><div class="row"><span class="grow"><span class="label">Surfboard Tracker</span><br><span class="sub">${esc(BUILD)}</span></span></div>
+    <div class="card"><div class="row"><span class="grow"><span class="label">Surfboard Tracker</span><br><span class="sub">${esc(BUILD)}</span></span><button type="button" data-act="refresh-app">Refresh app</button></div>
       <div class="row"><span class="grow sub">Data sources (personal, non-commercial use):<br>
         · Wave forecasts and wave-height map: data courtesy of <a href="https://cdip.ucsd.edu/" target="_blank" rel="noopener">CDIP</a>, Scripps Institution of Oceanography.<br>
         · Swell, tide and weather: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>, licensed <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.<br>
@@ -2687,6 +2729,7 @@ document.addEventListener('click', async e => {
   try {
     switch (act) {
       case 'close': closeDialog(); break;
+      case 'refresh-app': await refreshApp(); break;
       case 'back': goBack(el.dataset.fallback || '#/boards'); break;
       case 'view': await savePrefs({ boardsView: el.dataset.v }); route(); break;
       case 'edit': editDialog(id); break;
@@ -2871,6 +2914,8 @@ window.addEventListener('resize', () => {
     route();
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+    checkForUpdate();
+    if (new URLSearchParams(location.search).has('v')) history.replaceState(null, '', location.pathname + location.hash);
   } catch (err) {
     console.error(err);
     setTop('Surfboard Tracker');
