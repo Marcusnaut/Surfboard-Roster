@@ -302,7 +302,7 @@ table.bt td { padding: 2px 0; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 5.1 (fin tracker)';
+const BUILD = 'Build 5.2 (construction list)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -333,6 +333,7 @@ const LISTS = [
   { key: 'finSystem', name: 'Fin system', group: 'Boards and fins', store: ['boards', 'fins'], values: ['FCS II', 'FCS (plugs)', 'Futures', 'Glass-on', 'US box (single)', 'Box + side bites', 'Soft-top screw-through'] },
   { key: 'rocker', name: 'Rocker profile', group: 'Boards', store: 'boards', values: ['Flat', 'Low', 'Medium', 'High', 'Low entry / high exit', 'High entry / low exit'] },
   { key: 'rails', name: 'Rails', group: 'Boards', store: 'boards', values: ['Soft (50/50)', 'Medium', 'Hard (down)', 'Boxy', 'Pinched', 'Tucked edge'] },
+  { key: 'construction', name: 'Construction', group: 'Boards', store: 'boards', values: ['PU', 'Epoxy (EPS)', 'PU / epoxy resin', 'Tuflite', 'XTR', 'Varial', 'Helium', 'Thunderbolt', 'Carbon wrap', 'Soft-top', 'Wood'] },
   { key: 'tail', name: 'Tail shape', group: 'Boards', store: 'boards', values: ['Squash', 'Round', 'Rounded pin', 'Pin', 'Swallow', 'Fish', 'Diamond', 'Square', 'Bat'] },
   { key: 'finSetup', name: 'Fin configuration', group: 'Fins', store: 'fins', values: ['Single', 'Twin', 'Twin + trailer', 'Tri (thruster)', 'Quad', 'Quad rears', 'Twinzer', 'Canards', '2+1 side bites', 'Bonzer', '5-fin set'] },
   { key: 'finShape', name: 'Fin shape', group: 'Fins', store: 'fins', values: ['Upright', 'Raked', 'Keel', 'Pivot', 'Hatchet', 'Dolphin', 'Cutaway', 'All-round performance', 'Side bite', 'Trailer'] },
@@ -346,7 +347,7 @@ const LISTS = [
   { key: 'waveDesc', name: 'Wave description', group: 'Sessions', store: 'sessions', values: ['Glassy', 'Clean', 'Lined up', 'Peaky', 'Hollow', 'Mushy', 'Choppy', 'Blown out', 'Closed out'] }
 ];
 const listByKey = k => LISTS.find(l => l.key === k);
-const BOARD_LISTS = ['type', 'finConfig', 'finSystem', 'rocker', 'rails', 'tail'];
+const BOARD_LISTS = ['type', 'construction', 'finConfig', 'finSystem', 'rocker', 'rails', 'tail'];
 const FIN_LISTS = ['finSetup', 'finShape', 'finBrand', 'finSystem', 'finSize', 'finMaterial', 'finFlex', 'finFoil', 'finCondition'];
 const storesOf = l => [].concat(l.store);
 const listOn = k => !(prefs.disabledLists || []).includes(k);
