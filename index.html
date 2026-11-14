@@ -237,6 +237,8 @@ label.btn input { display: none; }
 /* swell box */
 .swell { border: 1px dashed var(--line); border-radius: 12px; padding: 10px 12px; font-size: 14px; margin: 0 0 14px; background: var(--surface); }
 .swell .h { font-weight: 600; }
+.swell .cond { font-size: 13px; margin-top: 4px; }
+.swell .cond span { color: var(--muted); display: inline-block; min-width: 62px; }
 .swell .row2 { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 .swell .row2 button { min-height: 36px; font-size: 14px; }
 .spotpick { display: flex; gap: 8px; }
@@ -246,7 +248,7 @@ label.btn input { display: none; }
 #bigmap { height: var(--avail); width: 100%; }
 .leaflet-container { font: inherit; background: var(--tag); }
 .leaflet-container.imagery { background: #1d2a2f; }
-.map-legend { position: absolute; z-index: 500; left: 10px; bottom: 26px; right: 10px; background: var(--surface); color: var(--ink); border-radius: 12px; padding: 8px 12px; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,.18); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.map-legend { position: absolute; z-index: 500; left: 10px; top: 10px; right: 66px; background: var(--surface); color: var(--ink); border-radius: 12px; padding: 8px 12px; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,.18); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .map-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 3px; vertical-align: middle; }
 .leaflet-popup-content { font-size: 14px; line-height: 1.4; margin: 12px 14px; }
 .leaflet-popup-content a { color: var(--accent); }
@@ -267,13 +269,27 @@ label.btn input { display: none; }
 .chipsel { display: flex; flex-wrap: wrap; gap: 8px; }
 .chipbtn { min-height: 40px; border-radius: 999px; font-size: 14px; }
 .chipbtn[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
-nav.tabs a { font-size: 10.5px; }
+nav.tabs a { font-size: 10px; }
+.locked { padding: 14px 16px; }
+.locked .sub { display: block; margin-top: 4px; }
+.locked progress { width: 100%; height: 8px; margin-top: 8px; accent-color: var(--accent); }
+.rank { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); color: inherit; text-decoration: none; }
+.rank:last-child { border-bottom: 0; }
+.rank .n { width: 22px; font-weight: 700; color: var(--muted); text-align: center; flex: none; }
+.rank .grow { flex: 1; min-width: 0; }
+.rank .bar { height: 6px; border-radius: 3px; background: var(--accent); margin-top: 5px; }
+.rank .val { font-weight: 650; white-space: nowrap; }
+.pick { padding: 14px 16px; }
+.pick .now { font-size: 13px; color: var(--muted); }
+.pick .now div { margin-top: 2px; }
 .buoy-icon { background: none; border: 0; }
-.buoy { position: relative; width: 24px; height: 24px; }
-.buoy .bdot { position: absolute; inset: 0; border-radius: 50%; background: #ffc531; border: 2px solid #0b3a4a; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
-.buoy .bdot svg { width: 16px; height: 16px; fill: #0b3a4a; }
-.buoy .blbl { position: absolute; left: 28px; top: 50%; transform: translateY(-50%); white-space: nowrap; background: rgba(11,58,74,.92); color: #fff; font-size: 12px; font-weight: 650; padding: 2px 7px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.3); pointer-events: none; }
-.buoy.stale .bdot { background: #c9d1d3; }
+.buoy { position: relative; width: 26px; height: 26px; }
+.buoy .bdot { position: absolute; inset: 0; border-radius: 7px; background: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+.buoy .bdot svg { width: 22px; height: 22px; }
+.buoy .blbl .barrow { width: 11px; height: 11px; fill: currentColor; margin-right: 3px; vertical-align: -1px; }
+.leaflet-container.far .buoy .blbl { display: none; }
+.buoy .blbl { position: absolute; left: 30px; top: 50%; transform: translateY(-50%); white-space: nowrap; background: rgba(11,58,74,.92); color: #fff; font-size: 12px; font-weight: 650; padding: 2px 7px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.3); pointer-events: none; }
+.buoy.stale .bdot { opacity: .55; }
 .buoy.stale .blbl { background: rgba(80,95,100,.85); }
 table.bt { border-collapse: collapse; margin: 8px 0 4px; font-size: 13px; width: 100%; }
 table.bt th { text-align: left; color: var(--muted); font-weight: 500; padding: 2px 10px 2px 0; vertical-align: top; white-space: nowrap; }
@@ -294,6 +310,7 @@ table.bt td { padding: 2px 0; }
   <a href="#/boards" data-tab="boards"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c3 3 4.5 7 4.5 10.5S15 20 12 22c-3-2-4.5-6-4.5-9.5S9 5 12 2z"/><path d="M12 5v14"/></svg>Boards</a>
   <a href="#/fins" data-tab="fins"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20c0-7 3-13 10-16 1 5 2 11 4 16z"/><path d="M4 20h16"/></svg>Fins</a>
   <a href="#/sessions" data-tab="sessions"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 16c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/><path d="M2 10c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/></svg>Sessions</a>
+  <a href="#/stats" data-tab="stats"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Stats</a>
   <a href="#/map" data-tab="map"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.5-6-10a6 6 0 0 1 12 0c0 4.5-6 10-6 10z"/><circle cx="12" cy="11" r="2.2"/></svg>Map</a>
   <a href="#/settings" data-tab="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>Settings</a>
 </nav>
@@ -304,7 +321,7 @@ table.bt td { padding: 2px 0; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 6 (pinned save, purchase and retire details)';
+const BUILD = 'Build 7 (coast-wide buoys, tide and weather, stats)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -313,9 +330,9 @@ const BASEMAPS = {
   /* Esri Canvas (light or dark gray) with its label layer on top. No API key needed. */
   map: { label: 'Map', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_{shade}_Gray_Base/MapServer/tile/{z}/{y}/{x}',
     labels: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_{shade}_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
-    maxNativeZoom: 16, maxZoom: 19, attribution: 'Map &copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors' },
+    maxNativeZoom: 16, maxZoom: 19, attribution: '&copy; Esri, HERE, Garmin, OSM' },
   imagery: { label: 'Imagery', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', maxZoom: 19,
-    maxNativeZoom: 19, attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics' }
+    maxNativeZoom: 19, attribution: '&copy; Esri, Maxar, Earthstar' }
 };
 const BUOY_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/buoys.json';
 /* NOAA buoys near Ventura. Positions here are a fallback; the data file carries NDBC's current positions. */
@@ -326,6 +343,8 @@ const BUOYS = [
   ['46221', 'Santa Monica Bay', 33.860, -118.641], ['46219', 'San Nicolas Island', 33.221, -119.882]
 ].map(([id, name, lat, lon]) => ({ id, name, lat, lon }));
 const MARINE_URL = 'https://marine-api.open-meteo.com/v1/marine';
+const WEATHER_URL = 'https://api.open-meteo.com/v1/forecast';
+const WEATHER_ARCHIVE_URL = 'https://archive-api.open-meteo.com/v1/archive';
 const BOARD_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c3 3 4.5 7 4.5 10.5S15 20 12 22c-3-2-4.5-6-4.5-9.5S9 5 12 2z"/><path d="M12 5v14"/></svg>';
 
 /* Each list's key is also the field name on the record that uses it. */
@@ -422,13 +441,14 @@ async function seed() {
 
 /* ---------- in-memory state ---------- */
 const S = { options: [], boards: [], sessions: [], spots: [], photos: new Map(), meta: {}, fins: [], finLinks: [] };
-const PREF_DEFAULTS = { boardsView: 'tiles', boardSort: 'model', filterType: '', filterShaper: '', showRetired: false, pagerIndex: 0, units: 'ft', sessionSort: 'newest', finsView: 'table', finSort: 'name', filterFinSetup: '', showRetiredFins: false, showAllSpots: false, disabledLists: [], baseMap: 'map', showBuoys: true };
+const PREF_DEFAULTS = { boardsView: 'tiles', boardSort: 'model', filterType: '', filterShaper: '', showRetired: false, pagerIndex: 0, units: 'ft', sessionSort: 'newest', finsView: 'table', finSort: 'name', filterFinSetup: '', showRetiredFins: false, showAllSpots: true, statsSpot: '', disabledLists: [], baseMap: 'map', showBuoys: true };
 let prefs = { ...PREF_DEFAULTS };
 async function loadAll() {
   const [options, boards, sessions, spots, photos, meta, fins, finLinks] = await Promise.all(STORES.map(getAll));
   S.options = options; S.boards = boards; S.sessions = sessions; S.spots = spots; S.fins = fins; S.finLinks = finLinks;
   S.meta = Object.fromEntries(meta.map(m => [m.key, m.value]));
   prefs = { ...PREF_DEFAULTS, ...(S.meta.prefs || {}) };
+  if (!prefs.m7) { prefs.showAllSpots = true; prefs.m7 = true; setMeta('prefs', prefs).catch(() => {}); }
   const keep = new Set(photos.map(p => p.id));
   for (const [id, urls] of S.photos) if (!keep.has(id)) { URL.revokeObjectURL(urls.full); URL.revokeObjectURL(urls.thumb); S.photos.delete(id); }
   for (const p of photos) {
@@ -575,7 +595,10 @@ function baseLayer(key) {
 function makeMap(el, opts = {}) {
   if (typeof L === 'undefined') { el.innerHTML = '<div class="empty">Map unavailable.</div>'; return null; }
   const { buoys, layersControl, ...mapOpts } = opts;
-  const map = L.map(el, { attributionControl: true, ...mapOpts, zoomControl: false });
+  const map = L.map(el, { attributionControl: false, ...mapOpts, zoomControl: false });
+  L.control.attribution({ prefix: false, position: 'bottomright' }).addTo(map);
+  const zoomClass = () => el.classList.toggle('far', map.getZoom() < 8);
+  map.on('zoomend', zoomClass);
   if (opts.zoomControl !== false) L.control.zoom({ position: 'topright' }).addTo(map);
   const bases = { map: baseLayer('map'), imagery: baseLayer('imagery') };
   const cur = bases[prefs.baseMap] ? prefs.baseMap : 'map';
@@ -597,6 +620,7 @@ function makeMap(el, opts = {}) {
     map.on('overlayadd overlayremove', e => { if (e.name === 'Buoys') savePrefs({ showBuoys: e.type === 'overlayadd' }); });
   }
   map.setView(DEFAULT_VIEW.center, DEFAULT_VIEW.zoom);
+  zoomClass();
   mounted.maps.push(map);
   setTimeout(() => { try { if (map._container && map._container.isConnected) map.invalidateSize(); } catch (e) {} }, 50);
   return map;
@@ -653,17 +677,34 @@ function primarySwell(r) {
   if (r.wvht != null) return { h: r.wvht, p: r.dpd ?? r.apd, dir: r.mwd != null ? compass(r.mwd) : null, deg: r.mwd, kind: 'waves' };
   return null;
 }
+const BUOY_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.2v3.3" stroke="#0b3a4a" stroke-width="1.4"/><circle cx="12" cy="2.6" r="1.6" fill="#e0533d"/><path d="M8.2 16.5 10 5.6h4l1.8 10.9z" fill="#ffc531" stroke="#0b3a4a" stroke-width="1.2" stroke-linejoin="round"/><path d="M9.1 11h5.8" stroke="#e0533d" stroke-width="2.2"/><path d="M3 19.2c2 0 2-1.5 4.5-1.5s2.5 1.5 4.5 1.5 2-1.5 4.5-1.5 2.5 1.5 4.5 1.5" fill="none" stroke="#1f6f8b" stroke-width="1.6" stroke-linecap="round"/></svg>';
 function buoyIcon(b, r) {
   const ps = primarySwell(r);
-  const stale = r && isStale(r.time);
+  const stale = !r || isStale(r.time);
   const label = ps ? `${ps.dir ? ps.dir + ' ' : ''}${fmtHeight(ps.h)}` : 'No data';
-  const arrow = ps && ps.deg != null
-    ? `<svg viewBox="0 0 20 20" style="transform:rotate(${(ps.deg + 180) % 360}deg)" aria-hidden="true"><path d="M10 2 L15 15 L10 12 L5 15 Z"/></svg>`
-    : '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3"/></svg>';
+  const arrow = ps && ps.deg != null ? `<svg class="barrow" viewBox="0 0 20 20" style="transform:rotate(${(ps.deg + 180) % 360}deg)" aria-hidden="true"><path d="M10 2 L15 15 L10 12 L5 15 Z"/></svg>` : '';
   return L.divIcon({
-    className: 'buoy-icon', iconSize: [24, 24], iconAnchor: [12, 12], popupAnchor: [0, -12],
-    html: `<div class="buoy ${stale || !ps ? 'stale' : ''}"><span class="bdot">${arrow}</span><span class="blbl">${esc(label)}</span></div>`
+    className: 'buoy-icon', iconSize: [26, 26], iconAnchor: [13, 13], popupAnchor: [0, -13],
+    html: `<div class="buoy ${stale || !ps ? 'stale' : ''}"><span class="bdot">${BUOY_SVG}</span><span class="blbl">${arrow}${esc(label)}</span></div>`
   });
+}
+function buoyList(data) {
+  const live = (data && data.buoys) || [];
+  return live.length ? live : BUOYS;
+}
+function distKm(a, b, c, d) {
+  const R = 6371, r = x => x * Math.PI / 180;
+  const h = Math.sin(r(c - a) / 2) ** 2 + Math.cos(r(a)) * Math.cos(r(c)) * Math.sin(r(d - b) / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+function nearestBuoy(lat, lon, data) {
+  let best = null;
+  for (const b of buoyList(data)) {
+    if (b.lat == null || !b.time) continue;
+    const d = distKm(lat, lon, b.lat, b.lon);
+    if (!best || d < best.km) best = { b, km: d };
+  }
+  return best;
 }
 function sparkline(hist) {
   const pts = (hist || []).map(h => ({ t: new Date(h.t).getTime(), v: h.swH ?? h.wvht })).filter(p => p.v != null);
@@ -705,17 +746,19 @@ function buoyLayer() {
   const group = L.layerGroup();
   const markers = new Map();
   const draw = data => {
-    const readings = new Map(((data && data.buoys) || []).map(r => [r.id, r]));
-    for (const b of BUOYS) {
-      const r = readings.get(b.id);
-      const pos = r && r.lat != null && r.lon != null ? [r.lat, r.lon] : [b.lat, b.lon];
+    const list = buoyList(data);
+    const ids = new Set(list.map(b => b.id));
+    for (const [id, m] of markers) if (!ids.has(id)) { group.removeLayer(m); markers.delete(id); }
+    for (const b of list) {
+      const r = b.time ? b : null;
+      const pos = [b.lat, b.lon];
       let m = markers.get(b.id);
       if (!m) {
         m = L.marker(pos, { icon: buoyIcon(b, r), keyboard: true, title: b.name, zIndexOffset: 500, bubblingMouseEvents: false }).addTo(group);
         m.on('click', e => L.DomEvent.stopPropagation(e));
         markers.set(b.id, m);
       } else { m.setLatLng(pos); m.setIcon(buoyIcon(b, r)); }
-      m.bindPopup(buoyPopup(b, r, data), { maxWidth: 280, autoPanPaddingTopLeft: [12, 12], autoPanPaddingBottomRight: [12, 110] });
+      m.bindPopup(buoyPopup(b, r, data), { maxWidth: 280, autoPanPaddingTopLeft: [12, 120], autoPanPaddingBottomRight: [12, 40] });
     }
   };
   draw(S.buoyData || S.meta.buoys || null);
@@ -760,7 +803,7 @@ async function fetchSwell(spot, start, durationMin) {
   if (ahead > 7) throw new Error('That date is too far ahead for a forecast.');
   const params = new URLSearchParams({
     latitude: spot.lat.toFixed(4), longitude: spot.lon.toFixed(4),
-    hourly: 'wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period,swell_wave_direction,wind_wave_height',
+    hourly: 'wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period,swell_wave_direction,wind_wave_height,sea_level_height_msl',
     timezone: 'auto', start_date: date, end_date: date, cell_selection: 'sea'
   });
   const ctrl = new AbortController();
@@ -784,7 +827,61 @@ async function fetchSwell(spot, start, durationMin) {
     waveH: g('wave_height'), waveP: g('wave_period'), waveDir: g('wave_direction'), windWaveH: g('wind_wave_height')
   };
   if (sw.swellH == null && sw.waveH == null) throw new Error('No swell data for that spot and time.');
+  sw.tide = tideFrom(j.hourly.time, j.hourly.sea_level_height_msl, i);
   return sw;
+}
+/* Tide from the model's hourly sea level: height now, rising or falling, where it sits in the day's range, and the day's highs and lows. */
+function tideFrom(times, levels, i) {
+  if (!levels || levels[i] == null) return null;
+  const v = levels.map(x => x == null ? null : Number(x));
+  const prev = v[i - 1] ?? null, next = v[i + 1] ?? null;
+  const trend = next != null && prev != null ? (next > prev ? 'rising' : next < prev ? 'falling' : 'slack') : next != null ? (next > v[i] ? 'rising' : 'falling') : prev != null ? (v[i] > prev ? 'rising' : 'falling') : null;
+  const vals = v.filter(x => x != null), lo = Math.min(...vals), hi = Math.max(...vals);
+  const pos = hi - lo > 0.05 ? (v[i] - lo) / (hi - lo) : 0.5;
+  const turns = [];
+  for (let k = 1; k < v.length - 1; k++) {
+    if (v[k] == null || v[k - 1] == null || v[k + 1] == null) continue;
+    if (v[k] >= v[k - 1] && v[k] > v[k + 1]) turns.push({ type: 'high', t: times[k], h: v[k] });
+    if (v[k] <= v[k - 1] && v[k] < v[k + 1]) turns.push({ type: 'low', t: times[k], h: v[k] });
+  }
+  return { h: v[i], trend, stage: pos < 0.34 ? 'low' : pos > 0.66 ? 'high' : 'mid', turns };
+}
+const WMO = { 0: 'Clear', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Overcast', 45: 'Fog', 48: 'Fog', 51: 'Light drizzle', 53: 'Drizzle', 55: 'Heavy drizzle', 56: 'Freezing drizzle', 57: 'Freezing drizzle', 61: 'Light rain', 63: 'Rain', 65: 'Heavy rain', 66: 'Freezing rain', 67: 'Freezing rain', 71: 'Light snow', 73: 'Snow', 75: 'Heavy snow', 77: 'Snow grains', 80: 'Showers', 81: 'Showers', 82: 'Heavy showers', 85: 'Snow showers', 86: 'Snow showers', 95: 'Thunderstorm', 96: 'Thunderstorm', 99: 'Thunderstorm' };
+async function fetchWeather(spot, start, durationMin) {
+  const mid = addMinutes(start, Math.round((durationMin || 0) / 2));
+  const date = mid.slice(0, 10), hour = mid.slice(0, 13) + ':00';
+  const params = new URLSearchParams({
+    latitude: spot.lat.toFixed(4), longitude: spot.lon.toFixed(4),
+    hourly: 'temperature_2m,weather_code,cloud_cover,precipitation,wind_speed_10m,wind_direction_10m,wind_gusts_10m',
+    timezone: 'auto', start_date: date, end_date: date, wind_speed_unit: 'ms'
+  });
+  const get = async url => {
+    const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 15000);
+    try { return await fetch(`${url}?${params}`, { signal: ctrl.signal }); } finally { clearTimeout(timer); }
+  };
+  let res;
+  try {
+    res = await get(WEATHER_URL);
+    if (!res.ok) res = await get(WEATHER_ARCHIVE_URL);
+  } catch (e) { throw new Error("Couldn't reach the weather service."); }
+  if (!res.ok) throw new Error('No weather data for that date.');
+  const j = await res.json();
+  const i = (j.hourly && j.hourly.time || []).indexOf(hour);
+  if (i < 0) throw new Error('No weather data for that hour.');
+  const g = k => { const x = (j.hourly[k] || [])[i]; return x == null ? null : Number(x); };
+  const w = { time: hour, temp: g('temperature_2m'), code: g('weather_code'), cloud: g('cloud_cover'), precip: g('precipitation'), windSpd: g('wind_speed_10m'), windDir: g('wind_direction_10m'), gust: g('wind_gusts_10m') };
+  if (w.temp == null && w.windSpd == null) throw new Error('No weather data for that hour.');
+  return w;
+}
+const fmtTideH = m => m == null ? '' : prefs.units === 'm' ? `${m.toFixed(2)} m` : `${(m * 3.281).toFixed(1)} ft`;
+function tideText(t) {
+  if (!t) return '';
+  const turns = (t.turns || []).map(x => `${x.type} ${fmtTime(x.t)}`).join(', ');
+  return `${fmtTideH(t.h)}${t.trend ? `, ${t.trend}` : ''} (${t.stage} tide)${turns ? ` · ${turns}` : ''}`;
+}
+function weatherText(w) {
+  if (!w) return '';
+  return [w.windSpd != null ? `Wind ${fmtWind(w.windSpd)}${w.windDir != null ? ` ${compass(w.windDir)}` : ''}${w.gust != null ? `, gusts ${fmtWind(w.gust)}` : ''}` : '', fmtTemp(w.temp), WMO[w.code] || ''].filter(Boolean).join(' · ');
 }
 /* Rough face-height estimate from open-ocean swell: longer period swells stand up taller at the break. */
 function faceFeet(sw) {
@@ -1395,7 +1492,7 @@ function viewSessionForm(id, q) {
   if (id && !s) { location.replace('#/sessions'); return; }
   if (!S.boards.length) { setTop('Log session', '#/sessions'); setMain(`<div class="empty"><div class="big">Add a board first</div><div>Sessions are logged against a board.</div><a class="btn primary" href="#/boards/new">Add a board</a></div>`); return; }
   const v = s || { boardId: q.get('board') || lastBoardId(), spotId: q.get('spot') || lastSpotId(), start: toLocalInput(roundTime(new Date())), duration: 90 };
-  sform = { id, swell: s ? s.swell || null : null, suggested: s ? s.suggestedSize || null : null, waveTouched: !!(s && s.waveSize), token: 0, fun: v.fun || 0, timer: null, finIds: new Set(s ? s.finIds || [] : []) };
+  sform = { id, tide: s ? s.tide || null : null, weather: s ? s.weather || null : null, swell: s ? s.swell || null : null, suggested: s ? s.suggestedSize || null : null, waveTouched: !!(s && s.waveSize), token: 0, fun: v.fun || 0, timer: null, finIds: new Set(s ? s.finIds || [] : []) };
   const boards = S.boards.filter(b => !b.retired || b.id === v.boardId).sort((a, c) => boardName(a).localeCompare(boardName(c)));
   const durs = [30, 45, 60, 75, 90, 105, 120, 150, 180, 210, 240, 300];
   setTop(s ? 'Edit session' : 'Log session', '#/sessions');
@@ -1453,9 +1550,13 @@ async function lookupSwell() {
   if (!spot || !start) { sform.swell = null; renderSwell('idle'); return; }
   const token = ++sform.token;
   renderSwell('loading');
+  const dur = Number($('#duration').value) || 0;
+  fetchWeather(spot, start, dur).then(w => { if (sform && token === sform.token) { sform.weather = w; renderSwell(sform.state === 'loading' ? 'loading' : sform.state, sform.msg); } })
+    .catch(() => { if (sform && token === sform.token) { sform.weather = null; renderSwell(sform.state, sform.msg); } });
   try {
-    const sw = await fetchSwell(spot, start, Number($('#duration').value) || 0);
+    const sw = await fetchSwell(spot, start, dur);
     if (!sform || token !== sform.token || !$('#swellBox')) return;
+    sform.tide = sw.tide || null; delete sw.tide;
     sform.swell = sw;
     const sug = suggestWaveSize(sw);
     sform.suggested = sug ? sug.id : null;
@@ -1463,23 +1564,25 @@ async function lookupSwell() {
     renderSwell('ok');
   } catch (e) {
     if (!sform || token !== sform.token || !$('#swellBox')) return;
-    sform.swell = null; sform.suggested = null;
+    sform.swell = null; sform.suggested = null; sform.tide = null;
     renderSwell('error', e.message);
   }
 }
 function renderSwell(state, msg) {
   const box = $('#swellBox');
   if (!box) return;
-  sform.state = state;
-  if (state === 'idle') box.innerHTML = `<span class="sub">Pick a spot and time to look up the swell.</span>`;
-  else if (state === 'none') box.innerHTML = `<span class="sub">No swell data saved for this session.</span><div class="row2"><button type="button" data-act="retrySwell">Look up swell</button></div>`;
-  else if (state === 'loading') box.innerHTML = `<span class="sub">Looking up the swell…</span>`;
-  else if (state === 'error') box.innerHTML = `<div class="h">No swell data</div><div class="sub">${esc(msg)} Choose a wave size yourself.</div><div class="row2"><button type="button" data-act="retrySwell">Try again</button></div>`;
+  sform.state = state; sform.msg = msg;
+  const extra = `${sform.tide ? `<div class="cond"><span>Tide</span>${esc(tideText(sform.tide))}</div>` : ''}${sform.weather ? `<div class="cond"><span>Weather</span>${esc(weatherText(sform.weather))}</div>` : ''}`;
+  if (state === 'idle') box.innerHTML = `<span class="sub">Pick a spot and time to look up the swell, tide and weather.</span>`;
+  else if (state === 'none') box.innerHTML = `<span class="sub">No conditions saved for this session.</span>${extra}<div class="row2"><button type="button" data-act="retrySwell">Look up conditions</button></div>`;
+  else if (state === 'loading') box.innerHTML = `<span class="sub">Looking up swell, tide and weather…</span>${extra}`;
+  else if (state === 'error') box.innerHTML = `<div class="h">No swell data</div><div class="sub">${esc(msg)} Choose a wave size yourself.</div>${extra}<div class="row2"><button type="button" data-act="retrySwell">Try again</button></div>`;
   else {
     const sw = sform.swell, sug = sform.suggested, sel = $('#f_waveSize'), cur = sel ? sel.value : '';
     const ft = faceFeet(sw);
     box.innerHTML = `<div class="h">Swell ${esc(swellText(sw))}</div>
       ${sw.windWaveH != null ? `<div class="sub">Wind waves ${esc(fmtHeight(sw.windWaveH))} · model data for ${esc(fmtTime(sw.time))}</div>` : ''}
+      ${extra}
       ${sug ? `<div class="sub">Suggested face height: <strong>${esc(shortSize(sug))}</strong> (about ${ft.toFixed(1)} ft). Adjust if it was different at the spot.</div>` : ''}
       <div class="row2">${sel && sug && cur !== sug ? `<button type="button" data-act="useSuggestion">Use ${esc(shortSize(sug))}</button>` : ''}<button type="button" data-act="retrySwell">Refresh</button></div>`;
   }
@@ -1495,6 +1598,7 @@ async function saveSession(form) {
     boardId, spotId: spotId || '', start, duration: Number(fd.get('duration')) || null,
     waveSize: listOn('waveSize') ? fd.get('waveSize') || '' : s.waveSize || '', waveDesc: listOn('waveDesc') ? fd.get('waveDesc') || '' : s.waveDesc || '', fun: sform.fun || null,
     notes: (fd.get('notes') || '').trim(), swell: sform.swell || null, suggestedSize: sform.suggested || null,
+    tide: sform.tide || null, weather: sform.weather || null,
     finIds: [...sform.finIds].filter(finById)
   });
   await putMany('sessions', [s]);
@@ -1581,7 +1685,7 @@ function spotsMap(el, sessions, { small, showAll } = {}) {
       radius: list.length ? Math.min(26, 7 + 4 * Math.sqrt(list.length)) : 5,
       color: '#fff', weight: 2, fillColor: list.length ? funColor(a) : '#8a9a9f', fillOpacity: list.length ? 0.9 : 0.6
     }).addTo(map);
-    m.bindPopup(spotSummary(sp, list), { autoPanPaddingTopLeft: [12, 12], autoPanPaddingBottomRight: [12, 110] });
+    m.bindPopup(spotSummary(sp, list), { autoPanPaddingTopLeft: [12, 120], autoPanPaddingBottomRight: [12, 40] });
     if (list.length) pts.push([sp.lat, sp.lon]);
   }
   if (pts.length === 1) map.setView(pts[0], 13, { animate: false });
@@ -1599,6 +1703,159 @@ function viewMap() {
     </div></div>`, true);
   measure();
   spotsMap($('#bigmap'), S.sessions, { showAll: prefs.showAllSpots || !S.sessions.length });
+}
+
+/* =========================================================
+   STATS + board recommendation
+   ========================================================= */
+const MIN_RIDDEN = 3;   /* sessions before "most ridden" lists show */
+const MIN_FUN = 5;      /* rated sessions before "most fun" lists show */
+const MIN_PICK = 6;     /* rated sessions with swell data before a board pick shows */
+const FUN_POINTS = [0, 1, 3, 6, 10, 15]; /* points per fun star: higher fun counts for much more */
+function lockedCard(title, what, have, need) {
+  return `<div class="card locked"><strong>${esc(title)}</strong><span class="sub">Shows after ${plural(need, what)}. You have ${have} so far.</span><progress max="${need}" value="${Math.min(have, need)}"></progress></div>`;
+}
+function rankList(rows, valFmt, href) {
+  const max = Math.max(...rows.map(r => r.v), 1);
+  return `<div class="card">${rows.map((r, i) => `<a class="rank" href="${href(r)}"><span class="n">${i + 1}</span><span class="grow"><span>${esc(r.label)}</span>${r.sub ? `<br><span class="sub">${esc(r.sub)}</span>` : ''}<div class="bar" style="width:${Math.max(4, (r.v / max) * 100)}%"></div></span><span class="val">${valFmt(r)}</span></a>`).join('')}</div>`;
+}
+function groupBy(list, key) {
+  const m = new Map();
+  for (const s of list) { const k = s[key]; if (!k) continue; const g = m.get(k) || []; g.push(s); m.set(k, g); }
+  return m;
+}
+function mostRiddenSpotId() {
+  const g = [...groupBy(S.sessions, 'spotId')].filter(([id]) => spotById(id)).sort((a, b) => b[1].length - a[1].length);
+  return g.length ? g[0][0] : '';
+}
+/* Similarity between a past session's conditions and now: 1 = same conditions. Missing values count as partly similar. */
+function similarity(s, now, spotId) {
+  const sw = s.swell, nw = now.swell;
+  const part = (a, b, scale) => a == null || b == null ? 0.75 : Math.exp(-(((a - b) / scale) ** 2));
+  const ang = (a, b) => { if (a == null || b == null) return 0.75; const d = Math.abs(((a - b + 540) % 360) - 180); return Math.exp(-((d / 35) ** 2)); };
+  let w = 1;
+  if (!sw || !nw) w *= 0.25;
+  else {
+    w *= part(sw.swellH ?? sw.waveH, nw.swellH ?? nw.waveH, 0.45);
+    w *= part(sw.swellP ?? sw.waveP, nw.swellP ?? nw.waveP, 3);
+    w *= ang(sw.swellDir ?? sw.waveDir, nw.swellDir ?? nw.waveDir);
+  }
+  w *= part(s.tide && s.tide.h, now.tide && now.tide.h, 0.45);
+  w *= part(s.weather && s.weather.windSpd, now.weather && now.weather.windSpd, 4);
+  if (s.spotId !== spotId) w *= 0.5;
+  return w;
+}
+function recommendBoards(now, spotId) {
+  const rated = S.sessions.filter(s => s.fun && boardById(s.boardId) && !boardById(s.boardId).retired);
+  const byBoard = groupBy(rated, 'boardId');
+  const out = [];
+  for (const [bid, list] of byBoard) {
+    let wsum = 0, psum = 0, fsum = 0;
+    for (const s of list) { const w = similarity(s, now, spotId); wsum += w; psum += w * FUN_POINTS[s.fun]; fsum += w * s.fun; }
+    /* Shrink toward zero when there's little matching history, so one lucky session doesn't win. */
+    const score = psum / (wsum + 0.75);
+    out.push({ board: boardById(bid), score, pct: Math.round(score / FUN_POINTS[5] * 100), similar: wsum, expFun: wsum ? fsum / wsum : null, n: list.length });
+  }
+  return out.sort((a, b) => b.score - a.score);
+}
+async function conditionsNow(spot) {
+  S.nowCond = S.nowCond || {};
+  const c = S.nowCond[spot.id];
+  if (c && Date.now() - c.at < 15 * 60 * 1000) return c;
+  const start = toLocalInput(new Date());
+  const [sw, w] = await Promise.allSettled([fetchSwell(spot, start, 0), fetchWeather(spot, start, 0)]);
+  const swell = sw.status === 'fulfilled' ? sw.value : null;
+  const tide = swell ? swell.tide || null : null;
+  if (swell) delete swell.tide;
+  const out = { at: Date.now(), swell, tide, weather: w.status === 'fulfilled' ? w.value : null, error: sw.status === 'rejected' ? sw.reason.message : '' };
+  S.nowCond[spot.id] = out;
+  return out;
+}
+function viewStats() {
+  setTop('Stats');
+  const all = S.sessions;
+  if (!all.length) {
+    setMain(`<div class="empty"><div class="big">No stats yet</div><div>Log a few sessions and your most ridden boards, spots and a board pick for today show up here.</div>${S.boards.length ? '<a class="btn primary" href="#/sessions/new">Log a session</a>' : '<a class="btn primary" href="#/boards/new">Add a board</a>'}</div>`);
+    return;
+  }
+  const rated = all.filter(s => s.fun);
+  const ratedCond = rated.filter(s => s.swell);
+  const st = statsOf(all);
+  const mins = all.reduce((a, s) => a + (s.duration || 0), 0);
+  const yr = String(new Date().getFullYear());
+  const byBoard = [...groupBy(all, 'boardId')].filter(([id]) => boardById(id));
+  const bySpot = [...groupBy(all, 'spotId')].filter(([id]) => spotById(id));
+  const boardsWithRated = new Set(ratedCond.map(s => s.boardId).filter(id => boardById(id) && !boardById(id).retired)).size;
+  const ridden = (groups, labelFn, subFn) => groups.map(([id, g]) => ({ id, v: g.length, label: labelFn(id), sub: subFn(id, g) })).sort((a, b) => b.v - a.v).slice(0, 8);
+  const funRank = (groups, labelFn) => groups.map(([id, g]) => { const f = g.filter(x => x.fun).map(x => x.fun); return { id, n: f.length, v: avg(f) || 0, label: labelFn(id), sub: `${plural(f.length, 'rated session')}` }; })
+    .filter(r => r.n >= 2).sort((a, b) => b.v - a.v || b.n - a.n).slice(0, 8);
+  const spotChoices = spotsSorted().filter(sp => all.some(s => s.spotId === sp.id));
+  const pickSpot = spotById(prefs.statsSpot) && spotChoices.some(sp => sp.id === prefs.statsSpot) ? prefs.statsSpot : mostRiddenSpotId();
+  const tideStages = ['low', 'mid', 'high'].map(stage => ({ stage, f: rated.filter(s => s.tide && s.tide.stage === stage).map(s => s.fun) }));
+  setMain(`
+    <div class="stats">
+      <div class="stat"><div class="v">${st.count}</div><div class="k">Sessions</div></div>
+      <div class="stat"><div class="v">${mins ? (mins / 60).toFixed(1) : '–'}</div><div class="k">Hours logged</div></div>
+      <div class="stat"><div class="v">${st.avgFun != null ? fmtAvg(st.avgFun) : '–'}</div><div class="k">Average fun</div></div>
+      <div class="stat"><div class="v">${all.filter(s => s.start.startsWith(yr)).length}</div><div class="k">This year</div></div>
+      <div class="stat"><div class="v">${byBoard.length}</div><div class="k">Boards ridden</div></div>
+      <div class="stat"><div class="v">${bySpot.length}</div><div class="k">Spots surfed</div></div>
+    </div>
+
+    <h2 class="sec">Board pick for right now</h2>
+    ${ratedCond.length >= MIN_PICK && boardsWithRated >= 2 ? `
+      <div class="card pick">
+        ${spotChoices.length > 1 ? `<div class="field" style="margin-bottom:10px"><label for="statsSpot">Spot</label><select id="statsSpot" data-pref="statsSpot">${spotChoices.map(sp => `<option value="${esc(sp.id)}" ${sp.id === pickSpot ? 'selected' : ''}>${esc(sp.name)}${sp.id === mostRiddenSpotId() ? ' (most ridden)' : ''}</option>`).join('')}</select></div>` : `<div class="sub" style="margin-bottom:8px">At ${esc((spotById(pickSpot) || {}).name || '')}, your most ridden spot</div>`}
+        <div id="pickBody"><span class="sub">Checking the swell, tide and wind…</span></div>
+      </div>` : lockedCard('Board pick for right now', 'rated sessions with swell data', ratedCond.length, MIN_PICK) + (ratedCond.length >= MIN_PICK && boardsWithRated < 2 ? '<p class="note">It also needs rated sessions on at least two boards you still ride.</p>' : '')}
+
+    <h2 class="sec">Most ridden boards</h2>
+    ${all.length >= MIN_RIDDEN ? rankList(ridden(byBoard, id => boardName(boardById(id)), (id, g) => { const a = avg(g.map(x => x.fun).filter(Boolean)); return a != null ? `avg fun ${fmtAvg(a)}` : ''; }), r => `${r.v}`, r => `#/board/${r.id}`) : lockedCard('Most ridden boards', 'session', all.length, MIN_RIDDEN)}
+
+    <h2 class="sec">Most ridden spots</h2>
+    ${all.length >= MIN_RIDDEN ? rankList(ridden(bySpot, id => spotById(id).name, (id, g) => { const a = avg(g.map(x => x.fun).filter(Boolean)); return a != null ? `avg fun ${fmtAvg(a)}` : ''; }), r => `${r.v}`, r => `#/sessions?spot=${encodeURIComponent(r.id)}`) : lockedCard('Most ridden spots', 'session', all.length, MIN_RIDDEN)}
+
+    <h2 class="sec">Most fun boards</h2>
+    ${rated.length >= MIN_FUN ? (funRank(byBoard, id => boardName(boardById(id))).length ? rankList(funRank(byBoard, id => boardName(boardById(id))), r => fmtAvg(r.v), r => `#/board/${r.id}`) : '<div class="card"><div class="stack sub">Each board needs at least 2 rated sessions to be ranked.</div></div>') : lockedCard('Most fun boards', 'rated session', rated.length, MIN_FUN)}
+
+    <h2 class="sec">Most fun spots</h2>
+    ${rated.length >= MIN_FUN ? (funRank(bySpot, id => spotById(id).name).length ? rankList(funRank(bySpot, id => spotById(id).name), r => fmtAvg(r.v), r => `#/sessions?spot=${encodeURIComponent(r.id)}`) : '<div class="card"><div class="stack sub">Each spot needs at least 2 rated sessions to be ranked.</div></div>') : lockedCard('Most fun spots', 'rated session', rated.length, MIN_FUN)}
+
+    <h2 class="sec">Fun by tide</h2>
+    ${tideStages.filter(t => t.f.length).length >= 2 && rated.filter(s => s.tide).length >= MIN_FUN ? `<div class="card chartbox" style="height:180px"><canvas id="chTide" aria-label="Average fun by tide stage"></canvas></div>` : lockedCard('Fun by tide', 'rated session with tide data', rated.filter(s => s.tide).length, MIN_FUN)}
+
+    <h2 class="sec">Sessions per month</h2>
+    <div class="card chartbox" style="height:180px"><canvas id="chMonth" aria-label="Sessions per month"></canvas></div>
+    <p class="note">Rankings unlock as you log and rate more sessions, so a couple of sessions can't skew them.</p>`);
+  monthChart($('#chMonth'), all);
+  if ($('#chTide')) makeChart($('#chTide'), {
+    type: 'bar',
+    data: { labels: tideStages.map(t => `${t.stage[0].toUpperCase() + t.stage.slice(1)} tide (${t.f.length})`), datasets: [{ label: 'Average fun', data: tideStages.map(t => t.f.length ? +avg(t.f).toFixed(2) : 0), backgroundColor: cssVar('--accent'), borderRadius: 6 }] },
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 5, ticks: { stepSize: 1 } } } }
+  });
+  if ($('#pickBody')) renderPick(pickSpot);
+}
+async function renderPick(spotId) {
+  const spot = spotById(spotId);
+  const body = () => $('#pickBody');
+  if (!spot || !body()) return;
+  const now = await conditionsNow(spot);
+  if (!body()) return;
+  const data = await loadBuoyData().catch(() => null);
+  const nb = nearestBuoy(spot.lat, spot.lon, data);
+  const ps = nb ? primarySwell(nb.b) : null;
+  const recs = recommendBoards(now, spotId).slice(0, 3);
+  const nowLines = `<div class="now">
+      ${now.swell ? `<div>Swell ${esc(swellText(now.swell))}</div>` : `<div>Swell: ${esc(now.error || 'unavailable')}</div>`}
+      ${now.tide ? `<div>Tide ${esc(tideText(now.tide))}</div>` : ''}
+      ${now.weather ? `<div>${esc(weatherText(now.weather))}</div>` : ''}
+      ${nb && ps ? `<div>Nearest buoy: ${esc(nb.b.name)} (${Math.round(nb.km * 0.621)} mi), ${esc(ps.dir || '')} ${esc(fmtHeight(ps.h))}${ps.p ? ` @ ${Math.round(ps.p)} s` : ''}, ${esc(ago(nb.b.time))}</div>` : ''}
+    </div>`;
+  body().innerHTML = `${nowLines}
+    <div style="margin-top:12px">${recs.map((r, i) => `<a class="rank" style="padding:10px 0" href="#/board/${esc(r.board.id)}"><span class="n">${i + 1}</span>
+      <span class="grow"><strong>${esc(boardName(r.board))}</strong><br><span class="sub">${r.similar >= 1 ? `${r.similar.toFixed(1)} similar sessions` : 'few similar sessions'}${r.expFun != null ? ` · expect about ${fmtAvg(r.expFun)} fun` : ''}</span>
+      <div class="bar" style="width:${Math.max(4, r.pct)}%"></div></span><span class="val">${r.pct}</span></a>`).join('')}</div>
+    <p class="note" style="margin:8px 0 0">Score 0 to 100 from your rated sessions, weighted toward ones with similar swell, period, direction, tide and wind${spot ? ` and at ${esc(spot.name)}` : ''}. Higher fun ratings earn much more.${!now.swell ? ' Swell data is missing right now, so the pick leans on your overall favorites.' : ''}</p>`;
 }
 
 /* =========================================================
@@ -1861,11 +2118,14 @@ async function exportCSV() {
     const st = statsOf(sessionsFor('boardId', b.id));
     boards.push([b.model, b.shaper, fmtLen(b.length), b.width, b.thickness, b.volume, ...BOARD_LISTS.map(k => optLabel(b[k])), b.purchasePrice ?? '', b.retired ? 'Yes' : '', optLabel(b.retireReason), b.retiredAt || '', b.soldPrice ?? '', st.count, st.avgFun == null ? '' : st.avgFun.toFixed(2), b.notes]);
   }
-  const sessions = [['Date', 'Time', 'Board', 'Spot', 'Latitude', 'Longitude', 'Duration (min)', 'Wave size', 'Wave description', 'Fun', 'Swell height (ft)', 'Swell period (s)', 'Swell direction (deg)', 'Notes']];
+  const sessions = [['Date', 'Time', 'Board', 'Spot', 'Latitude', 'Longitude', 'Duration (min)', 'Wave size', 'Wave description', 'Fun', 'Swell height (ft)', 'Swell period (s)', 'Swell direction (deg)', 'Notes', 'Tide (ft)', 'Tide trend', 'Tide stage', 'Wind (kt)', 'Wind direction (deg)', 'Gusts (kt)', 'Air temp (F)', 'Weather']];
   for (const s of [...S.sessions].sort((a, c) => a.start.localeCompare(c.start))) {
     const sp = spotById(s.spotId) || {}, sw = s.swell || {};
     const h = sw.swellH ?? sw.waveH;
-    sessions.push([s.start.slice(0, 10), s.start.slice(11, 16), boardFull(boardById(s.boardId)), sp.name, sp.lat, sp.lon, s.duration, optLabel(s.waveSize), optLabel(s.waveDesc), s.fun, h == null ? '' : (h * 3.281).toFixed(1), sw.swellP ?? sw.waveP ?? '', sw.swellDir ?? sw.waveDir ?? '', s.notes]);
+    sessions.push([s.start.slice(0, 10), s.start.slice(11, 16), boardFull(boardById(s.boardId)), sp.name, sp.lat, sp.lon, s.duration, optLabel(s.waveSize), optLabel(s.waveDesc), s.fun, h == null ? '' : (h * 3.281).toFixed(1), sw.swellP ?? sw.waveP ?? '', sw.swellDir ?? sw.waveDir ?? '', s.notes,
+      s.tide && s.tide.h != null ? (s.tide.h * 3.281).toFixed(1) : '', s.tide ? s.tide.trend || '' : '', s.tide ? s.tide.stage || '' : '',
+      s.weather && s.weather.windSpd != null ? Math.round(s.weather.windSpd * 1.944) : '', s.weather ? s.weather.windDir ?? '' : '', s.weather && s.weather.gust != null ? Math.round(s.weather.gust * 1.944) : '',
+      s.weather && s.weather.temp != null ? Math.round(s.weather.temp * 9 / 5 + 32) : '', s.weather ? WMO[s.weather.code] || '' : '']);
   }
   const fins = [['Name', ...FIN_LISTS.map(k => listByKey(k).name), 'Base (in)', 'Depth (in)', 'Area (sq in)', 'Pieces', 'Acquired', 'Paired boards', 'Sessions', 'Average fun', 'Retired', 'Notes']];
   for (const f of [...S.fins].sort((a, c) => finName(a).localeCompare(finName(c)))) {
@@ -2033,7 +2293,7 @@ function route() {
   const [path, qs] = (location.hash || '#/boards').slice(2).split('?');
   const parts = path.split('/').map(decodeURIComponent);
   const q = new URLSearchParams(qs || '');
-  const tabFor = { boards: 'boards', board: 'boards', fins: 'fins', fin: 'fins', sessions: 'sessions', session: 'sessions', map: 'map', settings: 'settings' };
+  const tabFor = { boards: 'boards', board: 'boards', fins: 'fins', fin: 'fins', sessions: 'sessions', session: 'sessions', stats: 'stats', map: 'map', settings: 'settings' };
   const tab = tabFor[parts[0]] || 'boards';
   document.querySelectorAll('#tabs a').forEach(a => {
     const on = a.dataset.tab === tab;
@@ -2048,6 +2308,7 @@ function route() {
     case 'sessions': return parts[1] === 'new' ? viewSessionForm(null, q) : viewSessions(q);
     case 'session': return viewSessionForm(parts[1], q);
     case 'map': return viewMap();
+    case 'stats': return viewStats();
     case 'settings':
       if (parts[1] === 'list') return viewList(parts[2]);
       if (parts[1] === 'spots') return parts[2] === 'new' ? viewSpotForm(null) : viewSpots();
