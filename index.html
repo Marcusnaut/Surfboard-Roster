@@ -312,7 +312,7 @@ svg.chart .grid { stroke: var(--line); stroke-width: 1; }
 svg.chart text { font-size: 9px; fill: var(--muted); }
 svg.chart text.unit { font-weight: 600; }
 /* Popups scroll inside the space between the legend and the tab bar instead of running off screen. */
-.leaflet-popup-content { max-height: min(62vh, calc(var(--avail) - 200px)); overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+.leaflet-popup-content { max-height: min(62vh, calc(var(--avail) - 270px - var(--wavectl, 0px))); overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 .fct-days td, .fct-days th { padding-right: 8px; white-space: nowrap; }
 .spotgroup .sec .sub { font-weight: 400; text-transform: none; letter-spacing: 0; }
 .leaflet-control-layers { border-radius: 10px !important; }
@@ -341,7 +341,7 @@ svg.chart text.unit { font-weight: 600; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 8.6 (map link updates live, no share button)';
+const BUILD = 'Build 8.7 (popups clear the wave panel)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -644,6 +644,15 @@ function makeMap(el, opts = {}) {
   const zoomClass = () => el.classList.toggle('far', map.getZoom() < 8);
   map.on('zoomend', zoomClass);
   if (opts.zoomControl !== false) L.control.zoom({ position: 'topright' }).addTo(map);
+  /* Keep popups clear of the wave-height panel at the bottom left: shorter popups, and pan the spot up above it. */
+  map.on('popupopen', e => {
+    const ctl = el.querySelector('.wave-ctl');
+    const h = ctl ? ctl.offsetHeight + 30 : 0;
+    el.style.setProperty('--wavectl', h + 'px');
+    e.popup.options.autoPanPaddingBottomRight = [12, 40 + h];
+    e.popup.options.autoPanPaddingTopLeft = [12, 200]; /* below the legend and the layers button */
+    if (h) requestAnimationFrame(() => { if (e.popup.isOpen()) { e.popup.update(); if (e.popup._adjustPan) e.popup._adjustPan(); } });
+  });
   /* Spot dots draw on a canvas with a wide tap tolerance so they're easy to hit with a finger. */
   map.spotRenderer = L.canvas({ tolerance: 14, padding: 0.5 });
   const bases = Object.fromEntries(Object.keys(BASEMAPS).map(k => [k, baseLayer(k)]));
@@ -1993,7 +2002,7 @@ function viewMap(q = new URLSearchParams()) {
   const surfed = new Set(S.sessions.map(s => s.spotId).filter(Boolean)).size;
   setMain(`<div style="position:relative"><div id="bigmap"></div>
     <div class="map-legend">
-      <span><strong>${S.sessions.length}</strong> sessions · <strong>${surfed}</strong> spots</span>
+      <span><strong>${S.sessions.length}</strong> session${S.sessions.length === 1 ? '' : 's'} · <strong>${surfed}</strong> spot${surfed === 1 ? '' : 's'}</span>
       <span><span class="dot" style="background:#1f9d8f"></span>fun</span><span><span class="dot" style="background:#e0a526"></span>ok</span><span><span class="dot" style="background:#c8553d"></span>meh</span>
       <label class="check" style="min-height:28px"><input type="checkbox" data-mapspots ${showAll ? 'checked' : ''}> All spots</label>
       <span class="sub" id="noSurfed" ${!showAll && !surfed ? '' : 'hidden'}>No surfed spots yet</span>
