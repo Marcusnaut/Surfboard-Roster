@@ -342,7 +342,7 @@ svg.chart text.unit { font-weight: 600; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 8.4 (shareable map links)';
+const BUILD = 'Build 8.5 (All spots toggle fix)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -1936,21 +1936,26 @@ function spotsMap(el, sessions, { small, showAll, state } = {}) {
   const bySpot = new Map();
   for (const s of sessions) if (s.spotId) { const g = bySpot.get(s.spotId) || []; g.push(s); bySpot.set(s.spotId, g); }
   const pts = [];
+  /* Spots you haven't surfed sit in their own group so "All spots" can show or hide them in place. */
+  const unsurfed = L.layerGroup();
+  map.unsurfedLayer = unsurfed;
   for (const sp of spotsSorted()) {
     const list = bySpot.get(sp.id) || [];
-    if (!list.length && (!showAll || sp.hidden)) continue;
+    if (!list.length && (small ? !showAll : false)) continue;
+    if (!list.length && sp.hidden) continue;
     const a = avg(list.map(s => s.fun).filter(Boolean));
     const m = L.circleMarker([sp.lat, sp.lon], {
       renderer: map.spotRenderer,
       radius: list.length ? Math.min(26, 7 + 4 * Math.sqrt(list.length)) : 6,
       color: '#fff', weight: 2, fillColor: list.length ? funColor(a) : '#8a9a9f', fillOpacity: list.length ? 0.9 : 0.6
-    }).addTo(map);
+    }).addTo(list.length ? map : unsurfed);
     m.spotId = sp.id;
     const base = spotSummary(sp, list);
     m.bindPopup(base + (small ? '' : FC_LOADING), { maxWidth: 290, autoPanPaddingTopLeft: [12, 120], autoPanPaddingBottomRight: [12, 40] });
     if (!small) m.on('popupopen', e => fillForecast(e.popup, base, () => spotForecast(sp)));
     if (list.length) pts.push([sp.lat, sp.lon]);
   }
+  if (showAll) unsurfed.addTo(map);
   if (state && state.center) map.setView(state.center, state.zoom ?? 11, { animate: false });
   else if (pts.length === 1) map.setView(pts[0], 13, { animate: false });
   else if (pts.length) map.fitBounds(pts, { padding: [40, 40], maxZoom: 13, animate: false });
@@ -1992,10 +1997,11 @@ function viewMap(q = new URLSearchParams()) {
       <span><strong>${S.sessions.length}</strong> sessions · <strong>${surfed}</strong> spots</span>
       <span><span class="dot" style="background:#1f9d8f"></span>fun</span><span><span class="dot" style="background:#e0a526"></span>ok</span><span><span class="dot" style="background:#c8553d"></span>meh</span>
       <label class="check" style="min-height:28px"><input type="checkbox" data-mapspots ${showAll ? 'checked' : ''}> All spots</label>
+      <span class="sub" id="noSurfed" ${!showAll && !surfed ? '' : 'hidden'}>No surfed spots yet</span>
       <button type="button" class="sharebtn" data-act="share-map">Share view</button>
     </div></div>`, true);
   measure();
-  const map = spotsMap($('#bigmap'), S.sessions, { showAll: showAll || !S.sessions.length, state: st });
+  const map = spotsMap($('#bigmap'), S.sessions, { showAll, state: st });
   if (!map) return;
   map.showAll = showAll;
   let timer = null;
@@ -2009,7 +2015,7 @@ function viewMap(q = new URLSearchParams()) {
       if (tab) tab.setAttribute('href', h);
     }, 250);
   };
-  map.on('moveend baselayerchange overlayadd overlayremove wavestep', sync);
+  map.on('moveend baselayerchange overlayadd overlayremove wavestep spotschange', sync);
   sync();
 }
 
@@ -2556,12 +2562,17 @@ document.addEventListener('change', async e => {
   const el = e.target;
   try {
     if ('mapspots' in el.dataset) {
+      /* Show or hide unsurfed spots in place, keeping the current view. */
+      const map = mounted.maps.find(m => m.unsurfedLayer);
       await savePrefs({ showAllSpots: el.checked });
-      const [path, qs] = location.hash.slice(1).split('?');
-      const q = new URLSearchParams(qs || '');
-      q.set('spots', el.checked ? 'all' : 'surfed');
-      history.replaceState(null, '', '#' + path + '?' + q.toString().replace(/%2C/g, ','));
-      route();
+      if (map) {
+        map.closePopup();
+        if (el.checked) map.unsurfedLayer.addTo(map); else map.removeLayer(map.unsurfedLayer);
+        map.showAll = el.checked;
+        const note = $('#noSurfed');
+        if (note) note.hidden = el.checked || new Set(S.sessions.map(s => s.spotId).filter(Boolean)).size > 0;
+        map.fire('spotschange');
+      } else route();
     } else if (el.dataset.pref) {
       await savePrefs({ [el.dataset.pref]: el.type === 'checkbox' ? el.checked : el.value, ...(el.dataset.pref.startsWith('filter') || el.dataset.pref === 'boardSort' ? { pagerIndex: 0 } : {}) });
       route();
