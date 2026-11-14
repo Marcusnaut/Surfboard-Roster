@@ -1,0 +1,592 @@
+{
+"source": "OpenStreetMap contributors (ODbL)",
+"count": 66,
+"spots": [
+{
+"osm": "node/1128854959",
+"name": "Cowell's Beach Children's Surfing Area",
+"lat": 36.96052,
+"lon": -122.02403,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/1599035227",
+"name": "The Hook",
+"lat": 36.95931,
+"lon": -121.96439,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/2330850543",
+"name": "Bombora",
+"lat": 36.97135,
+"lon": -121.94398,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/2330850545",
+"name": "First Peak",
+"lat": 36.95459,
+"lon": -121.97097,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/2330850546",
+"name": "Little Wind-an-Sea",
+"lat": 36.9541,
+"lon": -121.97675,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/2330850547",
+"name": "New Brighton Reef",
+"lat": 36.97553,
+"lon": -121.94073,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/2330850550",
+"name": "Second Peak",
+"lat": 36.95552,
+"lon": -121.97022,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/2330850551",
+"name": "Sewer Peak",
+"lat": 36.95353,
+"lon": -121.9729,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/2330850552",
+"name": "Shark's Cove",
+"lat": 36.96091,
+"lon": -121.96248,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/2330850553",
+"name": "Suicide's",
+"lat": 36.95391,
+"lon": -121.97485,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/2330850554",
+"name": "Toes Over",
+"lat": 36.97108,
+"lon": -121.94868,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/2330850555",
+"name": "Trees",
+"lat": 36.96695,
+"lon": -121.95658,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/2330850564",
+"name": "38th",
+"lat": 36.95749,
+"lon": -121.96777,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/4010486414",
+"name": "Mollusk Surf Shop",
+"lat": 37.76242,
+"lon": -122.50625,
+"region": "West Coast",
+"tags": {
+"addr:state": "CA"
+}
+},
+{
+"osm": "node/4069122389",
+"name": "B!",
+"lat": 36.96443,
+"lon": -122.04148,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/4544054208",
+"name": "Catalyst",
+"lat": 33.42699,
+"lon": -117.61227,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/6110263424",
+"name": "Nelscott Reef",
+"lat": 44.95857,
+"lon": -124.03443,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/7057388395",
+"name": "Moment Surf Company",
+"lat": 45.21479,
+"lon": -123.9694,
+"region": "West Coast",
+"tags": {
+"addr:state": "OR"
+}
+},
+{
+"osm": "node/7179627476",
+"name": "South Coast Surf Shop",
+"lat": 32.74701,
+"lon": -117.25161,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/7534715785",
+"name": "West Coast Paddle Sports",
+"lat": 32.72151,
+"lon": -117.23154,
+"region": "West Coast",
+"tags": {
+"addr:state": "CA"
+}
+},
+{
+"osm": "node/7805700090",
+"name": "The Surf Shop",
+"lat": 46.88818,
+"lon": -124.10471,
+"region": "West Coast",
+"tags": {
+"addr:state": "WA"
+}
+},
+{
+"osm": "node/7805700091",
+"name": "Steepwater Surf Shop",
+"lat": 46.88904,
+"lon": -124.10394,
+"region": "West Coast",
+"tags": {
+"addr:state": "WA"
+}
+},
+{
+"osm": "node/8627367247",
+"name": "Bahama Boards",
+"lat": 45.89015,
+"lon": -123.96208,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/9109686117",
+"name": "Spyder Surfboards",
+"lat": 33.87206,
+"lon": -118.39541,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/9291781371",
+"name": "15th St Surf and Supply",
+"lat": 33.60642,
+"lon": -117.92094,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/9773757139",
+"name": "Spyder",
+"lat": 33.88459,
+"lon": -118.41044,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/9829542019",
+"name": "Seaside Surf Shop",
+"lat": 45.98638,
+"lon": -123.92333,
+"region": "West Coast",
+"tags": {
+"addr:state": "OR"
+}
+},
+{
+"osm": "node/10285001461",
+"name": "Jack\u2019s Surfboards",
+"lat": 33.61216,
+"lon": -117.92967,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/10689289794",
+"name": "Bay Street Boards",
+"lat": 34.03811,
+"lon": -118.46808,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/11315868201",
+"name": "Jack's Surfboards",
+"lat": 34.01122,
+"lon": -118.48237,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/12349687627",
+"name": "Spyder",
+"lat": 33.86231,
+"lon": -118.40067,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/12349687633",
+"name": "Quiksilver",
+"lat": 33.86233,
+"lon": -118.40056,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/13139806816",
+"name": "Jordan River Point",
+"lat": 48.41931,
+"lon": -124.05669,
+"region": "West Coast",
+"tags": {
+"description": "Point break at Jordan River"
+}
+},
+{
+"osm": "node/13139806817",
+"name": "Chicken's",
+"lat": 48.4991,
+"lon": -124.30093,
+"region": "West Coast",
+"tags": {
+"description": "Chicken\u2019s break at Sombrio"
+}
+},
+{
+"osm": "node/13139806818",
+"name": "Second's",
+"lat": 48.49988,
+"lon": -124.30374,
+"region": "West Coast",
+"tags": {
+"description": "Second\u2019s break at Sombrio"
+}
+},
+{
+"osm": "node/13139806819",
+"name": "First's",
+"lat": 48.49736,
+"lon": -124.30041,
+"region": "West Coast",
+"tags": {
+"description": "First\u2019s break at Sombrio"
+}
+},
+{
+"osm": "node/13139806820",
+"name": "Sewers",
+"lat": 48.42147,
+"lon": -124.05615,
+"region": "West Coast",
+"tags": {
+"description": "Sewers break at Jordan River"
+}
+},
+{
+"osm": "node/13788589142",
+"name": "Rough Bar Surf",
+"lat": 46.8982,
+"lon": -124.1044,
+"region": "West Coast",
+"tags": {
+"addr:state": "WA"
+}
+},
+{
+"osm": "node/13900527108",
+"name": "Private's",
+"lat": 36.96321,
+"lon": -121.96026,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "node/14164747407",
+"name": "Ossies Surf Shop",
+"lat": 44.67302,
+"lon": -124.05896,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "way/34944350",
+"name": "Haut Surfshop",
+"lat": 36.95541,
+"lon": -122.04892,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "way/389455902",
+"name": "T Street Beach",
+"lat": 33.41604,
+"lon": -117.61726,
+"region": "West Coast",
+"tags": {
+"natural": "beach"
+}
+},
+{
+"osm": "way/389455903",
+"name": "The Pier Beach",
+"lat": 33.42001,
+"lon": -117.62071,
+"region": "West Coast",
+"tags": {
+"natural": "beach"
+}
+},
+{
+"osm": "way/440054380",
+"name": "Catalyst Surf Shop",
+"lat": 33.43304,
+"lon": -117.63219,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "way/442332505",
+"name": "Jack's Surfboards",
+"lat": 33.86702,
+"lon": -118.39337,
+"region": "West Coast",
+"tags": {}
+},
+{
+"osm": "way/458940395",
+"name": "Lincoln City Surf Shop",
+"lat": 44.92997,
+"lon": -124.01706,
+"region": "West Coast",
+"tags": {
+"addr:state": "OR"
+}
+},
+{
+"osm": "way/1017781081",
+"name": "ZuhG Life Surf Shop",
+"lat": 44.94301,
+"lon": -124.02129,
+"region": "West Coast",
+"tags": {
+"addr:state": "OR"
+}
+},
+{
+"osm": "way/1089340805",
+"name": "Playa de Rosarito",
+"lat": 32.34788,
+"lon": -117.06307,
+"region": "West Coast",
+"tags": {
+"natural": "beach"
+}
+},
+{
+"osm": "node/3137582803",
+"name": "Sand & Sun Surf Shop",
+"lat": 33.78421,
+"lon": -78.77583,
+"region": "East Coast",
+"tags": {}
+},
+{
+"osm": "node/3373999536",
+"name": "Lewes Street Surf Beach",
+"lat": 38.46768,
+"lon": -75.04927,
+"region": "East Coast",
+"tags": {
+"addr:state": "DE"
+}
+},
+{
+"osm": "node/4689366869",
+"name": "North Jetty",
+"lat": 27.86231,
+"lon": -80.4465,
+"region": "East Coast",
+"tags": {
+"surfing": "beach break"
+}
+},
+{
+"osm": "node/6175252420",
+"name": "Real Watersports",
+"lat": 35.56597,
+"lon": -75.4694,
+"region": "East Coast",
+"tags": {
+"addr:state": "NC"
+}
+},
+{
+"osm": "node/6188952186",
+"name": "StaleFish Board Company",
+"lat": 39.53763,
+"lon": -76.35112,
+"region": "East Coast",
+"tags": {
+"addr:state": "MD"
+}
+},
+{
+"osm": "node/6414301756",
+"name": "Atlantic Shoals Surf Shop",
+"lat": 37.92605,
+"lon": -75.35489,
+"region": "East Coast",
+"tags": {}
+},
+{
+"osm": "node/8019484088",
+"name": "Vague Habitat '67",
+"lat": 45.49984,
+"lon": -73.5428,
+"region": "East Coast",
+"tags": {}
+},
+{
+"osm": "node/9443666820",
+"name": "Quiet Storm Surf Shop",
+"lat": 33.78454,
+"lon": -78.77525,
+"region": "East Coast",
+"tags": {}
+},
+{
+"osm": "node/11292465329",
+"name": "Vague \u00e0 Guy",
+"lat": 45.41931,
+"lon": -73.60315,
+"region": "East Coast",
+"tags": {
+"description": "Standing wave"
+}
+},
+{
+"osm": "node/13208883982",
+"name": "Vibe Surf School Pompano Beach",
+"lat": 26.23489,
+"lon": -80.0882,
+"region": "East Coast",
+"tags": {
+"description": "Surf lessons; meet on the beach by Pompano Beach Pier."
+}
+},
+{
+"osm": "node/13208941067",
+"name": "Vibe Surf School Fort Lauderdale",
+"lat": 26.05859,
+"lon": -80.11145,
+"region": "East Coast",
+"tags": {
+"description": "Surf lessons and camps; meet on the beach by the pier (Dania Beach)."
+}
+},
+{
+"osm": "node/13208962568",
+"name": "Vibe Surf School Sunny Isles Beach",
+"lat": 25.92996,
+"lon": -80.1205,
+"region": "East Coast",
+"tags": {
+"description": "Surf lessons; meet on the beach by Newport Fishing Pier (Sunny Isles Beach)."
+}
+},
+{
+"osm": "node/13469251577",
+"name": "P.B. Boys Club",
+"lat": 26.70472,
+"lon": -80.03629,
+"region": "East Coast",
+"tags": {}
+},
+{
+"osm": "node/13988376094",
+"name": "Sickday",
+"lat": 41.93894,
+"lon": -70.03338,
+"region": "East Coast",
+"tags": {
+"addr:state": "MA"
+}
+},
+{
+"osm": "way/708131365",
+"name": "FlowHouse Thundering Surf",
+"lat": 39.56912,
+"lon": -74.23738,
+"region": "East Coast",
+"tags": {
+"addr:state": "NJ"
+}
+},
+{
+"osm": "way/740572532",
+"name": "Summertime Surf School",
+"lat": 40.18421,
+"lon": -74.01033,
+"region": "East Coast",
+"tags": {
+"addr:state": "NJ"
+}
+},
+{
+"osm": "way/891176234",
+"name": "",
+"lat": 26.34099,
+"lon": -80.07799,
+"region": "East Coast",
+"tags": {
+"natural": "water"
+}
+},
+{
+"osm": "way/1131292480",
+"name": "",
+"lat": 41.92216,
+"lon": -69.97312,
+"region": "East Coast",
+"tags": {}
+}
+]
+}
