@@ -370,7 +370,7 @@ svg.chart text.unit { font-weight: 600; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 9 (map header legend, full screen, bigger popups, CDIP buoy plots)';
+const BUILD = 'Build 9.1 (CDIP peak period layer)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -513,7 +513,7 @@ async function seed() {
 
 /* ---------- in-memory state ---------- */
 const S = { options: [], boards: [], sessions: [], spots: [], photos: new Map(), meta: {}, fins: [], finLinks: [] };
-const PREF_DEFAULTS = { boardsView: 'tiles', boardSort: 'model', filterType: '', filterShaper: '', showRetired: false, pagerIndex: 0, units: 'ft', sessionSort: 'newest', finsView: 'table', finSort: 'name', filterFinSetup: '', showRetiredFins: false, showAllSpots: true, statsSpot: '', disabledLists: [], baseMap: 'map', showBuoys: true, showWaves: false };
+const PREF_DEFAULTS = { boardsView: 'tiles', boardSort: 'model', filterType: '', filterShaper: '', showRetired: false, pagerIndex: 0, units: 'ft', sessionSort: 'newest', finsView: 'table', finSort: 'name', filterFinSetup: '', showRetiredFins: false, showAllSpots: true, statsSpot: '', disabledLists: [], baseMap: 'map', showBuoys: true, showWaves: false, showPeriod: false };
 let prefs = { ...PREF_DEFAULTS };
 async function loadAll() {
   const [options, boards, sessions, spots, photos, meta, fins, finLinks] = await Promise.all(STORES.map(getAll));
@@ -728,10 +728,24 @@ function makeMap(el, opts = {}) {
     const layer = buoyLayer();
     overlays['Buoys'] = layer;
     if (st.overlays ? st.overlays.has('buoys') : prefs.showBuoys) layer.addTo(map);
-    const waves = waveLayer(map, st.waveTime);
-    overlays[WAVE_NAME] = waves;
-    map.waveLayer = waves;
-    if (st.overlays ? st.overlays.has('waves') : prefs.showWaves) waves.addTo(map);
+    /* CDIP grids: wave height or peak period, one at a time (they would hide each other). */
+    map.waveLayers = {};
+    for (const [key, cfg] of Object.entries(GRID_LAYERS)) {
+      const g = waveLayer(map, st.waveTime, key);
+      overlays[cfg.name] = g;
+      map.waveLayers[key] = g;
+    }
+    const want = Object.keys(GRID_LAYERS).find(k => st.overlays ? st.overlays.has(k) : prefs[GRID_LAYERS[k].pref]);
+    if (want) map.waveLayers[want].addTo(map);
+    map.on('overlayadd', e => {
+      const key = Object.keys(map.waveLayers).find(k => map.waveLayers[k] === e.layer);
+      if (!key) return;
+      /* Wait for the layers menu to finish its own update, then turn the other grid off. */
+      setTimeout(() => {
+        if (!map.hasLayer(e.layer)) return;
+        for (const [k, g] of Object.entries(map.waveLayers)) if (k !== key && map.hasLayer(g)) { e.layer.carryTime(g.stepTime()); map.removeLayer(g); }
+      }, 0);
+    });
   }
   if (layersControl !== false) {
     L.control.layers(Object.fromEntries(Object.keys(BASEMAPS).map(k => [BASEMAPS[k].label, bases[k]])), overlays, { position: 'topright', collapsed: true }).addTo(map);
@@ -743,7 +757,7 @@ function makeMap(el, opts = {}) {
     });
     map.on('overlayadd overlayremove', e => {
       if (e.name === 'Buoys') savePrefs({ showBuoys: e.type === 'overlayadd' });
-      if (e.name === WAVE_NAME) savePrefs({ showWaves: e.type === 'overlayadd' });
+      for (const cfg of Object.values(GRID_LAYERS)) if (e.name === cfg.name) savePrefs({ [cfg.pref]: e.type === 'overlayadd' });
     });
   }
   map.setView(DEFAULT_VIEW.center, DEFAULT_VIEW.zoom);
@@ -754,6 +768,11 @@ function makeMap(el, opts = {}) {
 }
 /* ---------- CDIP wave-height layer ---------- */
 const WAVE_NAME = 'Wave height (CDIP, Calif.)';
+/* CDIP California grid layers drawn by CDIP's WMS. Period uses CDIP's 2-second color bands like their own map. */
+const GRID_LAYERS = {
+  waves: { name: WAVE_NAME, title: 'Wave height', param: 'waveHs', lo: 0, hi: WAVE_MAX_M, bands: 250, pref: 'showWaves', ticks: () => waveLegendTicks() },
+  period: { name: 'Peak period (CDIP, Calif.)', title: 'Peak period', param: 'waveTp', lo: 5, hi: 25, bands: 10, pref: 'showPeriod', ticks: () => ['5', '10', '15', '20', '25 s'] }
+};
 let gridFetch = null;
 async function loadWaveGrid() {
   if (S.gridData && Date.now() - S.gridLoadedAt < 20 * 60 * 1000) return S.gridData;
@@ -782,11 +801,12 @@ function waveStepLabel(st) {
 function waveLegendTicks() {
   return prefs.units === 'm' ? ['0', '1.5', '3', '4.6', '6.1 m'] : ['0', '5', '10', '15', '20 ft'];
 }
-function waveLayer(map, startTime) {
+function waveLayer(map, startTime, key = 'waves') {
+  const cfg = GRID_LAYERS[key];
   if (!map.getPane('waves')) { const p = map.createPane('waves'); p.style.zIndex = 350; p.style.pointerEvents = 'none'; }
   const layer = L.tileLayer.wms(WAVE_WMS + 'nowcast.nc', {
-    layers: 'waveHs', styles: 'raster/cdip', format: 'image/png', transparent: true, version: '1.3.0',
-    colorscalerange: `0,${WAVE_MAX_M}`, numcolorbands: 250, abovemaxcolor: 'extend',
+    layers: cfg.param, styles: 'raster/cdip', format: 'image/png', transparent: true, version: '1.3.0',
+    colorscalerange: `${cfg.lo},${cfg.hi}`, numcolorbands: cfg.bands, abovemaxcolor: 'extend', belowmincolor: 'extend',
     opacity: 0.7, pane: 'waves', bounds: L.latLngBounds(WAVE_BOUNDS), maxZoom: 19,
     attribution: '<a href="https://cdip.ucsd.edu/" target="_blank" rel="noopener">CDIP</a>'
   });
@@ -805,14 +825,19 @@ function waveLayer(map, startTime) {
     map.fire('wavestep');
   };
   layer.stepTime = () => { const st = steps[idx]; return st && !st.now ? st.time : null; };
+  /* Switching between height and period keeps the hour you were looking at. */
+  layer.carryTime = t => {
+    const i = t ? steps.findIndex(x => !x.now && Date.parse(x.time) >= Date.parse(t) - 60000) : 0;
+    if (steps.length > 1 && i >= 0) { idx = i; if (layer._map) show(); } else { startTime = t; idx = 0; }
+  };
   const Ctl = L.Control.extend({
     options: { position: 'bottomleft' },
     onAdd() {
       const d = L.DomUtil.create('div', 'wave-ctl');
-      const leg = `${WAVE_WMS}nowcast.nc?REQUEST=GetLegendGraphic&LAYERS=waveHs&PALETTE=cdip&COLORSCALERANGE=0,${WAVE_MAX_M}&NUMCOLORBANDS=250&COLORBARONLY=true&VERTICAL=false&WIDTH=220&HEIGHT=14`;
+      const leg = `${WAVE_WMS}nowcast.nc?REQUEST=GetLegendGraphic&LAYERS=${cfg.param}&PALETTE=cdip&COLORSCALERANGE=${cfg.lo},${cfg.hi}&NUMCOLORBANDS=${cfg.bands}&COLORBARONLY=true&VERTICAL=false&WIDTH=220&HEIGHT=14`;
       d.innerHTML = `<div class="wrow"><button type="button" data-w="prev" aria-label="Earlier">&lsaquo;</button><span class="wt">Now</span><button type="button" data-w="next" aria-label="Later">&rsaquo;</button></div>
-        <img class="wleg" alt="" src="${leg}"><div class="wticks">${waveLegendTicks().map(t => `<span>${t}</span>`).join('')}</div>
-        <div class="sub">Wave height · California · data courtesy of <a href="https://cdip.ucsd.edu/" target="_blank" rel="noopener">CDIP</a></div>`;
+        <img class="wleg" alt="" src="${leg}"><div class="wticks">${cfg.ticks().map(t => `<span>${t}</span>`).join('')}</div>
+        <div class="sub">${cfg.title} · California · data courtesy of <a href="https://cdip.ucsd.edu/" target="_blank" rel="noopener">CDIP</a></div>`;
       L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d);
       d.addEventListener('click', e => {
         const b = e.target.closest('[data-w]'); if (!b) return;
@@ -2078,9 +2103,10 @@ function mapLink(map) {
   p.push(`c=${c.lat.toFixed(4)},${c.lng.toFixed(4)}`, `z=${map.getZoom()}`, `b=${BASEMAPS[map.baseKey].label.toLowerCase()}`);
   const ov = map.overlayLayers || {}, on = [];
   if (ov['Buoys'] && map.hasLayer(ov['Buoys'])) on.push('buoys');
-  if (map.waveLayer && map.hasLayer(map.waveLayer)) on.push('waves');
+  let grid = null;
+  for (const [k, g] of Object.entries(map.waveLayers || {})) if (map.hasLayer(g)) { on.push(k); grid = g; }
   p.push(`l=${on.join(',') || 'none'}`, `spots=${map.showAll ? 'all' : 'surfed'}`);
-  const t = map.waveLayer && map.hasLayer(map.waveLayer) && map.waveLayer.stepTime();
+  const t = grid && grid.stepTime();
   if (t) p.push(`t=${t.replace('.000Z', 'Z')}`);
   return '#/map?' + p.join('&');
 }
