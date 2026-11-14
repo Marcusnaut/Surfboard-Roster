@@ -48,6 +48,8 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; }
+/* Installed app: make the page at least as tall as the screen so iOS lays out to the real bottom. */
+@media (display-mode: standalone) { html, body { min-height: var(--apph, 100vh); } }
 body {
   background: var(--bg); color: var(--ink);
   font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -389,7 +391,7 @@ svg.chart text.unit { font-weight: 600; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 9.5 (home-screen layout fix, install help)';
+const BUILD = 'Build 9.6 (home-screen bottom gap, take 2)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -729,9 +731,17 @@ function measure() {
      leaving a gap. Measure where the bottom actually lands and push the tab bar down by the difference. */
   let probe = $('#vprobe');
   if (!probe) { probe = document.createElement('div'); probe.id = 'vprobe'; probe.style.cssText = 'position:fixed;left:0;bottom:0;width:1px;height:0;pointer-events:none;visibility:hidden'; document.body.appendChild(probe); }
-  const gap = Math.max(0, Math.round(window.innerHeight - probe.getBoundingClientRect().top));
+  /* In the installed app the window fills the whole screen, so the screen's height is the true bottom,
+     even when iOS reports a shorter window. In a browser tab the window height is right. */
+  const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  const landscape = window.matchMedia && matchMedia('(orientation: landscape)').matches;
+  const screenH = landscape ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
+  const H = standalone && screenH ? Math.max(window.innerHeight, screenH) : window.innerHeight;
+  const gap = Math.max(0, Math.round(H - probe.getBoundingClientRect().top));
   document.documentElement.style.setProperty('--vgap', (gap > 2 ? gap : 0) + 'px');
-  const h = window.innerHeight - $('#top').offsetHeight - $('#tabs').offsetHeight;
+  document.documentElement.style.setProperty('--apph', H + 'px');
+  S.viewInfo = `window ${window.innerHeight}, screen ${screenH}, used ${H}, gap ${gap}${standalone ? ', installed' : ''}`;
+  const h = H - $('#top').offsetHeight - $('#tabs').offsetHeight;
   document.documentElement.style.setProperty('--avail', Math.max(300, h) + 'px');
 }
 function baseLayer(key) {
@@ -2470,7 +2480,7 @@ function viewSettings() {
     </div></div>
     <p class="note">Everything is stored only on this device. Export a backup now and then, and keep the file somewhere safe. CSV files open in Numbers, Excel or Google Sheets.</p>
     <h2 class="sec">About</h2>
-    <div class="card"><div class="row"><span class="grow"><span class="label">Surfboard Tracker</span><br><span class="sub">${esc(BUILD)}</span></span><button type="button" data-act="refresh-app">Refresh app</button></div>
+    <div class="card"><div class="row"><span class="grow"><span class="label">Surfboard Tracker</span><br><span class="sub">${esc(BUILD)}</span><br><span class="sub" style="font-size:11px">Screen: ${esc(S.viewInfo || '')}</span></span><button type="button" data-act="refresh-app">Refresh app</button></div>
       <div class="row"><span class="grow sub">Data sources (personal, non-commercial use):<br>
         · Wave forecasts and wave-height map: data courtesy of <a href="https://cdip.ucsd.edu/" target="_blank" rel="noopener">CDIP</a>, Scripps Institution of Oceanography.<br>
         · Swell, tide and weather: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>, licensed <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.<br>
