@@ -60,7 +60,7 @@ header.top {
   position: sticky; top: 0; z-index: 1000;
   background: var(--brand); color: var(--brand-ink);
   padding: calc(env(safe-area-inset-top) + 8px) 8px 8px 16px;
-  display: flex; align-items: center; gap: 4px; min-height: 56px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-height: 56px;
 }
 header.top h1 { font-size: 19px; margin: 0; font-weight: 650; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 header.top .back, header.top .hact {
@@ -163,7 +163,11 @@ dialog.full .dfoot { padding: 12px 16px calc(env(safe-area-inset-bottom) + 12px)
 @media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
 
 /* toolbar + segmented control */
-.toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+/* View switch in the header (Boards page). */
+header.top.seghdr { flex-wrap: wrap; row-gap: 6px; }
+header.top .hseg { flex: 1 0 100%; margin: 0 8px 0 0; background: rgba(255,255,255,.14); }
+header.top .hseg button { color: var(--brand-ink); opacity: .85; }
+header.top .hseg button[aria-pressed=true] { background: var(--brand-ink); color: var(--brand); opacity: 1; }
 .seg { display: inline-flex; background: var(--tag); border-radius: 10px; padding: 3px; flex: 1; min-width: 220px; }
 .seg button { flex: 1; border: 0; background: transparent; min-height: 38px; border-radius: 8px; font-size: 14px; color: var(--muted); }
 .seg button[aria-pressed=true] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
@@ -418,7 +422,7 @@ svg.chart text.unit { font-weight: 600; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 10.2 (weather lookup retry and error message)';
+const BUILD = 'Build 10.3 (board view switch pinned in the header)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -1603,6 +1607,7 @@ function setTop(title, back, actions = '') {
   $('#top').className = 'top';
   $('#top').innerHTML = (back ? `<button class="back" data-act="back" data-fallback="${esc(back)}" aria-label="Back">&#8249; Back</button>` : '') + `<h1>${esc(title)}</h1>${actions}`;
   document.title = title + ' · Surfboard Tracker';
+  measure();
 }
 const main = () => $('#main');
 function setMain(html, full) { const m = main(); m.classList.toggle('full', !!full); m.innerHTML = html; }
@@ -1654,21 +1659,21 @@ function photoBox(b, thumb) {
   return u ? `<img src="${u}" alt="" loading="lazy">` : `<div class="noph">${BOARD_ICON}</div>`;
 }
 function viewBoards() {
-  setTop('Boards', null, `<a class="hact plus" href="#/boards/new" aria-label="Add board">+</a>`);
+  const v = prefs.boardsView;
+  /* The view switch sits in the header so it stays put while you scroll, in every view. */
+  setTop('Boards', null, `<a class="hact plus" href="#/boards/new" aria-label="Add board">+</a>${S.boards.length ? `
+    <div class="seg hseg" role="group" aria-label="View">
+      ${['table', 'tiles', 'pages'].map(k => `<button data-act="view" data-v="${k}" aria-pressed="${v === k}">${{ table: 'Table', tiles: 'Tiles', pages: 'Full page' }[k]}</button>`).join('')}
+    </div>` : ''}`);
+  if (S.boards.length) $('#top').classList.add('seghdr');
   if (!S.boards.length) {
     setMain(`<div class="empty"><div class="big">No boards yet</div><div>Add your first board to start your quiver.</div><a class="btn primary" href="#/boards/new">Add a board</a></div>${installHelp()}`);
     return;
   }
   const { list, st } = filteredBoards();
-  const v = prefs.boardsView;
   const shapers = [...new Set(S.boards.map(b => b.shaper).filter(Boolean))].sort();
   const usedTypes = optionsFor('type').filter(o => S.boards.some(b => b.type === o.id));
   const controls = `
-    <div class="toolbar">
-      <div class="seg" role="group" aria-label="View">
-        ${['table', 'tiles', 'pages'].map(k => `<button data-act="view" data-v="${k}" aria-pressed="${v === k}">${{ table: 'Table', tiles: 'Tiles', pages: 'Full page' }[k]}</button>`).join('')}
-      </div>
-    </div>
     <div class="filters">
       <select data-pref="boardSort" aria-label="Sort">
         ${[['model', 'Sort: Model'], ['shaper', 'Sort: Shaper'], ['length', 'Sort: Length'], ['sessions', 'Sort: Most surfed'], ['recent', 'Sort: Recently surfed'], ['fun', 'Sort: Most fun'], ['added', 'Sort: Newest added']].map(([k, l]) => `<option value="${k}" ${prefs.boardSort === k ? 'selected' : ''}>${l}</option>`).join('')}
@@ -1976,18 +1981,19 @@ function filteredFins() {
   return { list: list.sort(by), st };
 }
 function viewFins() {
-  setTop('Fins', null, `<a class="hact plus" href="#/fins/new" aria-label="Add fins">+</a>`);
+  const v = prefs.finsView;
+  setTop('Fins', null, `<a class="hact plus" href="#/fins/new" aria-label="Add fins">+</a>${S.fins.length ? `
+    <div class="seg hseg" role="group" aria-label="View">
+      ${['table', 'tiles'].map(k => `<button data-act="finView" data-v="${k}" aria-pressed="${v === k}">${k === 'table' ? 'Table' : 'Tiles'}</button>`).join('')}
+    </div>` : ''}`);
+  if (S.fins.length) $('#top').classList.add('seghdr');
   if (!S.fins.length) {
     setMain(`<div class="empty"><div class="big">No fins yet</div><div>Add your fin sets, then pair them with the boards they fit.</div><a class="btn primary" href="#/fins/new">Add fins</a></div>`);
     return;
   }
   const { list, st } = filteredFins();
-  const v = prefs.finsView;
   const usedSetups = optionsFor('finSetup').filter(o => S.fins.some(f => f.finSetup === o.id));
   const controls = `
-    <div class="toolbar"><div class="seg" role="group" aria-label="View">
-      ${['table', 'tiles'].map(k => `<button data-act="finView" data-v="${k}" aria-pressed="${v === k}">${k === 'table' ? 'Table' : 'Tiles'}</button>`).join('')}
-    </div></div>
     <div class="filters">
       <select data-pref="finSort" aria-label="Sort">${[['name', 'Sort: Name'], ['brand', 'Sort: Brand'], ['boards', 'Sort: Most boards'], ['sessions', 'Sort: Most ridden'], ['fun', 'Sort: Most fun']].map(([k, l]) => `<option value="${k}" ${prefs.finSort === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
       ${listOn('finSetup') ? `<select data-pref="filterFinSetup" aria-label="Filter by configuration"><option value="">All configurations</option>${usedSetups.map(o => `<option value="${esc(o.id)}" ${prefs.filterFinSetup === o.id ? 'selected' : ''}>${esc(o.value)}</option>`).join('')}</select>` : '<span></span>'}
