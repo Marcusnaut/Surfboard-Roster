@@ -418,7 +418,7 @@ svg.chart text.unit { font-weight: 600; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 10.1 (home-screen bottom gap, code cleanup)';
+const BUILD = 'Build 10.2 (weather lookup retry and error message)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -1539,9 +1539,14 @@ async function fetchWeather(spot, start, durationMin) {
   let res;
   try {
     res = await get(WEATHER_URL);
+    /* Too many requests (the limit is shared by everyone on the same network address): don't try the archive. */
+    if (res.status === 429) throw new Error('busy');
     if (!res.ok) res = await get(WEATHER_ARCHIVE_URL);
-  } catch (e) { throw new Error("Couldn't reach the weather service."); }
-  if (!res.ok) throw new Error('No weather data for that date.');
+  } catch (e) {
+    if (e.message === 'busy') throw new Error('The weather service is busy right now.');
+    throw new Error(navigator.onLine === false ? "You're offline." : "Couldn't reach the weather service.");
+  }
+  if (!res.ok) throw new Error(res.status === 429 ? 'The weather service is busy right now.' : 'No weather data for that date.');
   const j = await res.json();
   const i = (j.hourly && j.hourly.time || []).indexOf(hour);
   if (i < 0) throw new Error('No weather data for that hour.');
@@ -2272,8 +2277,19 @@ async function lookupSwell() {
   const token = ++sform.token;
   renderSwell('loading');
   const dur = Number($('#duration').value) || 0;
-  fetchWeather(spot, start, dur).then(w => { if (sform && token === sform.token && !sform.condEdited) { sform.weather = w; renderSwell(sform.state === 'loading' ? 'loading' : sform.state, sform.msg); } })
-    .catch(() => { if (sform && token === sform.token) { sform.weather = null; renderSwell(sform.state, sform.msg); } });
+  /* Weather comes from a different service than swell. Try twice, and say so if it fails
+     instead of leaving the line blank. A failed lookup never wipes weather you already have. */
+  sform.weatherErr = null;
+  (async () => {
+    let w = null, err = null;
+    for (let n = 0; n < 2 && !w; n++) {
+      if (n) await new Promise(r => setTimeout(r, 1500));
+      try { w = await fetchWeather(spot, start, dur); } catch (e) { err = e; }
+    }
+    if (!sform || token !== sform.token || sform.condEdited) return;
+    if (w) sform.weather = w; else sform.weatherErr = (err && err.message) || "Couldn't load the weather.";
+    renderSwell(sform.state, sform.msg);
+  })();
   try {
     const sw = await fetchSwell(spot, start, dur);
     if (!sform || token !== sform.token || !$('#swellBox')) return;
@@ -2296,7 +2312,7 @@ function renderSwell(state, msg) {
   if (!box) return;
   if (!sform.condEdited) fillCondInputs();
   sform.state = state; sform.msg = msg;
-  const extra = `${sform.tide ? `<div class="cond"><span>Tide</span>${esc(tideText(sform.tide))}</div>` : ''}${sform.weather ? `<div class="cond"><span>Weather</span>${esc(weatherText(sform.weather))}</div>` : ''}`;
+  const extra = `${sform.tide ? `<div class="cond"><span>Tide</span>${esc(tideText(sform.tide))}</div>` : ''}${sform.weather ? `<div class="cond"><span>Weather</span>${esc(weatherText(sform.weather))}</div>` : ''}${sform.weatherErr ? `<div class="cond"><span>Weather</span>${sform.weather ? 'Not updated. ' : ''}${esc(sform.weatherErr)} Tap Refresh to try again, or enter it below.</div>` : ''}`;
   if (state === 'idle') box.innerHTML = `<span class="sub">Pick a spot and time to look up the swell, tide and weather.</span>`;
   else if (state === 'none') box.innerHTML = `<span class="sub">No conditions saved for this session.</span>${extra}<div class="row2"><button type="button" data-act="retrySwell">Look up conditions</button></div>`;
   else if (state === 'loading') box.innerHTML = `<span class="sub">Looking up swell, tide and weather…</span>${extra}`;
