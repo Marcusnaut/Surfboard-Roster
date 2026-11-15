@@ -48,7 +48,9 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; }
-/* Installed app: make the page at least as tall as the screen so iOS lays out to the real bottom. */
+/* iPhone home-screen app: with the status bar drawn over the page, iOS sizes short pages one status bar
+   too short, which leaves a gap under the tab bar. Making the page that much taller closes it. */
+@media (display-mode: standalone) { html { min-height: calc(100% + env(safe-area-inset-top)); } }
 body {
   background: var(--bg); color: var(--ink);
   font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -416,7 +418,7 @@ svg.chart text.unit { font-weight: 600; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 10 (session editing, date and time fields, map search and my location)';
+const BUILD = 'Build 10.1 (home-screen bottom gap, code cleanup)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -841,8 +843,7 @@ function setMapFullscreen(on) {
     if (on && d.requestFullscreen && !document.fullscreenElement) d.requestFullscreen().catch(() => {});
     if (!on && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
   } catch (e) { /* iPhone Safari has no page full screen; hiding the bars is enough */ }
-  measure();
-  for (const m of mounted.maps) { try { m.invalidateSize(); } catch (e) {} }
+  refit(0);
 }
 document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && document.body.classList.contains('mapfs')) setMapFullscreen(false); });
 /* ---------- app updates ----------
@@ -880,11 +881,12 @@ function showUpdateBar(next) {
   d.querySelector('.ub-x').addEventListener('click', () => d.remove());
   document.body.appendChild(d);
 }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForUpdate(); });
-/* iPhone home-screen apps have a bug: after the on-screen keyboard closes, the app's window can stay
-   shrunk, so the tab bar floats up and a blank band shows at the bottom. Remember the tallest window
-   seen, and when it's stuck shorter with no keyboard up, force the page to lay out again. */
-let maxVH = window.innerHeight, heals = 0, healing = false;
+/* ---------- screen size ----------
+   iPhone home-screen apps can keep the window shrunk after the on-screen keyboard closes, so the tab bar
+   floats up. Remember the tallest window seen; when the keyboard is gone and the window is still short,
+   force the page to lay out again. */
+let maxVH = window.innerHeight, heals = 0;
+const isStandalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
 const typing = () => { const a = document.activeElement; return !!a && (a.matches('input:not([type=checkbox]):not([type=radio]):not([type=hidden]), textarea, select') || a.isContentEditable); };
 function healViewport() {
   if (typing() || maxVH - window.innerHeight <= 4) return;
@@ -894,16 +896,23 @@ function healViewport() {
   document.body.style.display = '';
   window.scrollTo(0, y);
   heals++;
-  setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
+  refit();
 }
-document.addEventListener('focusout', () => setTimeout(healViewport, 160));
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(healViewport, 300); });
+/* Space for full-height views (the map): from under the header to the top of the tab bar, measured from
+   where "fixed to the bottom" really lands on screen rather than from the reported window height. */
 function measure() {
   if (!typing()) maxVH = Math.max(maxVH, window.innerHeight);
-  const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
-  S.viewInfo = `window ${window.innerHeight}, tallest ${maxVH}, fixes ${heals}${standalone ? ', installed' : ''}`;
-  const h = window.innerHeight - $('#top').offsetHeight - $('#tabs').offsetHeight;
-  document.documentElement.style.setProperty('--avail', Math.max(300, h) + 'px');
+  let probe = $('#vprobe');
+  if (!probe) { probe = document.createElement('div'); probe.id = 'vprobe'; probe.style.cssText = 'position:fixed;left:0;bottom:0;width:1px;height:0;visibility:hidden;pointer-events:none'; document.body.appendChild(probe); }
+  const bottom = probe.getBoundingClientRect().top || window.innerHeight;
+  const h = bottom - $('#top').offsetHeight - $('#tabs').offsetHeight;
+  document.documentElement.style.setProperty('--avail', Math.max(300, Math.round(h)) + 'px');
+  S.viewInfo = `window ${window.innerHeight}, bottom ${Math.round(bottom)}, screen ${screen.height}, fixes ${heals}${isStandalone() ? ', installed' : ''}`;
+}
+let refitT;
+function refit(delay = 150) {
+  clearTimeout(refitT);
+  refitT = setTimeout(() => { measure(); mounted.maps.forEach(m => { try { m.invalidateSize(); } catch (e) {} }); }, delay);
 }
 function baseLayer(key) {
   const b = BASEMAPS[key];
@@ -1595,7 +1604,7 @@ function setMain(html, full) { const m = main(); m.classList.toggle('full', !!fu
 
 /* How to install the app and where data lives. Shown on the empty Boards page. */
 function installHelp() {
-  const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  const standalone = isStandalone();
   const ua = navigator.userAgent;
   const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
   const android = /Android/.test(ua);
@@ -2536,11 +2545,11 @@ function spotLabels(map, items) {
       const dirs = [];
       if (Number.isFinite(o.it.ang)) {
         const b = o.it.ang * Math.PI / 180, v = { x: Math.sin(b), y: -Math.cos(b) };
-        dirs.push({ v, rotate: true });
+        dirs.push({ v });
       }
       dirs.push({ v: { x: 1, y: 0 } }, { v: { x: -1, y: 0 } }, { v: { x: 0, y: -1 }, up: true }, { v: { x: 0, y: 1 }, up: true });
       /* Last resort for angled spots: point the other way, inland. */
-      if (Number.isFinite(o.it.ang)) { const b = o.it.ang * Math.PI / 180; dirs.push({ v: { x: -Math.sin(b), y: Math.cos(b) }, rotate: true }); }
+      if (Number.isFinite(o.it.ang)) { const b = o.it.ang * Math.PI / 180; dirs.push({ v: { x: -Math.sin(b), y: Math.cos(b) } }); }
       let chosen = null;
       for (const d of dirs) {
         let circles;
@@ -2569,7 +2578,7 @@ function spotLabels(map, items) {
       else {
         /* Keep text upright: if the direction points left, flip it and run the text toward the dot. */
         let a = Math.atan2(d.v.y, d.v.x) * 180 / Math.PI;
-        const flip = d.v.x < -1e-6 || (Math.abs(d.v.x) < 1e-6 && false);
+        const flip = d.v.x < -1e-6;
         if (flip) a += 180;
         tf = `translate(${Math.round(lp.x)}px,${Math.round(lp.y)}px) rotate(${a.toFixed(1)}deg) translate(${flip ? -(g + w) : g}px,${-h / 2}px)`;
       }
@@ -3334,14 +3343,15 @@ function route() {
   }
 }
 window.addEventListener('hashchange', () => { navCount++; closeDialog(); route(); window.scrollTo(0, 0); });
-let resizeT;
-window.addEventListener('resize', () => {
-  clearTimeout(resizeT);
-  resizeT = setTimeout(() => { measure(); mounted.maps.forEach(m => { try { m.invalidateSize(); } catch (e) {} }); if (!typing() && maxVH - window.innerHeight > 4 && !healing) { healing = true; healViewport(); setTimeout(() => { healing = false; }, 1000); } }, 150);
+window.addEventListener('resize', () => refit());
+/* iOS can settle the home-screen layout a moment after launch, rotation or the keyboard closing. */
+['pageshow', 'orientationchange'].forEach(ev => window.addEventListener(ev, () => refit(300)));
+document.addEventListener('focusout', () => setTimeout(healViewport, 160));
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  checkForUpdate();
+  setTimeout(() => { healViewport(); refit(0); }, 300);
 });
-/* iOS can settle the home-screen layout a moment after launch or when the app returns; measure again. */
-['pageshow', 'orientationchange'].forEach(ev => window.addEventListener(ev, () => setTimeout(() => window.dispatchEvent(new Event('resize')), 300)));
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(() => window.dispatchEvent(new Event('resize')), 300); });
 
 /* ---------- start ---------- */
 (async function start() {
