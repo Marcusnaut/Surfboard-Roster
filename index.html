@@ -371,6 +371,11 @@ header.top.maphdr h1 { flex: 0 0 auto; margin-right: 10px; }
 .map-legend .check { min-height: 30px; color: inherit; }
 .map-legend .check input { accent-color: #fff; }
 .map-legend .sub { color: inherit; opacity: .8; }
+.map-legend .lbt { opacity: .8; font-size: .9em; }
+.buoy .blbl.timed { background: rgba(255,255,255,.95); color: #0b3a4a; border: 1.5px dashed #0b3a4a; }
+.buoy.cdip .blbl.timed { color: #1c54a0; border-color: #1c54a0; background: rgba(255,255,255,.95); }
+.buoy .blbl .btag { font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em; opacity: .75; }
+.tnote { margin: 6px 0; padding: 6px 8px; border-radius: 8px; background: var(--tag); font-size: 13px; line-height: 1.35; }
 .map-legend .lbuoy { display: inline-flex; align-items: center; gap: 3px; }
 .map-legend .lbuoy svg { width: 15px; height: 15px; background: #fff; border-radius: 4px; padding: 1px; }
 .map-legend .lbuoy.cdip svg path[fill="#ffc531"] { fill: #2f7fe0; }
@@ -530,7 +535,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 13.6 (tidier forecast boxes and tables; clean-up and fixes)';
+const BUILD = 'Build 13.7 (buoy labels follow the map time: measured or forecast)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -1414,14 +1419,17 @@ function buoyPulseVars(ps) {
   const ft = ps.h * 3.281, max = Math.max(0.9, Math.min(1.9, 0.85 + ft * 0.08)), dur = Math.max(2, (ps.p || 10) * PULSE_PACE);
   return `--pmax:${max.toFixed(2)};--pmin:${(max * 0.62).toFixed(2)};--pdur:${dur.toFixed(2)}s;animation-delay:${pulseDelay(dur)}`;
 }
-function buoyIcon(b, r) {
-  const ps = primarySwell(r);
-  const stale = !r || isStale(r.time);
+/* at: the buoy's value at the map's selected time (see buoyLayer): { h, p, deg, dir, kind: 'fcst' | 'obs' }, or
+   { none: true } when there is nothing for that time. Without it the label shows the latest reading. */
+function buoyIcon(b, r, at) {
+  const ps = at ? (at.none ? null : at) : primarySwell(r);
+  const stale = at ? !!at.none : !r || isStale(r.time);
   const arrow = ps && ps.deg != null ? `<svg class="barrow" viewBox="0 0 20 20" style="transform:rotate(${(ps.deg + 180) % 360}deg)" aria-hidden="true"><path d="M10 2 L15 15 L10 12 L5 15 Z"/></svg>` : '';
-  const lbl = ps ? `<b>${arrow}${esc(fmtHeight(ps.h))}</b>${ps.dir ? `<small>${esc(ps.dir)}</small>` : ''}` : 'No data';
+  const tag = at && at.kind ? `<small class="btag">${at.kind === 'fcst' ? 'forecast' : 'measured'}</small>` : '';
+  const lbl = ps ? `<b>${arrow}${esc(fmtHeight(ps.h))}</b>${ps.dir ? `<small>${esc(ps.dir)}</small>` : ''}${tag}` : 'No data';
   return L.divIcon({
     className: 'buoy-icon', iconSize: [21, 21], iconAnchor: [10, 10], popupAnchor: [0, -11],
-    html: `<div class="buoy ${cdipNumber(b) ? 'cdip' : ''} ${stale || !ps ? 'stale' : ''}"><span class="bdot" style="${buoyPulseVars(ps)}">${BUOY_SVG}</span><span class="blbl p-r">${lbl}</span></div>`
+    html: `<div class="buoy ${cdipNumber(b) ? 'cdip' : ''} ${stale || !ps ? 'stale' : ''}"><span class="bdot" style="${buoyPulseVars(ps)}">${BUOY_SVG}</span><span class="blbl ${at && at.none ? 'p-off' : 'p-r'}${at ? ' timed' : ''}"${at && at.none ? ' data-none="1"' : ''}>${lbl}</span></div>`
   });
 }
 function buoyList(data) {
@@ -1475,7 +1483,7 @@ const windU = () => WIND_UNITS[prefs.windUnits] || WIND_UNITS.kt;
 const windN = ms => ms == null ? null : Math.round(ms * windU()[0]);
 const fmtWindN = ms => ms == null ? '' : String(windN(ms));
 const fmtWind = ms => ms == null ? '' : `${windN(ms)} ${windU()[1]}`;
-function buoyPopup(b, r, data) {
+function buoyPopup(b, r, data, note = '') {
   if (!r || !r.time) return `<div class="popup-title">${esc(b.name)} <span class="sub">#${esc(b.id)}</span></div>
     <div class="sub">${data ? 'No recent reading from this buoy.' : "Buoy readings haven't loaded yet. They need a connection, and the data job has to have run at least once."}</div>
     ${buoyLinks(b)}`;
@@ -1483,8 +1491,8 @@ function buoyPopup(b, r, data) {
   const row = (k, v) => v ? `<tr><th>${k}</th><td>${v}</td></tr>` : '';
   const swell = (h, p, d) => h == null ? '' : `${fmtHeight(h)}${p != null ? ` @ ${Math.round(p)} s` : ''}${d ? ` from ${esc(d)}` : ''}`;
   const sw = buoySwells(r), part = x => x ? `${swell(x.h, x.p, x.d != null ? dirDeg(x.d) : '')}${x.p != null && x.p < 8 ? ' <span class="sub">(wind swell)</span>' : ''}` : '';
-  return `<div class="popup-title">${esc(b.name)} <span class="sub">#${esc(b.id)}</span></div>
-    <div class="sub">${isStale(r.time) ? '<strong>Old reading</strong> · ' : ''}Observed ${esc(ago(r.time))}</div>
+  return `<div class="popup-title">${esc(b.name)} <span class="sub">#${esc(b.id)}</span></div>${note}
+    <div class="sub"><strong>Latest reading</strong> · ${isStale(r.time) ? '<strong>old</strong>, ' : ''}observed ${esc(ago(r.time))}</div>
     <table class="bt">
       ${sw ? `${row('Primary swell', `<strong>${part(sw[0])}</strong>`)}${row('Secondary swell', part(sw[1]))}${row('Tertiary swell', part(sw[2]))}`
         : `${row(ps && ps.kind === 'swell' ? 'Primary swell' : 'Waves', ps ? `<strong>${swell(ps.h, ps.p, ps.dir)}</strong>` : '')}
@@ -1516,13 +1524,57 @@ function buoyLayer() {
         m = L.marker(pos, { icon: buoyIcon(b, r), keyboard: true, title: b.name, zIndexOffset: 500, bubblingMouseEvents: false }).addTo(group);
         m.on('click', e => L.DomEvent.stopPropagation(e));
         markers.set(b.id, m);
-      } else { m.setLatLng(pos); m.setIcon(buoyIcon(b, r)); }
+      } else { m.setLatLng(pos); m.setIcon(buoyIcon(b, r)); m.labelKey = undefined; }
+      m.buoy = b; m.reading = r;
       m.swellH = (primarySwell(r) || {}).h;
-      const base = buoyPopup(b, r, data);
       m.off('popupopen');
-      m.bindPopup(base + (b.lat != null ? FC_LOADING : ''), POPUP_OPTS);
-      m.on('popupopen', e => fillForecast(e.popup, base, () => buoyForecast(b), [b.lat, b.lon], { buoy: true }));
+      m.bindPopup(buoyPopup(b, r, data) + (b.lat != null ? FC_LOADING : ''), POPUP_OPTS);
+      m.on('popupopen', e => { const base = buoyPopup(b, r, data, timeNote(b, r)); e.popup.setContent(base + (b.lat != null ? FC_LOADING : '')); fillForecast(e.popup, base, () => buoyForecast(b), [b.lat, b.lon], { buoy: true }); });
     }
+  };
+  /* Labels follow the hour picked on the CDIP time panel: measured values from the last 24 hours for past
+     hours, the buoy forecast (CDIP model, or Open-Meteo for other buoys) for future hours. */
+  const valueAt = (b, r, t) => {
+    if (t == null) return null;
+    if (t <= Date.now()) {
+      const hp = ((r && r.history) || []).map(x => ({ t: Date.parse(x.t), h: x.swH ?? x.wvht })).filter(x => x.h != null);
+      const q = nearestPt(hp, t);
+      return q && Math.abs(q.t - t) < 90 * 60000 ? { h: q.h, kind: 'obs', t: q.t } : { none: true };
+    }
+    const c = buoyFcCache.get(b.id), q = c && nearestPt(c.pts, t);
+    return q && Math.abs(q.t - t) < 3 * 3600000 ? { h: q.h, p: q.p, deg: q.d, dir: q.d != null ? dirDeg(q.d) : null, kind: 'fcst', t: q.t, src: c.src } : { none: true };
+  };
+  const timeNote = (b, r) => {
+    const t = map && mapTime(map);
+    if (t == null) return '';
+    const v = valueAt(b, r, t), when = esc(fcTime(t));
+    const what = v.none ? (t > Date.now() ? 'no forecast for this buoy at that hour' : 'no reading from that hour')
+      : `${v.kind === 'fcst' ? 'forecast' : 'measured'} <b>${esc(fmtHeight(v.h))}</b>${v.p != null ? ` @ ${Math.round(v.p)} s` : ''}${v.dir ? ` ${v.dir}` : ''}${v.src ? ` <span class="sub">(${esc(v.src)})</span>` : ''}`;
+    return `<div class="tnote">Map time <b>${when}</b>: ${what}. The readings below are the latest.</div>`;
+  };
+  const relabel = () => {
+    const t = map ? mapTime(map) : null;
+    for (const m of markers.values()) {
+      if (!m.buoy || m.isPopupOpen()) continue;
+      const v = valueAt(m.buoy, m.reading, t), key = JSON.stringify(v);
+      if (key === m.labelKey) continue;   /* Leave unchanged icons alone (rebuilding one can upset an open popup). */
+      m.labelKey = key;
+      m.setIcon(buoyIcon(m.buoy, m.reading, v));
+    }
+    const lg = $('#legBuoyT');
+    if (lg) lg.textContent = t == null ? 'buoys: latest' : `buoys: ${t > Date.now() ? 'forecast' : 'measured'} ${fcTime(t)}`;
+    later();
+  };
+  let tok = 0;
+  const follow = async () => {
+    const t = map ? mapTime(map) : null, my = ++tok;
+    if (t != null && t > Date.now()) {
+      relabel();
+      const b = map.getBounds().pad(0.3), inView = [...markers.values()].filter(m => m.buoy && b.contains(m.getLatLng())).map(m => m.buoy).slice(0, 60);
+      await loadBuoyFc(inView);
+      if (my !== tok) return;
+    }
+    relabel();
   };
   /* Place each label right, left, above or below its buoy, whichever is clear of other buoys and labels
      already placed (biggest swell first). A label with no clear spot is hidden; tap the buoy for it. */
@@ -1534,9 +1586,9 @@ function buoyLayer() {
     const items = [];
     for (const m of markers.values()) {
       const el = m.getElement(), lb = el && el.querySelector('.blbl');
-      if (!lb) continue;
+      if (!lb || lb.dataset.none) continue;
       const d = el.querySelector('.buoy').getBoundingClientRect();
-      if (d.right < box.left || d.left > box.right || d.bottom < box.top || d.top > box.bottom) { lb.className = 'blbl p-r'; continue; }
+      if (d.right < box.left || d.left > box.right || d.bottom < box.top || d.top > box.bottom) { setPos(lb, 'p-r'); continue; }
       items.push({ lb, d, h: m.swellH ?? -1 });
     }
     const hit = (a, b) => a.left < b.right + 2 && b.left < a.right + 2 && a.top < b.bottom + 2 && b.top < a.bottom + 2;
@@ -1546,20 +1598,55 @@ function buoyLayer() {
     for (const it of items) {
       let ok = null;
       for (const p of ['p-r', 'p-l', 'p-t', 'p-b']) {
-        it.lb.className = 'blbl ' + p;
+        setPos(it.lb, p);
         const r = it.lb.getBoundingClientRect();
         if (r.left >= box.left && r.right <= box.right && !taken.some(t => t !== it.d && hit(r, t))) { ok = r; break; }
       }
-      if (ok) taken.push(ok); else it.lb.className = 'blbl p-off';
+      if (ok) taken.push(ok); else setPos(it.lb, 'p-off');
     }
   };
+  const setPos = (lb, p) => { lb.classList.remove('p-r', 'p-l', 'p-t', 'p-b', 'p-off'); lb.classList.add(p); };
   const later = () => { if (!queued) { queued = true; requestAnimationFrame(place); } };
   group.placeLabels = place;
-  group.on('add', e => { map = e.target._map || map; if (!map) return; map.on('zoomend moveend resize', place); later(); });
-  group.on('remove', () => { if (map) map.off('zoomend moveend resize', place); });
+  const moved = () => { if (mapTime(map) != null && mapTime(map) > Date.now()) follow(); };
+  group.on('add', e => { map = e.target._map || map; if (!map) return; map.on('zoomend moveend resize', place); map.on('wavestep overlayadd overlayremove', follow); map.on('moveend', moved); follow(); });
+  group.on('remove', () => { if (map) { map.off('zoomend moveend resize', place); map.off('wavestep overlayadd overlayremove', follow); map.off('moveend', moved); } });
   draw(S.buoyData || S.meta.buoys || null);
-  loadBuoyData().then(d => { if (d) { draw(d); later(); } });
+  loadBuoyData().then(d => { if (d) { draw(d); if (map && mapTime(map) != null) follow(); else later(); } });
   return group;
+}
+/* The hour picked on the CDIP time panel, or null when it is on Now (or no CDIP layer is on). */
+function mapTime(map) {
+  for (const g of Object.values(map.waveLayers || {})) if (map.hasLayer(g) && g.stepTime()) return Date.parse(g.stepTime());
+  return null;
+}
+/* Buoy forecasts for many buoys at once, for map labels at a future hour: CDIP's model file for CDIP buoys,
+   Open-Meteo (combined requests) for the rest. Cached an hour. */
+const buoyFcCache = new Map();
+async function loadBuoyFc(list) {
+  const fresh = b => { const c = buoyFcCache.get(b.id); return c && Date.now() - c.at < 3600000; };
+  const need = list.filter(b => !fresh(b) && b.lat != null);
+  await Promise.all(need.filter(b => cdipNumber(b)).map(async b => {
+    const c = await cdipFile('buoys', b.id);
+    if (c && c.hs) buoyFcCache.set(b.id, { at: Date.now(), src: 'CDIP model', pts: swellPoints(c) });
+  }));
+  const rest = need.filter(b => !fresh(b));
+  for (let i = 0; i < rest.length; i += 40) {
+    const chunk = rest.slice(i, i + 40);
+    try {
+      const q = new URLSearchParams({ latitude: chunk.map(b => b.lat.toFixed(3)).join(','), longitude: chunk.map(b => b.lon.toFixed(3)).join(','), hourly: 'swell_wave_height,swell_wave_period,swell_wave_direction,wave_height,wave_period,wave_direction', forecast_days: '6', timezone: 'GMT', cell_selection: 'sea' });
+      const r = await fetch(`${MARINE_URL}?${q}`);
+      if (!r.ok) continue;
+      const j = await r.json(), arr = Array.isArray(j) ? j : [j];
+      chunk.forEach((b, k) => {
+        const h = arr[k] && arr[k].hourly;
+        if (!h || !h.time) return;
+        const v = (n, i2) => h[n] ? h[n][i2] : null;
+        const pts = h.time.map((t, i2) => ({ t: new Date(t + 'Z').getTime(), h: v('swell_wave_height', i2) ?? v('wave_height', i2), p: v('swell_wave_period', i2) ?? v('wave_period', i2), d: v('swell_wave_direction', i2) ?? v('wave_direction', i2) })).filter(x => x.h != null);
+        buoyFcCache.set(b.id, { at: Date.now(), src: 'Open-Meteo model', pts });
+      });
+    } catch (e) {}
+  }
 }
 
 /* ---------- 5-day forecasts: CDIP (California) or Open-Meteo ---------- */
@@ -3438,7 +3525,7 @@ function viewMap(q = new URLSearchParams()) {
       <span id="legFun" class="legset" ${(st.overlays ? st.overlays.has('rating') || st.overlays.has('pulse') || st.overlays.has('hazard') : prefs.showRating || prefs.showPulse || prefs.showHazard) ? 'hidden' : ''}><span><span class="dot" style="background:#1f9d8f"></span>fun</span><span><span class="dot" style="background:#e0a526"></span>ok</span><span><span class="dot" style="background:#c8553d"></span>meh</span></span>
       <span id="legPulse" class="legset" ${(st.overlays ? st.overlays.has('pulse') : prefs.showPulse) ? '' : 'hidden'}><span><span class="dot pulsedot"></span>pulse: size = swell height, pace = period</span></span>
       <span id="legRate" class="legset" ${(st.overlays ? st.overlays.has('rating') : prefs.showRating) ? '' : 'hidden'}><button type="button" class="infobtn" data-act="ratingHelp" aria-label="How the rating works">Rating ⓘ</button> ${RATING_SCALE.map(([, c, l]) => `<span title="${l}"><span class="dot" style="background:${c}"></span>${l.toLowerCase()}</span>`).join('')}</span>
-      <span class="lbuoy cdip">${BUOY_SVG}CDIP</span><span class="lbuoy">${BUOY_SVG}NOAA</span>
+      <span class="lbuoy cdip">${BUOY_SVG}CDIP</span><span class="lbuoy">${BUOY_SVG}NOAA</span><span id="legBuoyT" class="lbt">buoys: latest</span>
       <select class="spotsmode" data-mapspots aria-label="Which spots to show">${[['all', 'All spots'], ['primary', 'Primary spots'], ['surfed', 'My spots']].map(([k, l]) => `<option value="${k}" ${mode === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
       <span class="sub" id="noSurfed" ${mode === 'surfed' && !surfed ? '' : 'hidden'}>No surfed spots yet</span>
     </div>`);
@@ -3783,6 +3870,7 @@ function viewHelp() {
       <li>Tap the <strong>magnifier</strong> (top left) to search: matching surf spots show first as you type, then press Search for towns and addresses.</li>
       <li>Turn on <strong>Surf rating (spots)</strong> in the layers list to color the spots by a 0–5 rating from swell size and period, swell direction, wind (offshore or onshore) and, once you've rated a few sessions there, the tide. It follows the hour on the CDIP time panel.</li>
       <li>The <strong>layers</strong> button opens menus for the base map, the CDIP wave model (wave height or peak period) and the spot style (my sessions, surf rating, swell pulse, rating + pulse or shore hazard), plus a switch for buoys.</li>
+      <li><strong>Buoys and time</strong>: at Now, buoy labels show each buoy's latest reading. Step the CDIP time panel forward and the labels switch to that hour's forecast for each buoy (white with a dashed border, marked "forecast"); the header says which. A buoy's popup always lists the latest reading, with a note at the top for the hour on the panel.</li>
       <li><strong>Shore hazard</strong> colors spots by how far up the beach the water may reach: tide plus wave runup (Stockdon 2006 formula). It takes big surf and a high tide together to rate high. Spot forecasts show it per day and per hour; tap Shore ⓘ for details.</li>
       <li>Turn on <strong>Swell pulse (spots)</strong> to make each spot dot breathe: its size follows the swell height and its pace follows the swell period (one grow-and-shrink every 0.7 × the period, so a 12-second swell grows for about 4 seconds and shrinks for 4). Buoys pulse too, from their own readings. It also follows the CDIP time panel, and works with the surf rating colors.</li>
       <li>The spots menu in the header picks <strong>All spots</strong>, <strong>Primary spots</strong> (well-known breaks plus your favorites and spots you've surfed) or <strong>My spots</strong>, to thin out a crowded map.</li>
