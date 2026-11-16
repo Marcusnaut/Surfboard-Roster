@@ -456,7 +456,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 11 (Spots tab with favorites; Sessions and Stats share a tab)';
+const BUILD = 'Build 11.1 (faster forecasts)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -1403,6 +1403,12 @@ let fcFetch = null;
 async function loadForecasts() {
   const cached = S.fcData || S.meta.forecasts || null;
   if (S.fcData && Date.now() - S.fcLoadedAt < 30 * 60 * 1000) return S.fcData;
+  const fresh = d => d && d.updated && Date.now() - Date.parse(d.updated) < 6 * 3600 * 1000;
+  /* A saved copy that's under 6 hours old is used right away; a newer one is fetched in the background. */
+  if (fresh(cached)) { if (!fcFetch) refreshForecasts(cached); return cached; }
+  return refreshForecasts(cached);
+}
+function refreshForecasts(cached) {
   if (!fcFetch) fcFetch = (async () => {
     try {
       const res = await fetch(`${FORECAST_URL}?t=${Math.floor(Date.now() / 600000)}`, { cache: 'no-store' });
@@ -1457,7 +1463,7 @@ async function forecastExtras(lat, lon) {
   const hit = exCache.get(key);
   if (hit && Date.now() - hit.at < 30 * 60 * 1000) return hit.ex;
   const get = async (url, params) => {
-    const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 12000);
+    const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 9000);
     try {
       const r = await fetch(`${url}?${new URLSearchParams(params)}`, { signal: ctrl.signal });
       return r.ok ? await r.json() : null;
@@ -1550,12 +1556,13 @@ function buildForecast(fc, ex) {
     <div class="sub">${esc(fc.source || '')}. Heights are significant wave height.${fc.link ? ` <a href="${fc.link}" target="_blank" rel="noopener">CDIP forecast</a>` : ''}${wind.length || tide.length ? ' Wind and tide: Open-Meteo.com (CC BY 4.0); tide is modeled sea level.' : ''} Tap or drag on a chart for that hour.</div></div>`;
   return { html, model: { tA, tB, W, L, x, swell: use, wind, tide, turns: tideTurns(tide) } };
 }
-function bindForecast(root, model) {
+function bindForecast(root, model, start, onPick) {
   if (!root || !model) return;
   const charts = [...root.querySelectorAll('.fcchart')], out = root.querySelector('.fcx');
   if (!charts.length || !out) return;
   const show = t => {
     t = Math.max(model.tA, Math.min(model.tB, t));
+    if (onPick) onPick(t);
     const sx = model.x(t).toFixed(1);
     charts.forEach(c => { const l = c.querySelector('.cur'); l.setAttribute('x1', sx); l.setAttribute('x2', sx); });
     const s = nearestPt(model.swell, t), w = nearestPt(model.wind, t), td = model.tide.length ? tideAt(model.tide, t) : null;
@@ -1575,26 +1582,32 @@ function bindForecast(root, model) {
     c.addEventListener('pointermove', e => { if (down || e.pointerType === 'mouse') show(fromEvent(c, e)); });
     ['pointerup', 'pointercancel'].forEach(ev => c.addEventListener(ev, () => { down = false; }));
   });
-  show(Date.now());
+  show(start || Date.now());
 }
+/* The swell forecast shows as soon as it's in; wind and tide are added when they arrive. */
 async function fillForecast(popup, base, get, ll) {
-  const done = (fc, ex) => {
+  let picked = null;
+  const done = (fc, ex, waiting) => {
     if (!popup.isOpen()) return;
     const f = buildForecast(fc, ex);
     /* Content as an element, not a string, so later popup refreshes keep the chart's tap handling. */
     const node = document.createElement('div');
-    node.innerHTML = base + f.html;
-    bindForecast(node, f.model);
+    node.innerHTML = base + f.html + (waiting ? '<div class="sub fcwait">Loading wind and tide…</div>' : '');
+    bindForecast(node, f.model, picked, t => { picked = t; });
     popup.setContent(node); popup.update();
     if (popup._adjustPan) popup._adjustPan();
     popupScrollHint(popup);
   };
-  try {
-    const [fc, ex] = await Promise.all([get(), ll ? forecastExtras(ll[0], ll[1]).catch(() => null) : null]);
-    done(fc, ex);
-  } catch (e) {
+  const exP = ll ? forecastExtras(ll[0], ll[1]).catch(() => null) : Promise.resolve(null);
+  let fc;
+  try { fc = await get(); } catch (e) {
     if (popup.isOpen()) { popup.setContent(base + `<div class="fc"><div class="sub">Couldn't load the forecast${navigator.onLine === false ? " (you're offline)" : ''}.</div></div>`); popup.update(); }
+    return;
   }
+  const quick = await Promise.race([exP, new Promise(r => setTimeout(() => r(undefined), 250))]);
+  if (quick !== undefined) { done(fc, quick); return; }
+  done(fc, null, true);
+  done(fc, await exP);
 }
 
 /* ---------- photos ---------- */
@@ -2840,6 +2853,7 @@ function mapLink(map) {
   return '#/map?' + p.join('&');
 }
 function viewMap(q = new URLSearchParams()) {
+  loadForecasts().catch(() => {});
   const st = mapStateFrom(q);
   const showAll = st.showAll ?? prefs.showAllSpots;
   const surfed = new Set(S.sessions.map(s => s.spotId).filter(Boolean)).size;
@@ -3094,12 +3108,18 @@ function viewSpotPage(id) {
   if ($('#pickBody')) renderPick(id);
   (async () => {
     try {
-      const [fc, ex] = await Promise.all([spotForecast(sp), forecastExtras(sp.lat, sp.lon).catch(() => null)]);
-      const box = $('#spotFc');
-      if (!box || !location.hash.startsWith('#/spot/')) return;
-      const f = buildForecast(fc, ex);
-      box.innerHTML = f.html;
-      bindForecast(box, f.model);
+      const exP = forecastExtras(sp.lat, sp.lon).catch(() => null);
+      const fc = await spotForecast(sp);
+      let picked = null;
+      const draw = (ex, waiting) => {
+        const box = $('#spotFc');
+        if (!box || location.hash !== `#/spot/${encodeURIComponent(id)}`) return;
+        const f = buildForecast(fc, ex);
+        box.innerHTML = f.html + (waiting ? '<div class="sub fcwait">Loading wind and tide…</div>' : '');
+        bindForecast(box, f.model, picked, t => { picked = t; });
+      };
+      draw(null, true);
+      draw(await exP);
     } catch (e) {
       const box = $('#spotFc');
       if (box) box.innerHTML = `<span class="sub">Couldn't load the forecast${navigator.onLine === false ? " (you're offline)" : ''}.</span>`;
