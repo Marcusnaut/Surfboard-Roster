@@ -197,6 +197,23 @@ header.top .favhdr svg.star.on { fill: #ffc531; stroke: #ffc531; }
 .daynav .btn.disabled { opacity: .4; pointer-events: none; }
 table.hourly { width: 100%; font-size: 13px; margin-top: 10px; }
 table.hourly th, table.hourly td { padding: 4px 4px; text-align: left; }
+.outlook button.oc { text-align: left; border: 0; font: inherit; color: inherit; min-height: 0; display: block; width: 100%; cursor: pointer; }
+.outlook button.oc:active { filter: brightness(.95); }
+.outlook .ol { display: flex; justify-content: space-between; align-items: center; gap: 4px; }
+.outlook .ol .rbadge { font-size: 11px; min-width: 26px; padding: 0 4px; }
+.rguide { margin: 12px 0; }
+.rscale { display: grid; grid-template-columns: repeat(5, 1fr); border-radius: 8px; overflow: hidden; }
+.rscale .rs { color: #fff; text-align: center; padding: 4px 2px; font-size: 11px; line-height: 1.25; text-shadow: 0 1px 1px rgba(0,0,0,.3); }
+.rscale .rs b { display: block; font-size: 12px; }
+.rhead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.rinfo { border: 0; background: none; color: var(--accent); font-weight: 600; font-size: 14px; min-height: 36px; padding: 0 2px; }
+.rexplain { margin-top: 8px; font-size: 14px; }
+.rexplain h4 { margin: 6px 0; }
+.rguide summary { font-weight: 600; min-height: 36px; display: flex; align-items: center; cursor: pointer; color: var(--accent); }
+.rguide ul { padding-left: 20px; margin: 6px 0; }
+.rguide li { margin: 4px 0; line-height: 1.4; }
+.infobtn { border: 0; background: none; color: inherit; font: inherit; padding: 0 2px; min-height: 28px; text-decoration: underline; text-underline-offset: 2px; }
+.linkbtn.small { min-height: 0; padding: 0; font-size: inherit; text-decoration: underline; }
 .rbadge { display: inline-block; min-width: 30px; text-align: center; color: #fff; font-weight: 700; font-size: 12px; border-radius: 6px; padding: 1px 5px; text-shadow: 0 1px 1px rgba(0,0,0,.25); }
 .legset { display: inline-flex; gap: 4px 10px; flex-wrap: wrap; align-items: center; }
 .seg button[aria-pressed=true] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
@@ -476,7 +493,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 12 (spot outlooks, day view, surf rating map, wind units)';
+const BUILD = 'Build 12.1 (ratings on every summary, rating guide, tappable days, wind backup)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -1477,6 +1494,29 @@ function circMean(degs) {
 /* Wind and tide for the forecast popups, from Open-Meteo (cached 30 minutes per place). Either can fail
    on its own; the swell forecast still shows. */
 const exCache = new Map();
+const nwsPoints = new Map();
+async function nwsWind(lat, lon) {
+  const get = async url => {
+    const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 9000);
+    try { const r = await fetch(url, { signal: ctrl.signal, headers: { Accept: 'application/geo+json' } }); return r.ok ? await r.json() : null; } catch (e) { return null; } finally { clearTimeout(timer); }
+  };
+  try {
+    const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+    let hourly = nwsPoints.get(key);
+    if (!hourly) {
+      const pt = await get(`https://api.weather.gov/points/${lat.toFixed(4)},${lon.toFixed(4)}`);
+      hourly = pt && pt.properties && pt.properties.forecastHourly;
+      if (!hourly) return [];
+      nwsPoints.set(key, hourly);
+    }
+    const j = await get(hourly);
+    const periods = (j && j.properties && j.properties.periods) || [];
+    return periods.map(p => {
+      const mph = Math.max(...String(p.windSpeed || '').match(/\d+/g)?.map(Number) || [NaN]);
+      return { t: Date.parse(p.startTime), s: Number.isFinite(mph) ? mph / 2.237 : null, g: null, d: COMPASS_DEG[p.windDirection] ?? null };
+    }).filter(p => p.s != null && Number.isFinite(p.t));
+  } catch (e) { return []; }
+}
 async function forecastExtras(lat, lon) {
   const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
   const hit = exCache.get(key);
@@ -1498,6 +1538,8 @@ async function forecastExtras(lat, lon) {
     wind: series(w, (t, h, i) => ({ t, s: h.wind_speed_10m[i], g: h.wind_gusts_10m[i], d: h.wind_direction_10m[i] })).filter(p => p.s != null),
     tide: series(m, (t, h, i) => ({ t, h: h.sea_level_height_msl[i] })).filter(p => p.h != null)
   };
+  /* Backup for wind when Open-Meteo doesn't answer: the National Weather Service hourly forecast (US only, no gusts). */
+  if (!ex.wind.length) { ex.wind = await nwsWind(lat, lon); if (ex.wind.length) ex.windSrc = 'NWS'; }
   if (ex.wind.length || ex.tide.length) exCache.set(key, { at: Date.now(), ex });
   return ex;
 }
@@ -1543,7 +1585,7 @@ function buildForecast(fc, ex, opts = {}) {
   const SH = 92, sAx = heightAxis(0, hmax, true);
   const sy = v => SH - B - (v - sAx.lo) / Math.max(0.01, sAx.hi - sAx.lo) * (SH - B - 18);
   const sLine = use.map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(1)} ${sy(p.h).toFixed(1)}`).join(' ');
-  let html = `<div class="fc">${opts.outlook ? outlookHTML(fc, ex) : ''}<div class="fct">${esc(opts.title || '5-day forecast')} <span class="sub">· peak ${esc(fmtHeight(hmax))}</span></div>
+  let html = `<div class="fc">${opts.outlook ? outlookHTML(fc, ex, opts.spotId ? spotById(opts.spotId) : null) : ''}<div class="fct">${esc(opts.title || '5-day forecast')} <span class="sub">· peak ${esc(fmtHeight(hmax))}</span></div>
     <div class="fcx" aria-live="polite"></div>
     ${chart('Swell', SH, axisSVG(sAx, sy, L, W) + dayTicks(SH) + `<path d="${sLine} L${x(tB).toFixed(1)} ${SH - B} L${x(tA).toFixed(1)} ${SH - B} Z" class="area"/><path d="${sLine}" class="ln"/>`, 'Wave height forecast for 5 days')}`;
   /* Wind: speed line, gusts dashed, arrows every 6 hours pointing the way the wind blows */
@@ -1566,7 +1608,7 @@ function buildForecast(fc, ex, opts = {}) {
     html += chart('Tide', TH, axisSVG(tAx, ty, L, W) + dayTicks(TH) + `<path d="${tl}" class="ln tide"/>`, 'Tide forecast for 5 days');
   }
   html += `${opts.noTable ? '' : daysTableHTML(fc, ex, opts.spotId)}
-    <div class="sub">${esc(fc.source || '')}. Heights are significant wave height.${fc.link ? ` <a href="${fc.link}" target="_blank" rel="noopener">CDIP forecast</a>` : ''}${wind.length || tide.length ? ' Wind and tide: Open-Meteo.com (CC BY 4.0); tide is modeled sea level.' : ''} Tap or drag on a chart for that hour.</div></div>`;
+    <div class="sub">${esc(fc.source || '')}. Heights are significant wave height.${fc.link ? ` <a href="${fc.link}" target="_blank" rel="noopener">CDIP forecast</a>` : ''}${wind.length || tide.length ? (ex && ex.windSrc === 'NWS' ? ' Wind: National Weather Service. Tide: Open-Meteo.com (CC BY 4.0), modeled sea level.' : ' Wind and tide: Open-Meteo.com (CC BY 4.0); tide is modeled sea level.') : ''} Tap or drag on a chart for that hour.${opts.spotId ? ' <button type="button" class="linkbtn small" data-act="ratingHelp">About ratings</button>' : ''}</div></div>`;
   return { html, model: { tA, tB, W, L, x, swell: use, wind, tide, turns: tideTurns(tide) } };
 }
 function bindForecast(root, model, start, onPick) {
@@ -1636,7 +1678,20 @@ const dayStart = (offset = 0) => { const d = new Date(); d.setHours(0, 0, 0, 0);
 const dayKey = t => { const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 const keyStart = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d).getTime(); };
 /* Summary of one local day (or the current hour when now is true). */
-function daySummary(fc, ex, start, now) {
+/* Rating at one time from the forecast data (swell at that step, nearest wind hour, tide at that time). */
+function ratingFrom(sp, fc, ex, p) {
+  if (!sp || !p) return null;
+  const wind = (ex && ex.wind) || [], tide = (ex && ex.tide) || [];
+  const w = nearestPt(wind, p.t), td = tide.length ? tideAt(tide, p.t) : null;
+  return spotRating(sp, { h: p.h, p: p.p, d: p.d, wS: w && Math.abs(w.t - p.t) < 3 * 3600000 ? w.s : null, wD: w && w.d, tide: td && td.h }, tide);
+}
+/* Best rating in daylight (6 am to 6 pm) for a day. */
+function dayRating(sp, fc, ex, start) {
+  if (!sp) return null;
+  const rs = swellPoints(fc).filter(p => p.t >= start + 6 * 3600000 && p.t <= start + 18 * 3600000).map(p => ratingFrom(sp, fc, ex, p)).filter(r => r != null);
+  return rs.length ? Math.max(...rs) : null;
+}
+function daySummary(fc, ex, start, now, sp) {
   const end = start + 86400000;
   const sw = swellPoints(fc).filter(p => now ? true : p.t >= start && p.t < end);
   const wind = ((ex && ex.wind) || []).filter(p => now ? true : p.t >= start && p.t < end);
@@ -1644,39 +1699,47 @@ function daySummary(fc, ex, start, now) {
   if (now) {
     const t = Date.now(), s = nearestPt(sw, t), w = nearestPt(wind, t), td = tide.length ? tideAt(tide, t) : null;
     const next = tideTurns(tide).find(p => p.t > t);
-    return s ? { now: true, hLo: s.h, hHi: s.h, p: s.p, d: s.d, wS: w && w.s, wG: w && w.g, wD: w && w.d, tide: td, next } : null;
+    return s ? { now: true, start: dayStart(0), hLo: s.h, hHi: s.h, p: s.p, d: s.d, wS: w && w.s, wG: w && w.g, wD: w && w.d, tide: td, next, rating: ratingFrom(sp, fc, ex, { ...s, t }) } : null;
   }
   if (!sw.length) return null;
   const hs = sw.map(p => p.h), per = sw.map(p => p.p).filter(x => x != null);
   const turns = tideTurns(tide).filter(p => p.t >= start && p.t < end);
   return { start, hLo: Math.min(...hs), hHi: Math.max(...hs), p: per.length ? Math.max(...per) : null, d: circMean(sw.map(p => p.d)),
-    wS: wind.length ? Math.max(...wind.map(p => p.s)) : null, wLo: wind.length ? Math.min(...wind.map(p => p.s)) : null, wD: wind.length ? circMean(wind.map(p => p.d)) : null, turns };
+    wS: wind.length ? Math.max(...wind.map(p => p.s)) : null, wLo: wind.length ? Math.min(...wind.map(p => p.s)) : null, wD: wind.length ? circMean(wind.map(p => p.d)) : null, turns,
+    rating: dayRating(sp, fc, ex, start) };
 }
 const hRange = (lo, hi) => { const f = prefs.units === 'm' ? 1 : 3.281, u = prefs.units === 'm' ? 'm' : 'ft'; const a = Math.round(lo * f * 10) / 10, b = Math.round(hi * f * 10) / 10; return a === b ? `${a} ${u}` : `${a}–${b} ${u}`; };
 const tShort = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(':00', '').replace(/\s?([AP])M/i, (m, a) => a.toLowerCase());
-function outlookHTML(fc, ex) {
-  const cols = [['Now', daySummary(fc, ex, 0, true)], ['Tomorrow', daySummary(fc, ex, dayStart(1))], [new Date(dayStart(2)).toLocaleDateString(undefined, { weekday: 'long' }), daySummary(fc, ex, dayStart(2))]];
-  return `<div class="outlook">${cols.map(([label, s]) => `<div class="oc"><div class="ol">${esc(label)}</div>${s ? `
+/* Now / Tomorrow / next day. With a spot, each box opens that day's full forecast and shows its rating
+   (now: the rating this hour; days: the best daylight rating). */
+function outlookHTML(fc, ex, sp) {
+  const cols = [['Now', daySummary(fc, ex, 0, true, sp)], ['Tomorrow', daySummary(fc, ex, dayStart(1), false, sp)], [new Date(dayStart(2)).toLocaleDateString(undefined, { weekday: 'long' }), daySummary(fc, ex, dayStart(2), false, sp)]];
+  return `<div class="outlook">${cols.map(([label, s]) => {
+    const inner = `<div class="ol">${esc(label)}${s && s.rating != null ? ratingBadge(s.rating) : ''}</div>${s ? `
       <div class="ov"><b>${esc(hRange(s.hLo, s.hHi))}</b>${s.p != null ? ` @ ${Math.round(s.p)} s` : ''}${s.d != null ? ` ${compass(s.d)}` : ''}</div>
       ${s.wS != null ? `<div class="ov">Wind ${s.now ? esc(fmtWind(s.wS)) : `${esc(fmtWindN(s.wLo))}–${esc(fmtWind(s.wS))}`} ${compass(s.wD)}</div>` : ''}
       ${s.now ? (s.tide ? `<div class="ov">Tide ${esc(fmtTideH(s.tide.h))} ${s.tide.rising ? '↑' : '↓'}${s.next ? ` · ${s.next.type[0].toUpperCase()} ${esc(tShort(s.next.t))}` : ''}</div>` : '')
         : s.turns.length ? `<div class="ov">${s.turns.map(p => `${p.type[0].toUpperCase()} ${esc(tShort(p.t))}`).join(' · ')}</div>` : ''}`
-      : '<div class="ov sub">–</div>'}</div>`).join('')}</div>`;
+      : '<div class="ov sub">–</div>'}`;
+    return sp && s ? `<button type="button" class="oc" data-act="openDay" data-id="${esc(sp.id)}" data-day="${dayKey(s.start)}" aria-label="${esc(label)}: full forecast">${inner}</button>` : `<div class="oc">${inner}</div>`;
+  }).join('')}</div>`;
 }
 /* Days across, values down, so the days read left to right. With a spot id, each day opens its day view. */
 function daysTableHTML(fc, ex, spotId) {
+  const sp = spotId ? spotById(spotId) : null;
   const days = [];
-  for (let i = 0; i < 5; i++) { const s = daySummary(fc, ex, dayStart(i)); if (s) days.push(s); }
+  for (let i = 0; i < 5; i++) { const s = daySummary(fc, ex, dayStart(i), false, sp); if (s) days.push(s); }
   if (!days.length) return '';
   const head = d => { const label = esc(new Date(d.start).toLocaleDateString(undefined, { weekday: 'short' })); return spotId ? `<a href="#/spot/${encodeURIComponent(spotId)}/day/${dayKey(d.start)}">${label}</a>` : label; };
   const row = (k, f) => `<tr><th>${k}</th>${days.map(d => `<td>${f(d)}</td>`).join('')}</tr>`;
   return `<div class="daystbl"><table class="bt"><tr><th></th>${days.map(d => `<th class="dh">${head(d)}</th>`).join('')}</tr>
+    ${days.some(d => d.rating != null) ? row('Rating', d => d.rating != null ? ratingBadge(d.rating) : '') : ''}
     ${row('Height', d => esc(hRange(d.hLo, d.hHi)).replace('–', '–<br>'))}
     ${row('Period', d => d.p != null ? Math.round(d.p) + ' s' : '')}
     ${row('From', d => d.d != null ? compass(d.d) : '')}
     ${days.some(d => d.wS != null) ? row('Wind', d => d.wS != null ? `${esc(fmtWind(d.wS))}<br>${compass(d.wD)}` : '') : ''}
     ${days.some(d => d.turns && d.turns.length) ? row('Tide', d => (d.turns || []).filter(p => p.type === 'high').map(p => `H ${esc(tShort(p.t))}`).join('<br>')) : ''}
-  </table>${spotId ? '<div class="sub">Tap a day for that day’s forecast.</div>' : ''}</div>`;
+  </table>${spotId ? `<div class="sub">Tap a day for that day’s forecast.${days.some(d => d.rating != null) ? ' Rating is the best of the daylight hours.' : ''}</div>` : ''}</div>`;
 }
 /* One day's forecast for a spot: charts for that day, every 3 hours in a table, previous / next day. */
 function viewSpotDay(id, key) {
@@ -1699,7 +1762,7 @@ function viewSpotDay(id, key) {
       const wind = ((ex && ex.wind) || []), tide = (ex && ex.tide) || [];
       const rows = sw.map(p => { const w = nearestPt(wind, p.t), td = tide.length ? tideAt(tide, p.t) : null; const r = spotRating(sp, { h: p.h, p: p.p, d: p.d, wS: w && w.s, wD: w && w.d, tide: td && td.h }, tide);
         return `<tr><th>${esc(tShort(p.t))}</th><td>${esc(fmtHeight(p.h))}${p.p != null ? ` @ ${Math.round(p.p)} s` : ''} ${p.d != null ? compass(p.d) : ''}</td><td>${w ? `${esc(fmtWind(w.s))} ${compass(w.d)}` : ''}</td><td>${td ? esc(fmtTideH(td.h)) : ''}</td><td>${r != null ? ratingBadge(r) : ''}</td></tr>`; }).join('');
-      box.innerHTML = f.html + (rows ? `<table class="bt hourly"><tr><th></th><th>Swell</th><th>Wind</th><th>Tide</th><th>Rating</th></tr>${rows}</table>` : '<div class="sub">No forecast for this day.</div>');
+      box.innerHTML = f.html + (rows ? `${ratingGuideHTML()}<table class="bt hourly"><tr><th></th><th>Swell</th><th>Wind</th><th>Tide</th><th>Rating</th></tr>${rows}</table>` : '<div class="sub">No forecast for this day.</div>');
       bindForecast(box, f.model);
     } catch (e) { const box = $('#dayFc'); if (box) box.innerHTML = '<span class="sub">Couldn’t load the forecast.</span>'; }
   })();
@@ -1775,6 +1838,26 @@ function ratingAt(sp, t) {
   const m = c.m || {}, w = c.w || {}, v = (o, k) => o[k] ? o[k][i] : null;
   return spotRating(sp, { h: v(m, 'swell_wave_height') ?? v(m, 'wave_height'), p: v(m, 'swell_wave_period') ?? v(m, 'wave_period'), d: v(m, 'swell_wave_direction') ?? v(m, 'wave_direction'),
     wS: v(w, 'wind_speed_10m'), wD: v(w, 'wind_direction_10m'), tide: v(m, 'sea_level_height_msl') }, c.tide);
+}
+/* ---------- rating guide: the color scale plus how the score is worked out ---------- */
+function ratingScaleHTML() {
+  const lo = [0, 1, 2, 3, 4];
+  return `<div class="rscale" aria-label="Rating scale">${RATING_SCALE.map(([max, col, label], i) => `<div class="rs" style="background:${col}"><b>${lo[i]}–${Math.min(5, Math.floor(max))}</b><span>${label}</span></div>`).join('')}</div>`;
+}
+/* Pages show the scale with an info button; the button (and the How to use guide) shows the full explanation. */
+function ratingGuideHTML(full) {
+  if (!full) return `<div class="rguide"><div class="rhead"><span class="sub">Surf rating</span><button type="button" class="rinfo" data-act="ratingHelp" aria-label="How the rating is calculated">ⓘ How it's calculated</button></div>${ratingScaleHTML()}</div>`;
+  return `<div class="rguide">${ratingScaleHTML()}
+    <div class="rexplain"><h4>How the rating is calculated</h4>
+    <p>Each hour gets a score from 0 to 5. It multiplies five things, so one poor factor pulls the whole score down:</p>
+    <ul>
+      <li><strong>Size</strong>: estimated face height from swell height and period. Best around 3 to 8 ft; under 2 ft scores low, and very big swell scores a bit lower.</li>
+      <li><strong>Period</strong>: longer is better. Under 8 s scores low; 14 s and up scores full marks.</li>
+      <li><strong>Swell direction</strong>: whether the swell can reach the spot, comparing where it comes from with the direction the spot faces (its seaward angle). Swell from behind the coast scores very low.</li>
+      <li><strong>Wind</strong>: under about 5 kt or offshore is best. Onshore and cross-shore wind lowers the score more the stronger it blows. With no wind data, wind counts as slightly below perfect.</li>
+      <li><strong>Tide</strong>: only once you've rated 3 or more sessions at the spot that saved a tide. It then favors the tide stage (low, mid or high) you've had the most fun at there.</li>
+    </ul>
+    <p class="sub">Daily ratings show the best daylight hour (6 am to 6 pm). It's a rough guide from model data and each spot's estimated seaward angle, not a surf report.</p></div></div>`;
 }
 function setupRating(map, items) {
   const layer = map.ratingLayer;
@@ -3065,7 +3148,7 @@ function viewMap(q = new URLSearchParams()) {
   setTop('Map', null, `<div class="map-legend">
       <span><strong>${n}</strong> session${n === 1 ? '' : 's'} · <strong>${surfed}</strong> spot${surfed === 1 ? '' : 's'}</span>
       <span id="legFun" class="legset" ${(st.overlays ? st.overlays.has('rating') : prefs.showRating) ? 'hidden' : ''}><span><span class="dot" style="background:#1f9d8f"></span>fun</span><span><span class="dot" style="background:#e0a526"></span>ok</span><span><span class="dot" style="background:#c8553d"></span>meh</span></span>
-      <span id="legRate" class="legset" ${(st.overlays ? st.overlays.has('rating') : prefs.showRating) ? '' : 'hidden'}>Rating ${RATING_SCALE.map(([, c, l]) => `<span title="${l}"><span class="dot" style="background:${c}"></span>${l.replace('Poor to fair', 'p–f').replace('Very good', 'v.good').toLowerCase()}</span>`).join('')}</span>
+      <span id="legRate" class="legset" ${(st.overlays ? st.overlays.has('rating') : prefs.showRating) ? '' : 'hidden'}><button type="button" class="infobtn" data-act="ratingHelp" aria-label="How the rating works">Rating ⓘ</button> ${RATING_SCALE.map(([, c, l]) => `<span title="${l}"><span class="dot" style="background:${c}"></span>${l.replace('Poor to fair', 'p–f').replace('Very good', 'v.good').toLowerCase()}</span>`).join('')}</span>
       <span class="lbuoy cdip">${BUOY_SVG}CDIP</span><span class="lbuoy">${BUOY_SVG}NOAA</span>
       <label class="check"><input type="checkbox" data-mapspots ${showAll ? 'checked' : ''}> All spots</label>
       <span class="sub" id="noSurfed" ${!showAll && !surfed ? '' : 'hidden'}>No surfed spots yet</span>
@@ -3284,6 +3367,7 @@ function viewSpotsTab() {
     <div id="spotFound"></div>
     <div class="sechead"><h2 class="sec">Favorites</h2>${favs.length > 1 ? `<button type="button" class="linkbtn" data-act="favReorder">${spotsReorder ? 'Done' : 'Reorder'}</button>` : ''}</div>
     ${favs.length ? `<div class="card">${favs.map((sp, i) => spotRow(sp, spotsReorder ? { reorder: true, first: i === 0, last: i === favs.length - 1 } : { outlook: true })).join('')}</div>` : '<div class="card"><div class="stack sub">Tap the star on any spot to keep it here. Find spots above, on the map, or below.</div></div>'}
+    ${favs.length && !spotsReorder ? ratingGuideHTML() : ''}
     ${surfed.length ? `<h2 class="sec">Other spots you've surfed</h2><div class="card">${surfed.map(sp => spotRow(sp)).join('')}</div>` : ''}
     <p class="note">Open a spot for the forecast, a board pick for right now, and your sessions there.</p>`);
   /* Now / tomorrow / next day for each favorite, loaded one place at a time. */
@@ -3293,7 +3377,7 @@ function viewSpotsTab() {
         const { fc, ex } = await placeForecast(sp);
         const el = document.querySelector(`[data-ol="${CSS.escape(sp.id)}"]`);
         if (!el) return;
-        el.innerHTML = outlookHTML(fc, ex);
+        el.innerHTML = outlookHTML(fc, ex, sp);
       } catch (e) {
         const el = document.querySelector(`[data-ol="${CSS.escape(sp.id)}"]`);
         if (el) el.innerHTML = '<span class="sub">Forecast unavailable right now.</span>';
@@ -3326,6 +3410,7 @@ function viewSpotPage(id) {
       : lockedCard('Board pick for right now', 'rated sessions with swell data', ratedCond.length, MIN_PICK)}
     <h2 class="sec">Forecast</h2>
     <div class="card" id="spotFc" style="padding:10px 12px"><span class="sub">Loading the 5-day forecast…</span></div>
+    ${ratingGuideHTML()}
     <h2 class="sec">Your sessions here</h2>
     ${list.length ? `<div class="stats">
         <div class="stat"><div class="v">${st.count}</div><div class="k">Sessions</div></div>
@@ -3397,6 +3482,7 @@ function viewHelp() {
       <li>Each favorite shows <strong>Now, Tomorrow and the next day</strong>: swell, wind and tide. Tap <strong>Reorder</strong> to change their order.</li>
       <li>In a forecast, the days run left to right. Tap a day for that day's charts and a 3-hourly table with a surf rating, then step to the previous or next day.</li>
       <li>Spot popups on the map have a <strong>Spot page</strong> link too.</li></ul>`)}
+    ${sec('Surf rating', ratingGuideHTML(true))}
     ${sec('Stats and the board pick', `<ul>
       <li>Stats sit with Sessions: use the Sessions / Stats switch at the top. Stats shows totals, your most ridden and most fun boards and spots, fun by tide and sessions per month. Some cards unlock after you've logged enough sessions.</li>
       <li><strong>Board pick</strong> looks at the current swell, tide and wind near your chosen spot and ranks your boards by how much fun you had on them in similar conditions. Higher fun ratings count for much more.</li></ul>`)}
@@ -3741,6 +3827,8 @@ document.addEventListener('click', async e => {
   try {
     switch (act) {
       case 'close': closeDialog(); break;
+      case 'openDay': e.preventDefault(); location.hash = `#/spot/${encodeURIComponent(id)}/day/${el.dataset.day}`; break;
+      case 'ratingHelp': e.preventDefault(); openDialog(`<h3>Surf rating</h3>${ratingGuideHTML(true)}<div class="actions"><button data-act="close">Close</button></div>`); break;
       case 'favReorder': spotsReorder = !spotsReorder; route(); break;
       case 'favUp': case 'favDown': await moveFav(id, act === 'favUp' ? -1 : 1); route(); break;
       case 'fav': e.preventDefault(); await toggleFav(id); if (location.hash.startsWith('#/spot') || location.hash.startsWith('#/spots')) { const q = $('#spotFind') && $('#spotFind').value; route(); if (q && $('#spotFind')) { $('#spotFind').value = q; $('#spotFind').dispatchEvent(new Event('input')); } } break;
