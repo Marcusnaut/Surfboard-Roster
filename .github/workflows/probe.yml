@@ -1,0 +1,24 @@
+# Temporary: checks that the map's outside services answer. Removed after use.
+name: Service probe
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: |
+          set +e
+          echo "== Open-Meteo marine (2 places)"
+          curl -s -o om.json -w "%{http_code} %{time_total}s\n" "https://marine-api.open-meteo.com/v1/marine?latitude=34.27,34.3&longitude=-119.29,-119.4&hourly=swell_wave_height,swell_wave_period,swell_wave_direction,wave_height,wave_period,wave_direction,sea_level_height_msl&forecast_days=6&timezone=GMT&cell_selection=sea"; head -c 300 om.json; echo
+          echo "== Open-Meteo weather (2 places)"
+          curl -s -o ow.json -w "%{http_code} %{time_total}s\n" "https://api.open-meteo.com/v1/forecast?latitude=34.27,34.3&longitude=-119.29,-119.4&hourly=wind_speed_10m,wind_direction_10m&wind_speed_unit=ms&forecast_days=6&timezone=GMT"; head -c 200 ow.json; echo
+          T=$(date -u -d '-2 hour' +%Y-%m-%dT%H:00:00.000Z)
+          echo "== CDIP WMS GetMap nowcast $T"
+          curl -s -o tile.png -w "%{http_code} %{content_type} %{size_download}B %{time_total}s\n" "https://thredds.cdip.ucsd.edu/thredds/wms/cdip/model/MOP_grids/CA_0.01_nowcast.nc?service=WMS&request=GetMap&version=1.3.0&layers=waveHs&styles=raster/cdip&format=image/png&transparent=true&colorscalerange=0,6.096&numcolorbands=250&crs=EPSG:3857&bbox=-13300000,4050000,-13250000,4100000&width=256&height=256&time=$T"; file tile.png; head -c 300 tile.png | strings | head -5
+          echo "== CDIP GetMap without time"
+          curl -s -o tile2.png -w "%{http_code} %{content_type} %{size_download}B\n" "https://thredds.cdip.ucsd.edu/thredds/wms/cdip/model/MOP_grids/CA_0.01_nowcast.nc?service=WMS&request=GetMap&version=1.3.0&layers=waveHs&styles=raster/cdip&format=image/png&transparent=true&colorscalerange=0,6.096&crs=EPSG:3857&bbox=-13300000,4050000,-13250000,4100000&width=256&height=256"; head -c 300 tile2.png | strings | head -5
+          echo "== CDIP CORS header"
+          curl -s -D - -o /dev/null -H "Origin: https://marcusnaut.github.io" "https://thredds.cdip.ucsd.edu/thredds/wms/cdip/model/MOP_grids/CA_0.01_nowcast.nc?service=WMS&request=GetCapabilities" | head -20
