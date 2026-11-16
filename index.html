@@ -504,7 +504,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 12.5 (spot forecasts show the offshore swell direction)';
+const BUILD = 'Build 12.6 (buoys show primary, secondary and tertiary swells; directions in degrees)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -744,11 +744,13 @@ const avg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : nu
 const fmtAvg = n => n == null ? '–' : n.toFixed(1);
 const COMPASS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
 const compass = deg => deg == null ? '' : COMPASS[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16];
+/* Swell direction as compass point plus degrees, e.g. "NW 307°". */
+const dirDeg = deg => deg == null ? '' : `${compass(deg)} ${Math.round(((deg % 360) + 360) % 360)}°`;
 const fmtHeight = m => m == null ? '–' : prefs.units === 'm' ? `${m.toFixed(1)} m` : `${(m * 3.281).toFixed(1)} ft`;
 function swellText(sw) {
   if (!sw) return '';
   const h = sw.swellH ?? sw.waveH, p = sw.swellP ?? sw.waveP, d = sw.swellDir ?? sw.waveDir;
-  return `${fmtHeight(h)}${p != null ? ` @ ${Math.round(p)} s` : ''}${d != null ? ` from ${compass(d)} (${Math.round(d)}°)` : ''}`;
+  return `${fmtHeight(h)}${p != null ? ` @ ${Math.round(p)} s` : ''}${d != null ? ` from ${dirDeg(d)}` : ''}`;
 }
 
 /* ---------- stats ---------- */
@@ -1310,10 +1312,14 @@ function ago(iso) {
 }
 const isStale = iso => !iso || Date.now() - new Date(iso) > 3 * 3600 * 1000;
 /* Primary swell from NDBC (SwH/SwD), falling back to combined waves (WVHT/MWD). */
+/* Swells split from the buoy's newest wave spectrum (fetch_buoys.py), biggest first: [{h, p, d}]. */
+const buoySwells = r => r && Array.isArray(r.swells) && r.swells.length ? r.swells : null;
 function primarySwell(r) {
   if (!r) return null;
-  if (r.swH != null) return { h: r.swH, p: r.swP, dir: r.swD || (r.mwd != null ? compass(r.mwd) : null), deg: r.swD ? COMPASS_DEG[r.swD] : r.mwd, kind: 'swell' };
-  if (r.wvht != null) return { h: r.wvht, p: r.dpd ?? r.apd, dir: r.mwd != null ? compass(r.mwd) : null, deg: r.mwd, kind: 'waves' };
+  const sw = buoySwells(r);
+  if (sw) return { h: sw[0].h, p: sw[0].p, dir: sw[0].d != null ? dirDeg(sw[0].d) : null, deg: sw[0].d, kind: 'swell' };
+  if (r.swH != null) { const deg = r.swDeg ?? (r.swD ? COMPASS_DEG[r.swD] : r.mwd); return { h: r.swH, p: r.swP, dir: r.swDeg != null ? dirDeg(r.swDeg) : r.swD || (r.mwd != null ? dirDeg(r.mwd) : null), deg, kind: 'swell' }; }
+  if (r.wvht != null) return { h: r.wvht, p: r.dpd ?? r.apd, dir: r.mwd != null ? dirDeg(r.mwd) : null, deg: r.mwd, kind: 'waves' };
   return null;
 }
 const BUOY_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.2v3.3" stroke="#0b3a4a" stroke-width="1.4"/><circle cx="12" cy="2.6" r="1.6" fill="#e0533d"/><path d="M8.2 16.5 10 5.6h4l1.8 10.9z" fill="#ffc531" stroke="#0b3a4a" stroke-width="1.2" stroke-linejoin="round"/><path d="M9.1 11h5.8" stroke="#e0533d" stroke-width="2.2"/><path d="M3 19.2c2 0 2-1.5 4.5-1.5s2.5 1.5 4.5 1.5 2-1.5 4.5-1.5 2.5 1.5 4.5 1.5" fill="none" stroke="#1f6f8b" stroke-width="1.6" stroke-linecap="round"/></svg>';
@@ -1395,18 +1401,21 @@ function buoyPopup(b, r, data) {
   const ps = primarySwell(r);
   const row = (k, v) => v ? `<tr><th>${k}</th><td>${v}</td></tr>` : '';
   const swell = (h, p, d) => h == null ? '' : `${fmtHeight(h)}${p != null ? ` @ ${Math.round(p)} s` : ''}${d ? ` from ${esc(d)}` : ''}`;
+  const sw = buoySwells(r), part = x => x ? `${swell(x.h, x.p, x.d != null ? dirDeg(x.d) : '')}${x.p != null && x.p < 8 ? ' <span class="sub">(wind swell)</span>' : ''}` : '';
   return `<div class="popup-title">${esc(b.name)} <span class="sub">#${esc(b.id)}</span></div>
     <div class="sub">${isStale(r.time) ? '<strong>Old reading</strong> · ' : ''}Observed ${esc(ago(r.time))}</div>
     <table class="bt">
-      ${row(ps && ps.kind === 'swell' ? 'Primary swell' : 'Waves', ps ? `<strong>${swell(ps.h, ps.p, ps.dir)}</strong>` : '')}
-      ${row('Wind swell', swell(r.wwH, r.wwP, r.wwD))}
+      ${sw ? `${row('Primary swell', `<strong>${part(sw[0])}</strong>`)}${row('Secondary swell', part(sw[1]))}${row('Tertiary swell', part(sw[2]))}`
+        : `${row(ps && ps.kind === 'swell' ? 'Primary swell' : 'Waves', ps ? `<strong>${swell(ps.h, ps.p, ps.dir)}</strong>` : '')}
+      ${row('Wind swell', swell(r.wwH, r.wwP, r.wwDeg != null ? dirDeg(r.wwDeg) : r.wwD))}`}
       ${row('Combined', r.wvht != null ? `${fmtHeight(r.wvht)}${r.dpd != null ? `, dominant ${Math.round(r.dpd)} s` : ''}${r.apd != null ? `, average ${r.apd.toFixed(1)} s` : ''}` : '')}
-      ${row('Mean direction', r.mwd != null ? `${compass(r.mwd)} (${Math.round(r.mwd)}°)` : '')}
+      ${row('Mean direction', r.mwd != null ? dirDeg(r.mwd) : '')}
       ${row('Wind', r.wspd != null ? `${fmtWind(r.wspd)}${r.wdir != null ? ` from ${compass(r.wdir)}` : ''}${r.gst != null ? `, gusts ${fmtWind(r.gst)}` : ''}` : '')}
       ${row('Water', fmtTemp(r.wtmp))}
       ${row('Air', fmtTemp(r.atmp))}
       ${row('Steepness', r.steep ? esc(r.steep.toLowerCase().replace('_', ' ')) : '')}
     </table>
+    ${sw ? `<div class="sub">Swells are split from the buoy’s latest wave spectrum (${sw.length === 1 ? 'one swell showing' : `${sw.length} swells`}); directions are where they come from.</div>` : ''}
     ${sparkline(r.history)}
     ${buoyLinks(b)}
     ${cdipPlots(b)}`;
@@ -1704,7 +1713,7 @@ function swellPoints(fc, ex) {
 }
 /* Direction to show: the offshore swell when we have it (what the buoys report), else the model's own. */
 const sDir = s => s.o ?? s.d;
-const dirText = s => { const o = s.o, d = s.d; if (o == null) return d != null ? compass(d) : ''; return d != null && compass(d) !== compass(o) ? `${compass(o)} <span class="sub">(${compass(d)} at the break)</span>` : compass(o); };
+const dirText = s => { const o = s.o, d = s.d; if (o == null) return d != null ? dirDeg(d) : ''; return d != null && compass(d) !== compass(o) ? `${dirDeg(o)} <span class="sub">(${dirDeg(d)} at the break)</span>` : dirDeg(o); };
 const dayStart = (offset = 0) => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + offset); return d.getTime(); };
 const dayKey = t => { const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 const keyStart = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d).getTime(); };
@@ -1747,7 +1756,7 @@ function outlookHTML(fc, ex, sp) {
   const cols = [['Now', daySummary(fc, ex, 0, true, sp)], ['Tomorrow', daySummary(fc, ex, dayStart(1), false, sp)], [new Date(dayStart(2)).toLocaleDateString(undefined, { weekday: 'long' }), daySummary(fc, ex, dayStart(2), false, sp)]];
   return `<div class="outlook">${cols.map(([label, s]) => {
     const inner = `<div class="ol">${esc(label)}${s && s.rating != null ? ratingBadge(s.rating) : ''}</div>${s ? `
-      <div class="ov"><b>${esc(hRange(s.hLo, s.hHi))}</b>${s.p != null ? ` @ ${Math.round(s.p)} s` : ''}${sDir(s) != null ? ` ${compass(sDir(s))}` : ''}</div>
+      <div class="ov"><b>${esc(hRange(s.hLo, s.hHi))}</b>${s.p != null ? ` @ ${Math.round(s.p)} s` : ''}${sDir(s) != null ? ` ${dirDeg(sDir(s))}` : ''}</div>
       ${s.wS != null ? `<div class="ov">Wind ${s.now ? esc(fmtWind(s.wS)) : `${esc(fmtWindN(s.wLo))}–${esc(fmtWind(s.wS))}`} ${compass(s.wD)}</div>` : ''}
       ${s.now ? (s.tide ? `<div class="ov">Tide ${esc(fmtTideH(s.tide.h))} ${s.tide.rising ? '↑' : '↓'}${s.next ? ` · ${s.next.type[0].toUpperCase()} ${esc(tShort(s.next.t))}` : ''}</div>` : '')
         : s.turns.length ? `<div class="ov">${s.turns.map(p => `${p.type[0].toUpperCase()} ${esc(tShort(p.t))}`).join(' · ')}</div>` : ''}`
@@ -1767,7 +1776,7 @@ function daysTableHTML(fc, ex, spotId) {
     ${days.some(d => d.rating != null) ? row('Rating', d => d.rating != null ? ratingBadge(d.rating) : '') : ''}
     ${row('Height', d => esc(hRange(d.hLo, d.hHi)).replace('–', '–<br>'))}
     ${row('Period', d => d.p != null ? Math.round(d.p) + ' s' : '')}
-    ${row('From', d => sDir(d) != null ? compass(sDir(d)) : '')}
+    ${row('From', d => sDir(d) != null ? `${compass(sDir(d))}<br>${Math.round(sDir(d))}°` : '')}
     ${days.some(d => d.wS != null) ? row('Wind', d => d.wS != null ? `${esc(fmtWind(d.wS))}<br>${compass(d.wD)}` : '') : ''}
     ${days.some(d => d.turns && d.turns.length) ? row('Tide', d => (d.turns || []).filter(p => p.type === 'high').map(p => `H ${esc(tShort(p.t))}`).join('<br>')) : ''}
   </table>${spotId ? `<div class="sub">Tap a day for that day’s forecast.${days.some(d => d.rating != null) ? ' Rating is the best of the daylight hours.' : ''}</div>` : ''}</div>`;
@@ -1792,7 +1801,7 @@ function viewSpotDay(id, key) {
       const sw = swellPoints(fc, ex).filter(p => p.t >= start && p.t < end);
       const wind = ((ex && ex.wind) || []), tide = (ex && ex.tide) || [];
       const rows = sw.map(p => { const w = nearestPt(wind, p.t), td = tide.length ? tideAt(tide, p.t) : null; const r = spotRating(sp, { h: p.h, p: p.p, d: p.d, wS: w && w.s, wD: w && w.d, tide: td && td.h }, tide);
-        return `<tr><th>${esc(tShort(p.t))}</th><td>${esc(fmtHeight(p.h))}${p.p != null ? ` @ ${Math.round(p.p)} s` : ''} ${sDir(p) != null ? compass(sDir(p)) : ''}</td><td>${w ? `${esc(fmtWind(w.s))} ${compass(w.d)}` : ''}</td><td>${td ? esc(fmtTideH(td.h)) : ''}</td><td>${r != null ? ratingBadge(r) : ''}</td></tr>`; }).join('');
+        return `<tr><th>${esc(tShort(p.t))}</th><td>${esc(fmtHeight(p.h))}${p.p != null ? ` @ ${Math.round(p.p)} s` : ''} ${sDir(p) != null ? dirDeg(sDir(p)) : ''}</td><td>${w ? `${esc(fmtWind(w.s))} ${compass(w.d)}` : ''}</td><td>${td ? esc(fmtTideH(td.h)) : ''}</td><td>${r != null ? ratingBadge(r) : ''}</td></tr>`; }).join('');
       box.innerHTML = f.html + (rows ? `${ratingGuideHTML()}<table class="bt hourly"><tr><th></th><th>Swell</th><th>Wind</th><th>Tide</th><th>Rating</th></tr>${rows}</table>` : '<div class="sub">No forecast for this day.</div>');
       bindForecast(box, f.model);
     } catch (e) { const box = $('#dayFc'); if (box) box.innerHTML = '<span class="sub">Couldn’t load the forecast.</span>'; }
@@ -3576,7 +3585,7 @@ function viewHelp() {
       <li><strong>Board pick</strong> looks at the current swell, tide and wind near your chosen spot and ranks your boards by how much fun you had on them in similar conditions. Higher fun ratings count for much more.</li></ul>`)}
     ${sec('The map', `<ul>
       <li>Colored dots are spots you've surfed (size = sessions, color = average fun). Small white dots are spots you haven't surfed; turn them on or off with <strong>All spots</strong> in the header.</li>
-      <li>Tap a spot for its sessions and a 5-day forecast (CDIP swell in California, Open-Meteo elsewhere) with swell, wind and tide charts. Tap or drag on a chart to read the swell, wind and tide for that hour, plus the next high or low tide. Tap a buoy for the latest readings, a 24-hour chart and a forecast; blue buoys are CDIP buoys and include CDIP's own plots.</li>
+      <li>Tap a spot for its sessions and a 5-day forecast (CDIP swell in California, Open-Meteo elsewhere) with swell, wind and tide charts. Tap or drag on a chart to read the swell, wind and tide for that hour, plus the next high or low tide. Tap a buoy for the latest readings (primary, secondary and tertiary swells split from its wave spectrum, each with height, period and direction), a 24-hour chart and a forecast; directions show the compass point and degrees, the way the swell comes from; blue buoys are CDIP buoys and include CDIP's own plots.</li>
       <li>Buttons on the right: zoom, <strong>full screen</strong>, <strong>find my location</strong> and the <strong>layers</strong> list (Hydro, Topo or Imagery base maps; buoys; CDIP wave height or peak period).</li>
       <li>With a CDIP layer on, the panel at the bottom steps from Now through the forecast hours.</li>
       <li>Tap the <strong>magnifier</strong> (top left) to search: matching surf spots show first as you type, then press Search for towns and addresses.</li>
