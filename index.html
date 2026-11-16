@@ -216,6 +216,12 @@ table.hourly th, table.hourly td { padding: 4px 4px; text-align: left; }
 .linkbtn.small { min-height: 0; padding: 0; font-size: inherit; text-decoration: underline; }
 .rbadge { display: inline-block; min-width: 30px; text-align: center; color: #fff; font-weight: 700; font-size: 12px; border-radius: 6px; padding: 1px 5px; text-shadow: 0 1px 1px rgba(0,0,0,.25); }
 .spotsmode { min-height: 32px; padding: 2px 28px 2px 8px; font-size: 13px; width: auto; background-color: var(--surface); }
+.pulse-icon { background: none; border: 0; }
+.pdot { position: absolute; width: var(--sz); height: var(--sz); left: calc(var(--sz) / -2); top: calc(var(--sz) / -2); border-radius: 50%;
+  background: var(--pc); opacity: var(--po); border: 2px solid #fff; box-sizing: border-box; transform: scale(var(--pmin));
+  animation: dpulse var(--pdur) ease-in-out infinite; will-change: transform; }
+@keyframes dpulse { 0%, 100% { transform: scale(var(--pmin)); } 50% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .pdot, .leaflet-container.pulsing .buoy .bdot { animation: none !important; transform: none; } }
 .leaflet-container.pulsing .buoy .bdot[style*="--pdur"] { animation: bpulse var(--pdur) ease-in-out infinite; }
 @keyframes bpulse { 0%, 100% { transform: scale(var(--pmin)); } 50% { transform: scale(var(--pmax)); } }
 .pulsedot { background: #1f7fb8; animation: breathe 3s ease-in-out infinite; }
@@ -498,7 +504,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 12.3 (primary spots, buoy pulse, smoother pulse)';
+const BUILD = 'Build 12.4 (spot pulse uses the same smooth animation as buoys, in sync)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -1314,10 +1320,12 @@ const BUOY_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.2v3
 /* Swell pulse for buoys (CSS animation, on when the map has the pulsing class): size from the buoy's swell
    height, one full grow-and-shrink every PULSE_PACE × period seconds, same as the spots. */
 const PULSE_PACE = 0.7;
+/* Every pulse runs off the same clock, so dots with the same period move together instead of starting at random. */
+const pulseDelay = dur => `-${((Date.now() / 1000) % dur).toFixed(2)}s`;
 function buoyPulseVars(ps) {
   if (!ps || ps.h == null) return '';
   const ft = ps.h * 3.281, max = Math.max(0.9, Math.min(1.9, 0.85 + ft * 0.08)), dur = Math.max(2, (ps.p || 10) * PULSE_PACE);
-  return `--pmax:${max.toFixed(2)};--pmin:${(max * 0.62).toFixed(2)};--pdur:${dur.toFixed(1)}s;animation-delay:-${(Math.random() * dur).toFixed(1)}s`;
+  return `--pmax:${max.toFixed(2)};--pmin:${(max * 0.62).toFixed(2)};--pdur:${dur.toFixed(2)}s;animation-delay:${pulseDelay(dur)}`;
 }
 function buoyIcon(b, r) {
   const ps = primarySwell(r);
@@ -1897,53 +1905,45 @@ const reducedMotion = () => window.matchMedia && matchMedia('(prefers-reduced-mo
 function setupRating(map, items) {
   const rLayer = map.ratingLayer, pLayer = map.pulseLayer;
   if (!rLayer || !pLayer) return;
-  let timer = null, token = 0, raf = null, lastFrame = 0;
+  let timer = null, token = 0;
+  /* Pulsing spots are drawn like the buoys: HTML dots with a CSS animation (smooth, handled by the phone's
+     graphics chip) in their own layer under the tappable spot dots, which go see-through while pulsing. */
+  if (!map.getPane('pulse')) { const pn = map.createPane('pulse'); pn.style.zIndex = 395; pn.style.pointerEvents = 'none'; }
+  const dots = L.layerGroup().addTo(map);
   const rOn = () => map.hasLayer(rLayer), pOn = () => map.hasLayer(pLayer), anyOn = () => rOn() || pOn();
   const legend = () => {
     const a = $('#legFun'), b = $('#legRate'), c = $('#legPulse');
     if (a) a.hidden = anyOn(); if (b) b.hidden = !rOn(); if (c) c.hidden = !pOn();
   };
-  const restore = () => items.forEach(it => { it.pulse = null; it.m.setStyle(it.orig); });
+  const restore = () => { dots.clearLayers(); items.forEach(it => { it.pulse = null; it.m.setStyle(it.orig); }); };
   const when = () => { for (const g of Object.values(map.waveLayers || {})) if (map.hasLayer(g) && g.stepTime()) return Date.parse(g.stepTime()); return Date.now(); };
   const paint = () => {
     if (!anyOn()) return;
     const t = when();
+    dots.clearLayers();
     for (const it of items) {
       const sp = spotById(it.id);
       const r = sp && rOn() ? ratingAt(sp, t) : null;
       const sw = sp && pOn() ? swellAt(sp, t) : null;
       it.rating = r;
       const fill = rOn() ? (r == null ? '#b8c2c6' : ratingInfo(r)[1]) : PULSE_COLOR;
-      if (pOn() && sw) {
+      if (pOn() && sw && map.hasLayer(it.m)) {
         /* Size from swell height in feet: about 5 px at flat to 26 px at 10 ft and up. */
-        const ft = sw.h * 3.281, rMax = Math.max(5, Math.min(26, 5 + ft * 2.1));
-        it.pulse = { rMin: Math.max(3, rMax * 0.45), rMax, half: Math.max(1.5, (sw.p || 10) * PULSE_PACE / 2) * 1000, phase: (it.id.length * 377) % 1000 };
-        it.m.setStyle({ radius: it.pulse.rMax, color: '#fff', weight: 1.5, fillColor: fill, fillOpacity: rOn() ? 0.95 : 0.55 });
+        const ft = sw.h * 3.281, rMax = Math.max(5, Math.min(26, 5 + ft * 2.1)), dur = Math.max(3, (sw.p || 10) * PULSE_PACE);
+        it.pulse = { rMax, dur };
+        /* The tappable dot stays at full size but invisible; the HTML dot underneath does the pulsing. */
+        it.m.setStyle({ radius: rMax, color: '#fff', weight: 0, fillColor: fill, fillOpacity: 0, opacity: 0 });
+        L.marker(it.m.getLatLng(), { pane: 'pulse', interactive: false, keyboard: false,
+          icon: L.divIcon({ className: 'pulse-icon', iconSize: [0, 0],
+            html: `<span class="pdot" style="--sz:${(rMax * 2).toFixed(1)}px;--pmin:0.45;--pdur:${dur.toFixed(2)}s;--pc:${fill};--po:${rOn() ? 0.95 : 0.7};animation-delay:${pulseDelay(dur)}"></span>` }) }).addTo(dots);
       } else {
         it.pulse = null;
         const known = rOn() ? r != null : false;
-        it.m.setStyle(known ? { radius: 7, color: '#fff', weight: 1.5, fillColor: fill, fillOpacity: 0.95 } : { radius: 4, color: '#fff', weight: 1, fillColor: '#b8c2c6', fillOpacity: 0.9 });
+        it.m.setStyle(known ? { radius: 7, color: '#fff', weight: 1.5, opacity: 1, fillColor: fill, fillOpacity: 0.95 } : { radius: 4, color: '#fff', weight: 1, opacity: 1, fillColor: '#b8c2c6', fillOpacity: 0.9 });
       }
     }
     if (map.redrawLabels) map.redrawLabels();
-    animate();
   };
-  /* Breathing: smooth in and out with a cosine, every frame, paused when the app is hidden. */
-  const frame = now => {
-    raf = null;
-    if (!pOn() || !map._container || !map._container.isConnected) return;
-    if (document.visibilityState === 'visible') {
-      lastFrame = now;
-      for (const it of items) {
-        const p = it.pulse;
-        if (!p || !map.hasLayer(it.m)) continue;
-        const k = 0.5 - 0.5 * Math.cos(Math.PI * ((now + p.phase) % (2 * p.half)) / p.half);
-        it.m.setRadius(p.rMin + (p.rMax - p.rMin) * k);
-      }
-    }
-    raf = requestAnimationFrame(frame);
-  };
-  const animate = () => { if (pOn() && !reducedMotion() && !raf) raf = requestAnimationFrame(frame); };
   const refresh = () => {
     clearTimeout(timer);
     timer = setTimeout(async () => {
@@ -1964,7 +1964,6 @@ function setupRating(map, items) {
   [rLayer, pLayer].forEach(l => { l.on('add', changed); l.on('remove', changed); });
   map.on('moveend spotschange', () => { if (anyOn()) refresh(); });
   map.on('wavestep overlayadd overlayremove', () => { if (anyOn()) paint(); });
-  map.on('unload', () => { if (raf) cancelAnimationFrame(raf); });
 }
 
 /* ---------- photos ---------- */
@@ -3085,7 +3084,7 @@ function spotsMap(el, sessions, { small, showAll, mode, state } = {}) {
       renderer: map.spotRenderer, radius: 3, color: '#33373a', weight: 1.5, fillColor: '#ffffff', fillOpacity: 1
     }).addTo(list.length ? map : sp.primary || sp.fav || sp.builtIn === false ? unsurfed : minor);
     m.spotId = sp.id;
-    labelItems.push({ m, id: sp.id, name: sp.name, rank: list.length, ang: Number.isFinite(sp.ang) ? sp.ang : null, orig: { radius: m.options.radius, color: m.options.color, weight: m.options.weight, fillColor: m.options.fillColor, fillOpacity: m.options.fillOpacity } });
+    labelItems.push({ m, id: sp.id, name: sp.name, rank: list.length, ang: Number.isFinite(sp.ang) ? sp.ang : null, orig: { radius: m.options.radius, color: m.options.color, weight: m.options.weight, opacity: 1, fillColor: m.options.fillColor, fillOpacity: m.options.fillOpacity } });
     const base = spotSummary(sp, list);
     m.bindPopup(base + (small ? '' : FC_LOADING), POPUP_OPTS);
     if (!small) m.on('popupopen', e => fillForecast(e.popup, base, () => spotForecast(sp), [sp.lat, sp.lon], { spotId: sp.id }));
