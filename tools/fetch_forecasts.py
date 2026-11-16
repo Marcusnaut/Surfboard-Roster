@@ -95,6 +95,18 @@ def series(path, start, end):
             "hs": [r[1] for r in rows], "tp": [r[2] for r in rows], "dp": [r[3] for r in rows]}
 
 
+def write_split(data, out_path):
+    """Also write one small file per spot and per buoy (fc/spots/<id>.json, fc/buoys/<id>.json), so the app
+    only downloads the forecast for the place you tap."""
+    root = os.path.join(os.path.dirname(out_path) or ".", "fc")
+    for kind in ("spots", "buoys"):
+        os.makedirs(os.path.join(root, kind), exist_ok=True)
+        for key, val in (data.get(kind) or {}).items():
+            name = re.sub(r"[^a-z0-9-]", "-", key.split(":", 1)[-1].lower())
+            with open(os.path.join(root, kind, name + ".json"), "w", encoding="utf-8") as f:
+                json.dump({"updated": data.get("updated"), **val}, f, separators=(",", ":"))
+
+
 def fresh(prev_path):
     try:
         prev = json.load(open(prev_path))
@@ -110,6 +122,7 @@ def main():
     prev = fresh(prev_path) if prev_path and os.path.exists(prev_path) else None
     if prev and not os.environ.get("FORCE_FORECASTS"):
         json.dump(prev, open(out_path, "w"), separators=(",", ":"))
+        write_split(prev, out_path)
         print(f"Kept previous forecasts from {prev['updated']}")
         return
 
@@ -153,8 +166,10 @@ def main():
     print(f"Wrote {out_path}: {len(out['buoys'])} buoys, {len(out['spots'])} spots; {failed} of {len(jobs)} model requests failed")
     if not out["buoys"] and not out["spots"]:
         if prev_path and os.path.exists(prev_path):
-            json.dump(json.load(open(prev_path)), open(out_path, "w"), separators=(",", ":"))
+            out = json.load(open(prev_path))
+            json.dump(out, open(out_path, "w"), separators=(",", ":"))
             print("Nothing fetched; kept the previous file.")
+    write_split(out, out_path)
 
 
 if __name__ == "__main__":

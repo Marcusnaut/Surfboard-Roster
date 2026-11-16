@@ -456,7 +456,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 11.1 (faster forecasts)';
+const BUILD = 'Build 11.2 (forecast loads only the place you tap)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -471,7 +471,6 @@ const BASEMAPS = {
 };
 const USGS_CREDIT = '<a href="https://www.usgs.gov/programs/national-geospatial-program/national-map" target="_blank" rel="noopener">USGS The National Map</a>';
 const BUOY_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/buoys.json';
-const FORECAST_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/forecasts.json';
 const WAVEGRID_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/wavegrid.json';
 /* CDIP's California wave-height grid (0.01°), drawn as image tiles by CDIP's own WMS server. */
 const WAVE_WMS = 'https://thredds.cdip.ucsd.edu/thredds/wms/cdip/model/MOP_grids/CA_0.01_';
@@ -1399,27 +1398,21 @@ function buoyLinks(b) {
   const n = cdipNumber(b);
   return `<div class="popup-links">${n ? `<a href="https://cdip.ucsd.edu/m/products/?stn=${n}p1" target="_blank" rel="noopener">CDIP page</a>` : ''}<a href="https://www.ndbc.noaa.gov/station_page.php?station=${encodeURIComponent(b.id)}" target="_blank" rel="noopener">NOAA page</a></div>`;
 }
-let fcFetch = null;
-async function loadForecasts() {
-  const cached = S.fcData || S.meta.forecasts || null;
-  if (S.fcData && Date.now() - S.fcLoadedAt < 30 * 60 * 1000) return S.fcData;
-  const fresh = d => d && d.updated && Date.now() - Date.parse(d.updated) < 6 * 3600 * 1000;
-  /* A saved copy that's under 6 hours old is used right away; a newer one is fetched in the background. */
-  if (fresh(cached)) { if (!fcFetch) refreshForecasts(cached); return cached; }
-  return refreshForecasts(cached);
-}
-function refreshForecasts(cached) {
-  if (!fcFetch) fcFetch = (async () => {
-    try {
-      const res = await fetch(`${FORECAST_URL}?t=${Math.floor(Date.now() / 600000)}`, { cache: 'no-store' });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const d = await res.json();
-      S.fcData = d; S.fcLoadedAt = Date.now();
-      setMeta('forecasts', d).catch(() => {});
-      return d;
-    } catch (e) { return cached; } finally { fcFetch = null; }
-  })();
-  return fcFetch;
+/* CDIP forecasts: the data job writes one small file per spot and per buoy, so a tap downloads only
+   that place's forecast (cached 30 minutes). Places CDIP doesn't cover use Open-Meteo instead. */
+const FC_DIR = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/fc/';
+const cdipCache = new Map();
+async function cdipFile(kind, id) {
+  const name = String(id).split(':').pop().toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  const key = kind + '/' + name, hit = cdipCache.get(key);
+  if (hit && Date.now() - hit.at < 30 * 60 * 1000) return hit.d;
+  const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const res = await fetch(`${FC_DIR}${key}.json?t=${Math.floor(Date.now() / 600000)}`, { signal: ctrl.signal });
+    const d = res.ok ? await res.json() : null;
+    cdipCache.set(key, { at: Date.now(), d });
+    return d;
+  } catch (e) { return null; } finally { clearTimeout(timer); }
 }
 const omCache = new Map();
 async function openMeteoForecast(lat, lon) {
@@ -1438,15 +1431,13 @@ async function openMeteoForecast(lat, lon) {
   return fc;
 }
 async function buoyForecast(b) {
-  const d = await loadForecasts();
-  const c = d && d.buoys && d.buoys[b.id];
-  if (c) return { ...c, source: `Data courtesy of CDIP (model at the buoy, ${c.site})`, link: `https://cdip.ucsd.edu/m/products/?stn=${c.cdip}p1` };
+  const c = cdipNumber(b) ? await cdipFile('buoys', b.id) : null;
+  if (c && c.hs) return { ...c, source: `Data courtesy of CDIP (model at the buoy, ${c.site})`, link: `https://cdip.ucsd.edu/m/products/?stn=${c.cdip}p1` };
   return openMeteoForecast(b.lat, b.lon);
 }
 async function spotForecast(sp) {
-  const d = await loadForecasts();
-  const c = d && d.spots && d.spots[sp.id];
-  if (c) return { ...c, source: `Data courtesy of CDIP (nearshore model, site ${c.site}, 10 m depth)`, link: `https://cdip.ucsd.edu/m/forecast/?wave_model=${sp.lat > 34.6 ? 'norcal' : 'socal'}&layer=waveHs` };
+  const c = sp.ca ? await cdipFile('spots', sp.id) : null;
+  if (c && c.hs) return { ...c, source: `Data courtesy of CDIP (nearshore model, site ${c.site}, 10 m depth)`, link: `https://cdip.ucsd.edu/m/forecast/?wave_model=${sp.lat > 34.6 ? 'norcal' : 'socal'}&layer=waveHs` };
   return openMeteoForecast(sp.lat, sp.lon);
 }
 function circMean(degs) {
@@ -2853,7 +2844,6 @@ function mapLink(map) {
   return '#/map?' + p.join('&');
 }
 function viewMap(q = new URLSearchParams()) {
-  loadForecasts().catch(() => {});
   const st = mapStateFrom(q);
   const showAll = st.showAll ?? prefs.showAllSpots;
   const surfed = new Set(S.sessions.map(s => s.spotId).filter(Boolean)).size;
