@@ -535,7 +535,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 13.7 (buoy labels follow the map time: measured or forecast)';
+const BUILD = 'Build 13.8 (CDIP layer fix at Now; message when spot swell data fails)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -1298,7 +1298,9 @@ function waveLayer(map, startTime, key = 'waves') {
   const show = () => {
     const st = steps[idx] || steps[0];
     layer.setUrl(WAVE_WMS + st.kind + '.nc', true);
-    if (st.time) layer.wmsParams.time = st.time; else delete layer.wmsParams.time;
+    /* Now: no time, so CDIP serves its latest hour. Asking for a listed hour fails once that hour drops out of
+       CDIP's file, which happens whenever the GitHub job that lists the hours runs late. */
+    if (st.time && !st.now) layer.wmsParams.time = st.time; else delete layer.wmsParams.time;
     layer.redraw();
     if (ctl) {
       const c = ctl.getContainer();
@@ -2110,13 +2112,19 @@ const ratingBadge = r => { const [, col, label] = ratingInfo(r); const tip = `${
    from Open-Meteo in a few combined requests for the spots in view only. */
 const RATING_NAME = 'Surf rating (spots)';
 const rateCache = new Map();
+let rateErr = null;
 async function loadRatingSeries(spots) {
+  rateErr = null;
   const need = spots.filter(sp => { const c = rateCache.get(sp.id); return !c || Date.now() - c.at > 60 * 60 * 1000; });
   for (let i = 0; i < need.length; i += 40) {
     const chunk = need.slice(i, i + 40);
     const base = { latitude: chunk.map(s => s.lat.toFixed(3)).join(','), longitude: chunk.map(s => s.lon.toFixed(3)).join(','), forecast_days: '6', timezone: 'GMT' };
     const get = async (url, extra) => {
-      try { const r = await fetch(`${url}?${new URLSearchParams({ ...base, ...extra })}`); if (!r.ok) return null; const j = await r.json(); return Array.isArray(j) ? j : [j]; } catch (e) { return null; }
+      try {
+        const r = await fetch(`${url}?${new URLSearchParams({ ...base, ...extra })}`);
+        if (!r.ok) { rateErr = r.status === 429 ? 'Open-Meteo says too many requests; try again in a minute' : `Open-Meteo error ${r.status}`; return null; }
+        const j = await r.json(); return Array.isArray(j) ? j : [j];
+      } catch (e) { rateErr = navigator.onLine === false ? "you're offline" : "Open-Meteo didn't answer"; return null; }
     };
     const [m, w] = await Promise.all([
       get(MARINE_URL, { hourly: 'swell_wave_height,swell_wave_period,swell_wave_direction,wave_height,wave_period,wave_direction,sea_level_height_msl', cell_selection: 'sea' }),
@@ -2241,10 +2249,13 @@ function setupRating(map, items) {
       if (!anyOn()) return;
       const my = ++token, b = map.getBounds().pad(0.2), c = map.getCenter();
       const inView = items.filter(it => map.hasLayer(it.m) && b.contains(it.m.getLatLng())).map(it => spotById(it.id)).filter(Boolean)
-        .sort((a, z) => map.distance(c, [a.lat, a.lon]) - map.distance(c, [z.lat, z.lon])).slice(0, 80);
+        .sort((a, z) => map.distance(c, [a.lat, a.lon]) - map.distance(c, [z.lat, z.lon])).slice(0, 40);
       paint();
       await loadRatingSeries(inView);
-      if (my === token && anyOn()) paint();
+      if (my !== token || !anyOn()) return;
+      paint();
+      /* Say so when the model data didn't load, instead of leaving every dot gray. */
+      if (rateErr && inView.length && !inView.some(sp => rateCache.has(sp.id))) toast(`Couldn't load swell for the spots: ${rateErr}.`);
     }, 350);
   };
   const changed = () => {
