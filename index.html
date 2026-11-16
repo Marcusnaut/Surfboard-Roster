@@ -111,7 +111,7 @@ button.icon { width: 44px; padding: 0; font-size: 16px; color: var(--muted); bor
 button.icon:disabled { opacity: .25; }
 button.rowbtn { flex: 1; text-align: left; justify-content: flex-start; border: 0; background: transparent; padding: 10px 0; min-height: 52px; border-radius: 0; flex-wrap: wrap; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-input[type=text], input[type=number], input[type=datetime-local], input[type=date], input[type=time], input:not([type]), select, textarea {
+input[type=text], input[type=search], input[type=number], input[type=datetime-local], input[type=date], input[type=time], input:not([type]), select, textarea {
   font: inherit; color: var(--ink); background: var(--surface);
   border: 1px solid var(--line); border-radius: 10px;
   min-height: 44px; padding: 0 12px; width: 100%;
@@ -170,6 +170,15 @@ header.top .hseg button { color: var(--brand-ink); opacity: .85; }
 header.top .hseg button[aria-pressed=true] { background: var(--brand-ink); color: var(--brand); opacity: 1; }
 .seg { display: inline-flex; background: var(--tag); border-radius: 10px; padding: 3px; flex: 1; min-width: 220px; }
 .seg button { flex: 1; border: 0; background: transparent; min-height: 38px; border-radius: 8px; font-size: 14px; color: var(--muted); }
+.seg a { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 38px; border-radius: 8px; font-size: 14px; text-decoration: none; }
+header.top .hseg a { color: var(--brand-ink); opacity: .85; }
+header.top .hseg a[aria-pressed=true] { background: var(--brand-ink); color: var(--brand); opacity: 1; font-weight: 600; }
+.favbtn { min-height: 40px; min-width: 40px; padding: 0; border: 0; background: none; display: inline-flex; align-items: center; justify-content: center; }
+svg.star { width: 24px; height: 24px; fill: none; stroke: var(--muted); stroke-width: 1.6; stroke-linejoin: round; }
+svg.star.on { fill: #e0a526; stroke: #c48d16; }
+header.top .favhdr svg.star { stroke: var(--brand-ink); }
+header.top .favhdr svg.star.on { fill: #ffc531; stroke: #ffc531; }
+.spotfind { width: 100%; margin-bottom: 10px; }
 .seg button[aria-pressed=true] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
 .filters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
 .filters select { min-height: 40px; font-size: 14px; }
@@ -436,7 +445,7 @@ svg.chart .warrow { fill: #5b7fa6; }
   <a href="#/boards" data-tab="boards"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c3 3 4.5 7 4.5 10.5S15 20 12 22c-3-2-4.5-6-4.5-9.5S9 5 12 2z"/><path d="M12 5v14"/></svg>Boards</a>
   <a href="#/fins" data-tab="fins"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20c0-7 3-13 10-16 1 5 2 11 4 16z"/><path d="M4 20h16"/></svg>Fins</a>
   <a href="#/sessions" data-tab="sessions"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 16c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/><path d="M2 10c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/></svg>Sessions</a>
-  <a href="#/stats" data-tab="stats"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Stats</a>
+  <a href="#/spots" data-tab="spots"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 17l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z"/></svg>Spots</a>
   <a href="#/map" data-tab="map"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.5-6-10a6 6 0 0 1 12 0c0 4.5-6 10-6 10z"/><circle cx="12" cy="11" r="2.2"/></svg>Map</a>
   <a href="#/settings" data-tab="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>Settings</a>
 </nav>
@@ -447,7 +456,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 10.5 (interactive forecast with wind and tide)';
+const BUILD = 'Build 11 (Spots tab with favorites; Sessions and Stats share a tab)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -2337,19 +2346,19 @@ function renderSessionFins() {
 /* =========================================================
    SESSIONS
    ========================================================= */
-function sessionTable(list, { hideBoard } = {}) {
-  return `<div class="card"><table class="list"><thead><tr><th>Date</th><th>${hideBoard ? 'Spot' : 'Spot · board'}</th><th>Size</th><th>Fun</th></tr></thead><tbody>
+function sessionTable(list, { hideBoard, hideSpot } = {}) {
+  return `<div class="card"><table class="list"><thead><tr><th>Date</th><th>${hideSpot ? 'Board' : hideBoard ? 'Spot' : 'Spot · board'}</th><th>Size</th><th>Fun</th></tr></thead><tbody>
     ${list.map(s => {
       const sp = spotById(s.spotId), b = boardById(s.boardId);
       return `<tr class="click" data-href="#/session/${esc(s.id)}">
         <td class="nowrap"><a href="#/session/${esc(s.id)}">${esc(fmtDateShort(s.start))}</a></td>
-        <td>${esc(sp ? sp.name : 'No spot')}${hideBoard ? '' : `<br><span class="sub">${esc(boardName(b))}</span>`}</td>
+        <td>${hideSpot ? esc(boardName(b)) : `${esc(sp ? sp.name : 'No spot')}${hideBoard ? '' : `<br><span class="sub">${esc(boardName(b))}</span>`}`}</td>
         <td class="nowrap">${esc(shortSize(s.waveSize)) || '<span class="sub">–</span>'}</td>
         <td>${funStars(s.fun)}</td></tr>`;
     }).join('')}</tbody></table></div>`;
 }
 function viewSessions(q) {
-  setTop('Sessions', null, `<a class="hact plus" href="#/sessions/new" aria-label="Log a session">+</a>`);
+  setTop('Sessions', null, `<a class="hact plus" href="#/sessions/new" aria-label="Log a session">+</a>${sessStatsSeg('sessions')}`);
   if (!S.sessions.length) {
     setMain(`<div class="empty"><div class="big">No sessions yet</div><div>${S.boards.length ? 'Log a surf to start tracking how each board goes.' : 'Add a board first, then log your surfs against it.'}</div>
       ${S.boards.length ? '<a class="btn primary" href="#/sessions/new">Log a session</a>' : '<a class="btn primary" href="#/boards/new">Add a board</a>'}</div>`);
@@ -2679,7 +2688,7 @@ function spotSummary(sp, list) {
     <div>${plural(st.count, 'session')}${st.avgFun != null ? ` · avg fun ${fmtAvg(st.avgFun)}` : ''}</div>
     ${st.last ? `<div class="sub">Last surfed ${esc(fmtDate(st.last))}</div>` : ''}
     ${bb ? `<div>Most fun here: <strong>${esc(bb.label)}</strong> (${fmtAvg(bb.avg)})</div>` : ''}
-    <div class="popup-links">${st.count ? `<a href="#/sessions?spot=${encodeURIComponent(sp.id)}">Sessions</a>` : ''}<a href="#/sessions/new?spot=${encodeURIComponent(sp.id)}">Log here</a></div>`;
+    <div class="popup-links"><a href="#/spot/${encodeURIComponent(sp.id)}">Spot page${sp.fav ? ' ★' : ''}</a>${st.count ? `<a href="#/sessions?spot=${encodeURIComponent(sp.id)}">Sessions</a>` : ''}<a href="#/sessions/new?spot=${encodeURIComponent(sp.id)}">Log here</a></div>`;
 }
 function spotsMap(el, sessions, { small, showAll, state } = {}) {
   const map = makeMap(el, small ? { zoomControl: false, scrollWheelZoom: false, layersControl: false } : { buoys: true, state, fullscreen: true });
@@ -2930,7 +2939,7 @@ async function conditionsNow(spot) {
   return out;
 }
 function viewStats() {
-  setTop('Stats');
+  setTop('Stats', null, sessStatsSeg('stats'));
   const all = S.sessions;
   if (!all.length) {
     setMain(`<div class="empty"><div class="big">No stats yet</div><div>Log a few sessions and your most ridden boards, spots and a board pick for today show up here.</div>${S.boards.length ? '<a class="btn primary" href="#/sessions/new">Log a session</a>' : '<a class="btn primary" href="#/boards/new">Add a board</a>'}</div>`);
@@ -2971,13 +2980,13 @@ function viewStats() {
     ${all.length >= MIN_RIDDEN ? rankList(ridden(byBoard, id => boardName(boardById(id)), (id, g) => { const a = avg(g.map(x => x.fun).filter(Boolean)); return a != null ? `avg fun ${fmtAvg(a)}` : ''; }), r => `${r.v}`, r => `#/board/${r.id}`) : lockedCard('Most ridden boards', 'session', all.length, MIN_RIDDEN)}
 
     <h2 class="sec">Most ridden spots</h2>
-    ${all.length >= MIN_RIDDEN ? rankList(ridden(bySpot, id => spotById(id).name, (id, g) => { const a = avg(g.map(x => x.fun).filter(Boolean)); return a != null ? `avg fun ${fmtAvg(a)}` : ''; }), r => `${r.v}`, r => `#/sessions?spot=${encodeURIComponent(r.id)}`) : lockedCard('Most ridden spots', 'session', all.length, MIN_RIDDEN)}
+    ${all.length >= MIN_RIDDEN ? rankList(ridden(bySpot, id => spotById(id).name, (id, g) => { const a = avg(g.map(x => x.fun).filter(Boolean)); return a != null ? `avg fun ${fmtAvg(a)}` : ''; }), r => `${r.v}`, r => `#/spot/${encodeURIComponent(r.id)}`) : lockedCard('Most ridden spots', 'session', all.length, MIN_RIDDEN)}
 
     <h2 class="sec">Most fun boards</h2>
     ${rated.length >= MIN_FUN ? (funRank(byBoard, id => boardName(boardById(id))).length ? rankList(funRank(byBoard, id => boardName(boardById(id))), r => fmtAvg(r.v), r => `#/board/${r.id}`) : '<div class="card"><div class="stack sub">Each board needs at least 2 rated sessions to be ranked.</div></div>') : lockedCard('Most fun boards', 'rated session', rated.length, MIN_FUN)}
 
     <h2 class="sec">Most fun spots</h2>
-    ${rated.length >= MIN_FUN ? (funRank(bySpot, id => spotById(id).name).length ? rankList(funRank(bySpot, id => spotById(id).name), r => fmtAvg(r.v), r => `#/sessions?spot=${encodeURIComponent(r.id)}`) : '<div class="card"><div class="stack sub">Each spot needs at least 2 rated sessions to be ranked.</div></div>') : lockedCard('Most fun spots', 'rated session', rated.length, MIN_FUN)}
+    ${rated.length >= MIN_FUN ? (funRank(bySpot, id => spotById(id).name).length ? rankList(funRank(bySpot, id => spotById(id).name), r => fmtAvg(r.v), r => `#/spot/${encodeURIComponent(r.id)}`) : '<div class="card"><div class="stack sub">Each spot needs at least 2 rated sessions to be ranked.</div></div>') : lockedCard('Most fun spots', 'rated session', rated.length, MIN_FUN)}
 
     <h2 class="sec">Fun by tide</h2>
     ${tideStages.filter(t => t.f.length).length >= 2 && rated.filter(s => s.tide).length >= MIN_FUN ? `<div class="card chartbox" style="height:180px"><canvas id="chTide" aria-label="Average fun by tide stage"></canvas></div>` : lockedCard('Fun by tide', 'rated session with tide data', rated.filter(s => s.tide).length, MIN_FUN)}
@@ -3017,6 +3026,93 @@ async function renderPick(spotId) {
 }
 
 /* =========================================================
+   SPOTS tab: favorite spots, each with its own page
+   ========================================================= */
+const STAR = on => `<svg viewBox="0 0 24 24" aria-hidden="true" class="star${on ? ' on' : ''}"><path d="M12 3.2l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 17l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z"/></svg>`;
+async function toggleFav(id) {
+  const sp = spotById(id);
+  if (!sp) return;
+  await putMany('spots', [{ ...sp, fav: !sp.fav }]);
+  await loadAll();
+  toast(sp.fav ? 'Removed from favorites' : 'Added to favorites');
+}
+function spotRow(sp) {
+  const list = sessionsFor('spotId', sp.id), st = statsOf(list);
+  const bb = topBy(list.filter(x => x.fun), 'boardId', id => boardName(boardById(id)));
+  const sub = [sp.region || 'Your spot', st.count ? plural(st.count, 'session') : '', st.last ? `last ${fmtDate(st.last)}` : '', bb ? `best: ${bb.label}` : ''].filter(Boolean).join(' · ');
+  return `<a class="row" href="#/spot/${encodeURIComponent(sp.id)}"><span class="grow"><span class="label">${esc(sp.name)}</span><br><span class="sub">${esc(sub)}</span></span>
+    <button type="button" class="favbtn" data-act="fav" data-id="${esc(sp.id)}" aria-label="${sp.fav ? 'Remove from favorites' : 'Add to favorites'}" aria-pressed="${!!sp.fav}">${STAR(sp.fav)}</button><span class="chev" aria-hidden="true">&#8250;</span></a>`;
+}
+function viewSpotsTab() {
+  setTop('Spots');
+  const favs = spotsSorted().filter(sp => sp.fav && !sp.hidden);
+  const surfed = spotsSorted().filter(sp => !sp.fav && !sp.hidden && S.sessions.some(s => s.spotId === sp.id))
+    .sort((a, b) => sessionsFor('spotId', b.id).length - sessionsFor('spotId', a.id).length);
+  setMain(`
+    <input type="search" id="spotFind" class="spotfind" placeholder="Find a spot to add" aria-label="Find a spot" autocomplete="off">
+    <div id="spotFound"></div>
+    <h2 class="sec">Favorites</h2>
+    ${favs.length ? `<div class="card">${favs.map(spotRow).join('')}</div>` : '<div class="card"><div class="stack sub">Tap the star on any spot to keep it here. Find spots above, on the map, or below.</div></div>'}
+    ${surfed.length ? `<h2 class="sec">Other spots you've surfed</h2><div class="card">${surfed.map(spotRow).join('')}</div>` : ''}
+    <p class="note">Open a spot for the forecast, a board pick for right now, and your sessions there.</p>`);
+  const find = $('#spotFind'), out = $('#spotFound');
+  find.addEventListener('input', () => {
+    const q = find.value.trim().toLowerCase();
+    if (!q) { out.innerHTML = ''; return; }
+    const hits = spotsSorted().filter(sp => !sp.hidden && (sp.name.toLowerCase().includes(q) || (sp.region || '').toLowerCase().includes(q))).slice(0, 12);
+    out.innerHTML = hits.length ? `<div class="card">${hits.map(spotRow).join('')}</div>` : '<div class="card"><div class="stack sub">No spots match.</div></div>';
+  });
+}
+function viewSpotPage(id) {
+  const sp = spotById(id);
+  if (!sp) { location.replace('#/spots'); return; }
+  const list = sessionsFor('spotId', id).sort((a, b) => b.start.localeCompare(a.start)), st = statsOf(list);
+  const ratedHere = list.filter(s => s.fun);
+  const byBoard = [...groupBy(ratedHere, 'boardId')].filter(([bid]) => boardById(bid))
+    .map(([bid, g]) => ({ id: bid, v: avg(g.map(s => s.fun)), n: g.length, label: boardName(boardById(bid)), sub: plural(g.length, 'rated session') })).sort((a, b) => b.v - a.v || b.n - a.n);
+  const ratedCond = S.sessions.filter(s => s.fun && s.swell);
+  const boardsWithRated = new Set(ratedCond.map(s => s.boardId).filter(b => boardById(b) && !boardById(b).retired)).size;
+  setTop(sp.name, '#/spots', `<button type="button" class="hact favhdr" data-act="fav" data-id="${esc(id)}" aria-label="${sp.fav ? 'Remove from favorites' : 'Add to favorites'}" aria-pressed="${!!sp.fav}">${STAR(sp.fav)}</button>`);
+  setMain(`
+    <div class="sub" style="margin-bottom:10px">${esc(sp.region || 'Your spot')}</div>
+    <div class="actions-row" style="margin-top:0"><a class="btn primary" href="#/sessions/new?spot=${encodeURIComponent(id)}">Log a session here</a><a class="btn" href="#/map?c=${sp.lat.toFixed(4)},${sp.lon.toFixed(4)}&z=14">Map</a></div>
+    <h2 class="sec">Board pick for right now</h2>
+    ${ratedCond.length >= MIN_PICK && boardsWithRated >= 2 ? '<div class="card pick"><div id="pickBody"><span class="sub">Checking the swell, tide and wind…</span></div></div>'
+      : lockedCard('Board pick for right now', 'rated sessions with swell data', ratedCond.length, MIN_PICK)}
+    <h2 class="sec">Forecast</h2>
+    <div class="card" id="spotFc" style="padding:10px 12px"><span class="sub">Loading the 5-day forecast…</span></div>
+    <h2 class="sec">Your sessions here</h2>
+    ${list.length ? `<div class="stats">
+        <div class="stat"><div class="v">${st.count}</div><div class="k">Sessions</div></div>
+        <div class="stat"><div class="v">${st.avgFun != null ? fmtAvg(st.avgFun) : '–'}</div><div class="k">Average fun</div></div>
+        <div class="stat"><div class="v">${st.last ? esc(fmtDateShort(st.last)) : '–'}</div><div class="k">Last surfed</div></div>
+      </div>
+      ${byBoard.length ? `<h2 class="sec">Best boards here</h2>${rankList(byBoard.slice(0, 5), r => fmtAvg(r.v), r => `#/board/${r.id}`)}` : ''}
+      <div style="margin-top:12px">${sessionTable(list.slice(0, 20), { hideSpot: true })}</div>
+      ${list.length > 20 ? `<p><a href="#/sessions?spot=${encodeURIComponent(id)}">All ${list.length} sessions here</a></p>` : ''}`
+      : '<div class="card"><div class="stack sub">No sessions here yet.</div></div>'}`);
+  if ($('#pickBody')) renderPick(id);
+  (async () => {
+    try {
+      const [fc, ex] = await Promise.all([spotForecast(sp), forecastExtras(sp.lat, sp.lon).catch(() => null)]);
+      const box = $('#spotFc');
+      if (!box || !location.hash.startsWith('#/spot/')) return;
+      const f = buildForecast(fc, ex);
+      box.innerHTML = f.html;
+      bindForecast(box, f.model);
+    } catch (e) {
+      const box = $('#spotFc');
+      if (box) box.innerHTML = `<span class="sub">Couldn't load the forecast${navigator.onLine === false ? " (you're offline)" : ''}.</span>`;
+    }
+  })();
+}
+/* Sessions and Stats share a tab; this switch sits in their header. */
+function sessStatsSeg(cur) {
+  return `<div class="seg hseg" role="group" aria-label="Sessions or stats">
+    <a href="#/sessions" aria-pressed="${cur === 'sessions'}">Sessions</a><a href="#/stats" aria-pressed="${cur === 'stats'}">Stats</a></div>`;
+}
+
+/* =========================================================
    SETTINGS
    ========================================================= */
 /* ---------- How to use ---------- */
@@ -3044,8 +3140,12 @@ function viewHelp() {
       <li>Once a spot and time are set, the app looks up the <strong>swell, tide and weather</strong> for that hour and suggests a wave size. Adjust anything that was different at the beach.</li>
       <li>To change a logged session, tap it in any session list. Every value can be changed. Open <strong>Edit swell, tide and weather</strong> to correct the looked-up conditions; your values are kept until you tap Refresh.</li>
       <li>Delete a session from the bottom of its edit page.</li></ul>`)}
+    ${sec('Spots and favorites', `<ul>
+      <li>The <strong>Spots</strong> tab lists your favorite spots, then other spots you've surfed. Find any spot with the search box and tap the star to make it a favorite.</li>
+      <li>Open a spot for a <strong>board pick for right now</strong> (from your past sessions in similar conditions), the 5-day forecast with swell, wind and tide, the best boards you've ridden there, and your sessions there.</li>
+      <li>Spot popups on the map have a <strong>Spot page</strong> link too.</li></ul>`)}
     ${sec('Stats and the board pick', `<ul>
-      <li>The Stats tab shows totals, your most ridden and most fun boards and spots, fun by tide and sessions per month. Some cards unlock after you've logged enough sessions.</li>
+      <li>Stats sit with Sessions: use the Sessions / Stats switch at the top. Stats shows totals, your most ridden and most fun boards and spots, fun by tide and sessions per month. Some cards unlock after you've logged enough sessions.</li>
       <li><strong>Board pick</strong> looks at the current swell, tide and wind near your chosen spot and ranks your boards by how much fun you had on them in similar conditions. Higher fun ratings count for much more.</li></ul>`)}
     ${sec('The map', `<ul>
       <li>Colored dots are spots you've surfed (size = sessions, color = average fun). Small white dots are spots you haven't surfed; turn them on or off with <strong>All spots</strong> in the header.</li>
@@ -3385,6 +3485,7 @@ document.addEventListener('click', async e => {
   try {
     switch (act) {
       case 'close': closeDialog(); break;
+      case 'fav': e.preventDefault(); await toggleFav(id); if (location.hash.startsWith('#/spot') || location.hash.startsWith('#/spots')) { const q = $('#spotFind') && $('#spotFind').value; route(); if (q && $('#spotFind')) { $('#spotFind').value = q; $('#spotFind').dispatchEvent(new Event('input')); } } break;
       case 'refresh-app': await refreshApp(); break;
       case 'back': goBack(el.dataset.fallback || '#/boards'); break;
       case 'view': await savePrefs({ boardsView: el.dataset.v }); route(); break;
@@ -3524,7 +3625,7 @@ function route() {
   const [path, qs] = (location.hash || '#/boards').slice(2).split('?');
   const parts = path.split('/').map(decodeURIComponent);
   const q = new URLSearchParams(qs || '');
-  const tabFor = { boards: 'boards', board: 'boards', fins: 'fins', fin: 'fins', sessions: 'sessions', session: 'sessions', stats: 'stats', map: 'map', settings: 'settings' };
+  const tabFor = { boards: 'boards', board: 'boards', fins: 'fins', fin: 'fins', sessions: 'sessions', session: 'sessions', stats: 'sessions', spots: 'spots', spot: 'spots', map: 'map', settings: 'settings' };
   const tab = tabFor[parts[0]] || 'boards';
   document.querySelectorAll('#tabs a').forEach(a => {
     const on = a.dataset.tab === tab;
@@ -3540,6 +3641,8 @@ function route() {
     case 'session': return viewSessionForm(parts[1], q);
     case 'map': return viewMap(q);
     case 'stats': return viewStats();
+    case 'spots': return viewSpotsTab();
+    case 'spot': return viewSpotPage(parts[1]);
     case 'settings':
       if (parts[1] === 'help') return viewHelp();
       if (parts[1] === 'list') return viewList(parts[2]);
