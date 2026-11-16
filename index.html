@@ -399,13 +399,6 @@ details.install li { margin: 3px 0; }
 .lyr:not(.leaflet-control-layers-expanded) .lyr-panel { display: none; }
 .lyr.leaflet-control-layers-expanded .leaflet-control-layers-toggle { display: none; }
 .lyr-panel { min-width: 236px; }
-.water-icon { background: none; border: 0; }
-.water-icon svg { filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)); display: block; }
-.wqage { font-size: 13px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 2px; }
-.wq { margin: 6px 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.wqchip { color: #fff; font-weight: 650; font-size: 13px; padding: 2px 8px; border-radius: 10px; }
-td.over { color: #d64541; font-weight: 700; }
-.whist { display: inline-flex; align-items: center; gap: 3px; margin-right: 8px; white-space: nowrap; }
 .lyr-row { display: flex !important; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; border-top: 1px solid var(--line, rgba(0,0,0,.08)); }
 .lyr-row > span { display: flex; flex-direction: column; line-height: 1.15; }
 .lyr-row small { color: var(--muted); font-size: 12px; }
@@ -536,7 +529,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 13.3 (buoy forecasts add secondary and tertiary swells)';
+const BUILD = 'Build 13.4 (water quality layer removed)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -552,7 +545,6 @@ const BASEMAPS = {
 const USGS_CREDIT = '<a href="https://www.usgs.gov/programs/national-geospatial-program/national-map" target="_blank" rel="noopener">USGS The National Map</a>';
 const BUOY_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/buoys.json';
 const WAVEGRID_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/wavegrid.json';
-const WATER_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/water.json';
 /* CDIP's California wave-height grid (0.01°), drawn as image tiles by CDIP's own WMS server. */
 const WAVE_WMS = 'https://thredds.cdip.ucsd.edu/thredds/wms/cdip/model/MOP_grids/CA_0.01_';
 const WAVE_MAX_M = 6.096; /* 20 ft, the top of CDIP's own color scale */
@@ -703,7 +695,7 @@ async function seed() {
 
 /* ---------- in-memory state ---------- */
 const S = { options: [], boards: [], sessions: [], spots: [], photos: new Map(), meta: {}, fins: [], finLinks: [] };
-const PREF_DEFAULTS = { boardsView: 'tiles', boardSort: 'model', filterType: '', filterShaper: '', showRetired: false, pagerIndex: 0, units: 'ft', sessionSort: 'newest', finsView: 'table', finPagerIndex: 0, finSort: 'name', filterFinSetup: '', showRetiredFins: false, showAllSpots: true, statsSpot: '', disabledLists: [], baseMap: 'map', showBuoys: true, showWaves: false, showPeriod: false, showRating: false, showPulse: false, showWater: false, showHazard: false, windUnits: 'kt' };
+const PREF_DEFAULTS = { boardsView: 'tiles', boardSort: 'model', filterType: '', filterShaper: '', showRetired: false, pagerIndex: 0, units: 'ft', sessionSort: 'newest', finsView: 'table', finPagerIndex: 0, finSort: 'name', filterFinSetup: '', showRetiredFins: false, showAllSpots: true, statsSpot: '', disabledLists: [], baseMap: 'map', showBuoys: true, showWaves: false, showPeriod: false, showRating: false, showPulse: false, showHazard: false, windUnits: 'kt' };
 let prefs = { ...PREF_DEFAULTS };
 async function loadAll() {
   const [options, boards, sessions, spots, photos, meta, fins, finLinks] = await Promise.all(STORES.map(getAll));
@@ -1093,9 +1085,6 @@ function makeMap(el, opts = {}) {
     const layer = buoyLayer();
     overlays['Buoys'] = layer;
     if (st.overlays ? st.overlays.has('buoys') : prefs.showBuoys) layer.addTo(map);
-    const water = waterLayer();
-    overlays[WATER_NAME] = water;
-    if (st.overlays ? st.overlays.has('water') : prefs.showWater) water.addTo(map);
     /* CDIP grids: wave height or peak period, one at a time (they would hide each other). */
     map.waveLayers = {};
     for (const [key, cfg] of Object.entries(GRID_LAYERS)) {
@@ -1140,7 +1129,6 @@ function makeMap(el, opts = {}) {
             ${map.waveLayers ? `<label class="lyr-row"><span>Wave model <small>CDIP, Calif.</small></span><select data-lyr="grid"><option value="off">Off</option>${Object.entries(GRID_LAYERS).map(([k, c]) => `<option value="${k}">${esc(c.title)}</option>`).join('')}</select></label>` : ''}
             ${map.ratingLayer ? `<label class="lyr-row"><span>Spot style</span><select data-lyr="style"><option value="sessions">My sessions</option><option value="rating">Surf rating</option><option value="pulse">Swell pulse</option><option value="both">Rating + pulse</option><option value="hazard">Shore hazard</option></select></label>` : ''}
             ${overlays['Buoys'] ? '<label class="lyr-row lyr-sw"><span>Buoys</span><input type="checkbox" role="switch" data-lyr="buoys"></label>' : ''}
-            ${overlays[WATER_NAME] ? '<label class="lyr-row lyr-sw"><span>Water quality <small>Calif. beaches</small></span><input type="checkbox" role="switch" data-lyr="water"></label>' : ''}
           </div>`;
         L.DomEvent.disableClickPropagation(d);
         L.DomEvent.disableScrollPropagation(d);
@@ -1150,7 +1138,6 @@ function makeMap(el, opts = {}) {
           if (q('grid')) q('grid').value = gridOf();
           if (q('style')) q('style').value = styleOf();
           if (q('buoys')) q('buoys').checked = map.hasLayer(overlays['Buoys']);
-          if (q('water')) q('water').checked = map.hasLayer(overlays[WATER_NAME]);
         };
         const open = on => { d.classList.toggle('leaflet-control-layers-expanded', on); if (on) sync(); };
         d.querySelector('.leaflet-control-layers-toggle').addEventListener('click', e => { e.preventDefault(); open(!d.classList.contains('leaflet-control-layers-expanded')); });
@@ -1175,7 +1162,6 @@ function makeMap(el, opts = {}) {
           setOv(map.pulseLayer, PULSE_NAME, v === 'pulse' || v === 'both');
         });
         if (q('buoys')) q('buoys').addEventListener('change', e => setOv(overlays['Buoys'], 'Buoys', e.target.checked));
-        if (q('water')) q('water').addEventListener('change', e => setOv(overlays[WATER_NAME], WATER_NAME, e.target.checked));
         map.on('overlayadd overlayremove baselayerchange', () => { if (d.classList.contains('leaflet-control-layers-expanded')) sync(); });
         this.expand = () => open(true); this.collapse = () => open(false);
         return d;
@@ -1191,7 +1177,6 @@ function makeMap(el, opts = {}) {
     });
     map.on('overlayadd overlayremove', e => {
       if (e.name === 'Buoys') savePrefs({ showBuoys: e.type === 'overlayadd' });
-      if (e.name === WATER_NAME) savePrefs({ showWater: e.type === 'overlayadd' });
       for (const cfg of Object.values(GRID_LAYERS)) if (e.name === cfg.name) savePrefs({ [cfg.pref]: e.type === 'overlayadd' });
       if (e.name === RATING_NAME) savePrefs({ showRating: e.type === 'overlayadd' });
       if (e.name === PULSE_NAME) savePrefs({ showPulse: e.type === 'overlayadd' });
@@ -1514,73 +1499,6 @@ function buoyPopup(b, r, data) {
     ${sparkline(r.history)}
     ${buoyLinks(b)}
     ${cdipPlots(b)}`;
-}
-/* ---------- Beach water quality (California) ---------- */
-const WATER_NAME = 'Water quality';
-/* California's single-sample limits for ocean beaches (AB 411), per 100 mL. E. coli is read against the
-   fecal coliform limit, as counties use it in its place. */
-const WATER_TESTS = [['ent', 'Enterococcus', 104], ['fc', 'Fecal coliform', 400], ['ec', 'E. coli', 400], ['tc', 'Total coliform', 10000]];
-/* Only samples this recent are shown: older bacteria results say little about the water now. */
-const WATER_MAX_DAYS = 4;
-/* Whole days since a sample date (local calendar days: today 0, yesterday 1). */
-const sampleAge = d => Math.round((new Date().setHours(0, 0, 0, 0) - new Date(d + 'T00:00:00').getTime()) / 86400000);
-const agoDays = n => n <= 0 ? 'Today' : n === 1 ? 'Yesterday' : `${n} days ago`;
-const WATER_LEVELS = { good: ['Good', '#2fa36b'], caution: ['Watch', '#e8a33d'], bad: ['Over limit', '#d64541'], old: ['Old sample', '#9aa3a7'] };
-function waterScore(smp) {
-  if (!smp) return { level: 'old', r: null };
-  let r = 0;
-  for (const [k, , lim] of WATER_TESTS) if (smp[k] != null) r = Math.max(r, smp[k] / lim);
-  const fecal = smp.fc ?? smp.ec;
-  if (smp.tc != null && smp.tc > 1000 && fecal != null && fecal / smp.tc > 0.1) r = Math.max(r, 1.01);
-  const days = sampleAge(smp.d);
-  return { level: days > WATER_MAX_DAYS ? 'old' : r > 1 ? 'bad' : r > 0.5 ? 'caution' : 'good', r, days };
-}
-const DROP_PATH = 'M9 1.5C9 1.5 2.5 9 2.5 13a6.5 6.5 0 0 0 13 0C15.5 9 9 1.5 9 1.5z';
-function waterIcon(level) {
-  const c = WATER_LEVELS[level][1];
-  return L.divIcon({ className: 'water-icon', iconSize: [18, 22], iconAnchor: [9, 20], popupAnchor: [0, -18],
-    html: `<svg viewBox="0 0 18 22" width="18" height="22" aria-hidden="true"><path d="${DROP_PATH}" fill="${c}" stroke="#fff" stroke-width="1.6"/>${level === 'bad' ? '<path d="M9 9v4.5" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="16.3" r="1.1" fill="#fff"/>' : ''}</svg>` });
-}
-function waterPopup(st) {
-  const smp = st.samples && st.samples[0], sc = waterScore(smp), [label, color] = WATER_LEVELS[sc.level];
-  const val = (x, k) => x[k] == null ? '' : `${x[k + 'q'] === '<' ? '&lt;' : x[k + 'q'] === '>' ? '&gt;' : ''}${Math.round(x[k]).toLocaleString()}`;
-  const rows = WATER_TESTS.filter(([k]) => smp && smp[k] != null).map(([k, name, lim]) => `<tr><th>${name}</th><td${smp[k] > lim ? ' class="over"' : ''}>${val(smp, k)}</td><td class="sub">${lim.toLocaleString()}</td></tr>`).join('');
-  const hist = (st.samples || []).slice(1).map(x => { const s2 = waterScore(x); return `<span class="whist" title="${esc(WATER_LEVELS[s2.level][0])}"><span class="dot" style="background:${WATER_LEVELS[s2.level][1]}"></span>${esc(new Date(x.d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))}</span>`; }).join('');
-  return `<div class="wqage">${smp ? `Sampled ${esc(agoDays(sc.days).toLowerCase())}` : 'No recent sample'}</div>
-    <div class="popup-title">${esc(st.name)}</div>
-    ${st.desc && st.desc.toLowerCase() !== st.name.toLowerCase() ? `<div class="sub">${esc(st.desc)}</div>` : ''}
-    <div class="wq"><span class="wqchip" style="background:${color}">${esc(label)}</span> <span class="sub">${smp ? esc(new Date(smp.d + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })) : '–'}${st.agency ? ` · ${esc(st.agency)}` : ''}</span></div>
-    ${rows ? `<table class="bt"><tr><th></th><th>Result</th><th>Limit</th></tr>${rows}</table><div class="sub">Bacteria per 100 mL.</div>` : ''}
-    ${hist ? `<div class="sub" style="margin-top:6px">Earlier: ${hist}</div>` : ''}
-    <div class="sub" style="margin-top:6px">Only samples from the last ${WATER_MAX_DAYS} days are shown. Past samples, not today’s water. Stay out for about 3 days after rain. Data: California State Water Board (BeachWatch / Safe to Swim). <a href="https://mywaterquality.ca.gov/safe_to_swim/" target="_blank" rel="noopener">Safe to Swim map</a></div>`;
-}
-let waterFetch = null;
-async function loadWater() {
-  if (S.waterData && Date.now() - S.waterAt < 60 * 60 * 1000) return S.waterData;
-  if (!waterFetch) waterFetch = (async () => {
-    try { const r = await fetch(`${WATER_URL}?t=${Math.floor(Date.now() / 3600000)}`, { cache: 'no-store' }); if (r.ok) { S.waterData = await r.json(); S.waterAt = Date.now(); } } catch (e) {}
-    waterFetch = null;
-    return S.waterData;
-  })();
-  return waterFetch;
-}
-function waterLayer() {
-  const group = L.layerGroup();
-  let drawn = false;
-  group.on('add', async () => {
-    if (drawn) return;
-    const data = await loadWater();
-    if (!data || drawn) return;
-    drawn = true;
-    const recent = (data.stations || []).filter(st => st.samples && st.samples[0] && sampleAge(st.samples[0].d) <= WATER_MAX_DAYS);
-    if (!recent.length) toast(`No beach water samples from the last ${WATER_MAX_DAYS} days in the state's data yet${data.newest ? ` (newest: ${new Date(data.newest + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })})` : ''}.`);
-    for (const st of recent) {
-      const lvl = waterScore(st.samples[0]).level;
-      L.marker([st.lat, st.lon], { icon: waterIcon(lvl), title: `${st.name}: ${WATER_LEVELS[lvl][0]}`, zIndexOffset: -100 })
-        .bindPopup(() => waterPopup(st), { maxWidth: 320 }).addTo(group);
-    }
-  });
-  return group;
 }
 function buoyLayer() {
   const group = L.layerGroup();
@@ -3490,7 +3408,6 @@ function mapLink(map) {
   p.push(`c=${c.lat.toFixed(4)},${c.lng.toFixed(4)}`, `z=${map.getZoom()}`, `b=${BASEMAPS[map.baseKey].label.toLowerCase()}`);
   const ov = map.overlayLayers || {}, on = [];
   if (ov['Buoys'] && map.hasLayer(ov['Buoys'])) on.push('buoys');
-  if (ov[WATER_NAME] && map.hasLayer(ov[WATER_NAME])) on.push('water');
   let grid = null;
   for (const [k, g] of Object.entries(map.waveLayers || {})) if (map.hasLayer(g)) { on.push(k); grid = g; }
   if (map.ratingLayer && map.hasLayer(map.ratingLayer)) on.push('rating');
@@ -3855,7 +3772,7 @@ function viewHelp() {
       <li>With a CDIP layer on, the panel at the bottom steps from Now through the forecast hours.</li>
       <li>Tap the <strong>magnifier</strong> (top left) to search: matching surf spots show first as you type, then press Search for towns and addresses.</li>
       <li>Turn on <strong>Surf rating (spots)</strong> in the layers list to color the spots by a 0–5 rating from swell size and period, swell direction, wind (offshore or onshore) and, once you've rated a few sessions there, the tide. It follows the hour on the CDIP time panel.</li>
-      <li>The <strong>layers</strong> button opens menus for the base map, the CDIP wave model (wave height or peak period) and the spot style (my sessions, surf rating, swell pulse, rating + pulse or shore hazard), plus switches for buoys and California beach water quality (drops colored by the latest bacteria sample: good, watch, over limit).</li>
+      <li>The <strong>layers</strong> button opens menus for the base map, the CDIP wave model (wave height or peak period) and the spot style (my sessions, surf rating, swell pulse, rating + pulse or shore hazard), plus a switch for buoys.</li>
       <li><strong>Shore hazard</strong> colors spots by how far up the beach the water may reach: tide plus wave runup (Stockdon 2006 formula). It takes big surf and a high tide together to rate high. Spot forecasts show it per day and per hour; tap Shore ⓘ for details.</li>
       <li>Turn on <strong>Swell pulse (spots)</strong> to make each spot dot breathe: its size follows the swell height and its pace follows the swell period (one grow-and-shrink every 0.7 × the period, so a 12-second swell grows for about 4 seconds and shrinks for 4). Buoys pulse too, from their own readings. It also follows the CDIP time panel, and works with the surf rating colors.</li>
       <li>The spots menu in the header picks <strong>All spots</strong>, <strong>Primary spots</strong> (well-known breaks plus your favorites and spots you've surfed) or <strong>My spots</strong>, to thin out a crowded map.</li>

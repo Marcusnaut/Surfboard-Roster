@@ -1,8 +1,7 @@
 # Fetches the latest NOAA buoy readings for the US West and East coasts every 30 minutes and
 # CDIP 5-day forecasts for California buoys and spots (refreshed every ~6 hours), and publishes
 # them as buoys.json and forecasts.json on the `data` branch, which the app reads, plus
-# wavegrid.json: the hours available in CDIP's California wave-height map layer, and
-# water.json: recent beach bacteria results (State Water Board, refreshed twice a day).
+# wavegrid.json: the hours available in CDIP's California wave-height map layer.
 # GitHub may run scheduled jobs a few minutes late, and pauses them if the repository
 # has no activity for 60 days (re-enable under Actions if that happens).
 name: Update buoy data
@@ -49,12 +48,6 @@ jobs:
         run: |
           curl -fsSL "https://raw.githubusercontent.com/${REPO}/data/wavegrid.json" -o prev_wavegrid.json || true
           python3 tools/fetch_wave_grid.py out/wavegrid.json prev_wavegrid.json || cp prev_wavegrid.json out/wavegrid.json || true
-      - name: Beach water quality (California, refreshed twice a day)
-        env:
-          REPO: ${{ github.repository }}
-        run: |
-          curl -fsSL "https://raw.githubusercontent.com/${REPO}/data/water.json" -o prev_water.json || true
-          python3 tools/fetch_water.py out/water.json prev_water.json || cp prev_water.json out/water.json || true
       - name: Publish to the data branch
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
