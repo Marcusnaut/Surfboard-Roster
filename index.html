@@ -401,6 +401,7 @@ details.install li { margin: 3px 0; }
 .lyr-panel { min-width: 236px; }
 .water-icon { background: none; border: 0; }
 .water-icon svg { filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)); display: block; }
+.wqage { font-size: 13px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 2px; }
 .wq { margin: 6px 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .wqchip { color: #fff; font-weight: 650; font-size: 13px; padding: 2px 8px; border-radius: 10px; }
 td.over { color: #d64541; font-weight: 700; }
@@ -535,7 +536,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 13.1 (shoreline hazard; layers panel, water quality, buoy labels, cleaner day table)';
+const BUILD = 'Build 13.2 (water quality: last 4 days only, sample age at the top)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -1519,6 +1520,11 @@ const WATER_NAME = 'Water quality';
 /* California's single-sample limits for ocean beaches (AB 411), per 100 mL. E. coli is read against the
    fecal coliform limit, as counties use it in its place. */
 const WATER_TESTS = [['ent', 'Enterococcus', 104], ['fc', 'Fecal coliform', 400], ['ec', 'E. coli', 400], ['tc', 'Total coliform', 10000]];
+/* Only samples this recent are shown: older bacteria results say little about the water now. */
+const WATER_MAX_DAYS = 4;
+/* Whole days since a sample date (local calendar days: today 0, yesterday 1). */
+const sampleAge = d => Math.round((new Date().setHours(0, 0, 0, 0) - new Date(d + 'T00:00:00').getTime()) / 86400000);
+const agoDays = n => n <= 0 ? 'Today' : n === 1 ? 'Yesterday' : `${n} days ago`;
 const WATER_LEVELS = { good: ['Good', '#2fa36b'], caution: ['Watch', '#e8a33d'], bad: ['Over limit', '#d64541'], old: ['Old sample', '#9aa3a7'] };
 function waterScore(smp) {
   if (!smp) return { level: 'old', r: null };
@@ -1526,8 +1532,8 @@ function waterScore(smp) {
   for (const [k, , lim] of WATER_TESTS) if (smp[k] != null) r = Math.max(r, smp[k] / lim);
   const fecal = smp.fc ?? smp.ec;
   if (smp.tc != null && smp.tc > 1000 && fecal != null && fecal / smp.tc > 0.1) r = Math.max(r, 1.01);
-  const days = (Date.now() - Date.parse(smp.d + 'T12:00:00')) / 86400000;
-  return { level: days > 45 ? 'old' : r > 1 ? 'bad' : r > 0.5 ? 'caution' : 'good', r, days };
+  const days = sampleAge(smp.d);
+  return { level: days > WATER_MAX_DAYS ? 'old' : r > 1 ? 'bad' : r > 0.5 ? 'caution' : 'good', r, days };
 }
 const DROP_PATH = 'M9 1.5C9 1.5 2.5 9 2.5 13a6.5 6.5 0 0 0 13 0C15.5 9 9 1.5 9 1.5z';
 function waterIcon(level) {
@@ -1540,12 +1546,13 @@ function waterPopup(st) {
   const val = (x, k) => x[k] == null ? '' : `${x[k + 'q'] === '<' ? '&lt;' : x[k + 'q'] === '>' ? '&gt;' : ''}${Math.round(x[k]).toLocaleString()}`;
   const rows = WATER_TESTS.filter(([k]) => smp && smp[k] != null).map(([k, name, lim]) => `<tr><th>${name}</th><td${smp[k] > lim ? ' class="over"' : ''}>${val(smp, k)}</td><td class="sub">${lim.toLocaleString()}</td></tr>`).join('');
   const hist = (st.samples || []).slice(1).map(x => { const s2 = waterScore(x); return `<span class="whist" title="${esc(WATER_LEVELS[s2.level][0])}"><span class="dot" style="background:${WATER_LEVELS[s2.level][1]}"></span>${esc(new Date(x.d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))}</span>`; }).join('');
-  return `<div class="popup-title">${esc(st.name)}</div>
+  return `<div class="wqage">${smp ? `Sampled ${esc(agoDays(sc.days).toLowerCase())}` : 'No recent sample'}</div>
+    <div class="popup-title">${esc(st.name)}</div>
     ${st.desc && st.desc.toLowerCase() !== st.name.toLowerCase() ? `<div class="sub">${esc(st.desc)}</div>` : ''}
-    <div class="wq"><span class="wqchip" style="background:${color}">${esc(label)}</span> <span class="sub">Sampled ${smp ? esc(new Date(smp.d + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })) + ` (${Math.round(sc.days)} days ago)` : '–'}${st.agency ? ` · ${esc(st.agency)}` : ''}</span></div>
+    <div class="wq"><span class="wqchip" style="background:${color}">${esc(label)}</span> <span class="sub">${smp ? esc(new Date(smp.d + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })) : '–'}${st.agency ? ` · ${esc(st.agency)}` : ''}</span></div>
     ${rows ? `<table class="bt"><tr><th></th><th>Result</th><th>Limit</th></tr>${rows}</table><div class="sub">Bacteria per 100 mL.</div>` : ''}
     ${hist ? `<div class="sub" style="margin-top:6px">Earlier: ${hist}</div>` : ''}
-    <div class="sub" style="margin-top:6px">Past samples, not today’s water. Results reach the state’s data a week or more after sampling. Stay out for about 3 days after rain. Data: California State Water Board (BeachWatch / Safe to Swim). <a href="https://mywaterquality.ca.gov/safe_to_swim/" target="_blank" rel="noopener">Safe to Swim map</a></div>`;
+    <div class="sub" style="margin-top:6px">Only samples from the last ${WATER_MAX_DAYS} days are shown. Past samples, not today’s water. Stay out for about 3 days after rain. Data: California State Water Board (BeachWatch / Safe to Swim). <a href="https://mywaterquality.ca.gov/safe_to_swim/" target="_blank" rel="noopener">Safe to Swim map</a></div>`;
 }
 let waterFetch = null;
 async function loadWater() {
@@ -1565,8 +1572,10 @@ function waterLayer() {
     const data = await loadWater();
     if (!data || drawn) return;
     drawn = true;
-    for (const st of data.stations || []) {
-      const lvl = waterScore(st.samples && st.samples[0]).level;
+    const recent = (data.stations || []).filter(st => st.samples && st.samples[0] && sampleAge(st.samples[0].d) <= WATER_MAX_DAYS);
+    if (!recent.length) toast(`No beach water samples from the last ${WATER_MAX_DAYS} days in the state's data yet${data.newest ? ` (newest: ${new Date(data.newest + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })})` : ''}.`);
+    for (const st of recent) {
+      const lvl = waterScore(st.samples[0]).level;
       L.marker([st.lat, st.lon], { icon: waterIcon(lvl), title: `${st.name}: ${WATER_LEVELS[lvl][0]}`, zIndexOffset: -100 })
         .bindPopup(() => waterPopup(st), { maxWidth: 320 }).addTo(group);
     }
