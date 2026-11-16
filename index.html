@@ -536,7 +536,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 13.2 (water quality: last 4 days only, sample age at the top)';
+const BUILD = 'Build 13.3 (buoy forecasts add secondary and tertiary swells)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -1602,7 +1602,7 @@ function buoyLayer() {
       const base = buoyPopup(b, r, data);
       m.off('popupopen');
       m.bindPopup(base + (b.lat != null ? FC_LOADING : ''), POPUP_OPTS);
-      m.on('popupopen', e => fillForecast(e.popup, base, () => buoyForecast(b), [b.lat, b.lon]));
+      m.on('popupopen', e => fillForecast(e.popup, base, () => buoyForecast(b), [b.lat, b.lon], { buoy: true }));
     }
   };
   /* Place each label right, left, above or below its buoy, whichever is clear of other buoys and labels
@@ -1746,8 +1746,9 @@ async function nwsWind(lat, lon) {
     }).filter(p => p.s != null && Number.isFinite(p.t));
   } catch (e) { return []; }
 }
-async function forecastExtras(lat, lon) {
-  const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+const SWELL_MORE = ['secondary', 'tertiary'].flatMap(k => ['height', 'period', 'direction'].map(v => `${k}_swell_wave_${v}`));
+async function forecastExtras(lat, lon, more = false) {
+  const key = `${lat.toFixed(2)},${lon.toFixed(2)}${more ? '+' : ''}`;
   const hit = exCache.get(key);
   if (hit && Date.now() - hit.at < 30 * 60 * 1000) return hit.ex;
   const get = async (url, params) => {
@@ -1760,7 +1761,7 @@ async function forecastExtras(lat, lon) {
   const base = { latitude: lat.toFixed(4), longitude: lon.toFixed(4), forecast_days: '6', timezone: 'GMT' };
   const [w, m] = await Promise.all([
     get(WEATHER_URL, { ...base, hourly: 'wind_speed_10m,wind_direction_10m,wind_gusts_10m', wind_speed_unit: 'ms' }),
-    get(MARINE_URL, { ...base, hourly: 'sea_level_height_msl,swell_wave_direction,wave_direction', cell_selection: 'sea' })
+    get(MARINE_URL, { ...base, hourly: 'sea_level_height_msl,swell_wave_direction,wave_direction' + (more ? ',' + SWELL_MORE.join(',') : ''), cell_selection: 'sea' })
   ]);
   const series = (j, f) => { const h = j && j.hourly; return h && h.time ? h.time.map((t, i) => f(new Date(t + 'Z').getTime(), h, i)) : []; };
   const ex = {
@@ -1769,6 +1770,10 @@ async function forecastExtras(lat, lon) {
     /* Offshore swell direction. The CDIP point sits in 10 m of water, where a NW swell has already bent toward the beach. */
     sdir: series(m, (t, h, i) => ({ t, d: (h.swell_wave_direction || [])[i] ?? (h.wave_direction || [])[i] })).filter(p => p.d != null)
   };
+  /* Buoys: the model's secondary and tertiary swells (where the wave model provides them). */
+  if (more) for (const [k, pre] of [['sw2', 'secondary'], ['sw3', 'tertiary']]) {
+    ex[k] = series(m, (t, h, i) => ({ t, h: (h[pre + '_swell_wave_height'] || [])[i], p: (h[pre + '_swell_wave_period'] || [])[i], d: (h[pre + '_swell_wave_direction'] || [])[i] })).filter(p => p.h != null && p.h >= 0.05);
+  }
   /* Backup for wind when Open-Meteo doesn't answer: the National Weather Service hourly forecast (US only, no gusts). */
   if (!ex.wind.length) { ex.wind = await nwsWind(lat, lon); if (ex.wind.length) ex.windSrc = 'NWS'; }
   if (ex.wind.length || ex.tide.length) exCache.set(key, { at: Date.now(), ex });
@@ -1838,9 +1843,9 @@ function buildForecast(fc, ex, opts = {}) {
     const tl = vis.map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(1)} ${ty(p.h).toFixed(1)}`).join(' ');
     html += chart('Tide', TH, axisSVG(tAx, ty, L, W) + dayTicks(TH) + `<path d="${tl}" class="ln tide"/>`, 'Tide forecast for 5 days');
   }
-  html += `${opts.noTable ? '' : daysTableHTML(fc, ex, opts.spotId)}
+  html += `${opts.noTable ? '' : daysTableHTML(fc, ex, opts.spotId, opts.buoy)}
     <div class="sub">${esc(fc.source || '')}. Heights are significant wave height.${fc.site && ex && ex.sdir && ex.sdir.length ? ' Swell direction is offshore (Open-Meteo), like the buoys; in 10 m of water the swell has bent toward the beach.' : ''}${fc.link ? ` <a href="${fc.link}" target="_blank" rel="noopener">CDIP forecast</a>` : ''}${wind.length || tide.length ? (ex && ex.windSrc === 'NWS' ? ' Wind: National Weather Service. Tide: Open-Meteo.com (CC BY 4.0), modeled sea level.' : ' Wind and tide: Open-Meteo.com (CC BY 4.0); tide is modeled sea level.') : ''} Tap or drag on a chart for that hour.${opts.spotId ? ' <button type="button" class="linkbtn small" data-act="ratingHelp">About ratings</button>' : ''}</div></div>`;
-  return { html, model: { tA, tB, W, L, x, swell: use, wind, tide, turns: tideTurns(tide) } };
+  return { html, model: { tA, tB, W, L, x, swell: use, wind, tide, turns: tideTurns(tide), more: opts.buoy && ex ? [['Secondary', ex.sw2 || []], ['Tertiary', ex.sw3 || []]] : null } };
 }
 function bindForecast(root, model, start, onPick) {
   if (!root || !model) return;
@@ -1858,6 +1863,7 @@ function bindForecast(root, model, start, onPick) {
       <span>Swell <b>${esc(fmtHeight(s.h))}</b>${s.p != null ? ` @ ${Math.round(s.p)} s` : ''}${sDir(s) != null ? ` ${dirText(s)}` : ''}</span>
       ${w ? `<span>Wind <b>${esc(fmtWind(w.s))}</b> ${compass(w.d)}${w.g != null ? `, gusts ${esc(fmtWind(w.g))}` : ''}</span>` : ''}
       ${td ? `<span>Tide <b>${esc(fmtTideH(td.h))}</b> ${td.rising ? 'rising' : 'falling'}${next ? ` · ${next.type} ${esc(new Date(next.t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))} (${esc(fmtTideH(next.h))})` : ''}</span>` : ''}
+      ${(model.more || []).map(([lab, list]) => { const q = nearestPt(list, t); return q && Math.abs(q.t - t) < 2 * 3600000 ? `<span>${lab} <b>${esc(fmtHeight(q.h))}</b>${q.p != null ? ` @ ${Math.round(q.p)} s` : ''}${q.d != null ? ` ${dirDeg(q.d)}` : ''}</span>` : ''; }).join('')}
       ${hz ? `<span>Shore ${hazardBadge(hz)} water to ${esc(fmtLevel(hz.twl))} <span class="sub">(runup ${esc(fmtLevel(hz.r2))})</span></span>` : ''}`;
   };
   const fromEvent = (c, e) => {
@@ -1886,7 +1892,7 @@ async function fillForecast(popup, base, get, ll, opts = {}) {
     if (popup._adjustPan) popup._adjustPan();
     popupScrollHint(popup);
   };
-  const exP = ll ? forecastExtras(ll[0], ll[1]).catch(() => null) : Promise.resolve(null);
+  const exP = ll ? forecastExtras(ll[0], ll[1], !!opts.buoy).catch(() => null) : Promise.resolve(null);
   let fc;
   try { fc = await get(); } catch (e) {
     if (popup.isOpen()) { popup.setContent(base + `<div class="fc"><div class="sub">Couldn't load the forecast${navigator.onLine === false ? " (you're offline)" : ''}.</div></div>`); popup.update(); }
@@ -1963,7 +1969,7 @@ function outlookHTML(fc, ex, sp) {
   }).join('')}</div>`;
 }
 /* Days across, values down, so the days read left to right. With a spot id, each day opens its day view. */
-function daysTableHTML(fc, ex, spotId) {
+function daysTableHTML(fc, ex, spotId, buoy) {
   const sp = spotId ? spotById(spotId) : null;
   const days = [];
   for (let i = 0; i < 5; i++) { const s = daySummary(fc, ex, dayStart(i), false, sp); if (s) days.push(s); }
@@ -1978,6 +1984,10 @@ function daysTableHTML(fc, ex, spotId) {
     ${row(lab('Height', hU), d => { const a = hN(d.hLo), b = hN(d.hHi); return `<b>${a === b ? a : `${a}–${b}`}</b>`; })}
     ${row(lab('Period', 's'), d => d.p != null ? Math.round(d.p) : '')}
     ${row('From', d => sDir(d) != null ? `<b>${compass(sDir(d))}</b><small>${Math.round(sDir(d))}°</small>` : '')}
+    ${buoy && ex ? [['2nd swell', ex.sw2], ['3rd swell', ex.sw3]].map(([name, list]) => {
+      const big = d => (list || []).filter(q => q.t >= d.start && q.t < d.start + 86400000).reduce((a, q) => (!a || q.h > a.h ? q : a), null);
+      return days.some(big) ? row(lab(name, hU), d => { const q = big(d); return q ? `<b>${hN(q.h)}</b><small>${q.d != null ? dirDeg(q.d) : ''}${q.p != null ? ` · ${Math.round(q.p)} s` : ''}</small>` : '–'; }) : '';
+    }).join('') : ''}
     ${days.some(d => d.wS != null) ? row(lab('Wind', windU()[1]), d => d.wS != null ? `<b>${esc(fmtWindN(d.wS))}</b><small>${compass(d.wD)}</small>` : '') : ''}
     ${days.some(d => d.turns && d.turns.length) ? row(lab('High tide', ''), d => (d.turns || []).filter(p => p.type === 'high').map(p => esc(tShort(p.t))).join('<br>')) : ''}
   </table>${spotId ? `<div class="sub">Tap a day for that day’s forecast.${days.some(d => d.rating != null) ? ' Rating is the best of the daylight hours.' : ''}</div>` : ''}</div>`;
