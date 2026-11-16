@@ -535,7 +535,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 13.8 (CDIP layer fix at Now; message when spot swell data fails)';
+const BUILD = 'Build 13.9 (home area: Ventura by default, or your first spot surfed)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -722,7 +722,20 @@ const optLabel = id => { const o = S.options.find(x => x.id === id); return o ? 
 const shortSize = id => optLabel(id).split('(')[0].trim();
 const boardById = id => S.boards.find(b => b.id === id);
 const spotById = id => S.spots.find(s => s.id === id);
-const spotsSorted = () => [...S.spots].sort((a, b) => (a.order ?? 999) - (b.order ?? 999) || a.name.localeCompare(b.name));
+/* Home area: the spot region to show and load first. Set in Settings, or else the region of the first spot
+   surfed (earliest session), or else Ventura. */
+const HOME_DEFAULT = 'Ventura';
+function autoHomeRegion() {
+  const first = [...S.sessions].filter(x => x.spotId && x.start).sort((a, b) => a.start.localeCompare(b.start)).map(x => spotById(x.spotId)).find(sp => sp && sp.region);
+  return first ? first.region : HOME_DEFAULT;
+}
+const homeRegion = () => prefs.homeRegion || autoHomeRegion();
+const homeRank = sp => sp.region === homeRegion() ? 0 : 1;
+const spotsSorted = () => { const home = homeRegion(); return [...S.spots].sort((a, b) => (a.region === home ? 0 : 1) - (b.region === home ? 0 : 1) || (a.order ?? 999) - (b.order ?? 999) || a.name.localeCompare(b.name)); };
+function homeBounds() {
+  const pts = S.spots.filter(sp => !sp.hidden && sp.region === homeRegion()).map(sp => [sp.lat, sp.lon]);
+  return pts.length ? L.latLngBounds(pts) : null;
+}
 const sessionsFor = (field, id) => S.sessions.filter(s => s[field] === id);
 const finById = id => S.fins.find(f => f.id === id);
 const finsForBoard = boardId => S.finLinks.filter(l => l.boardId === boardId).map(l => finById(l.finId)).filter(Boolean);
@@ -905,7 +918,7 @@ function addSearchControl(map) {
         const term = q.value.trim().toLowerCase();
         if (!term) { res.innerHTML = '<div class="sub ms-hint">Type a spot name, town or address.</div>'; return; }
         const spots = S.spots.filter(sp => !sp.hidden && (sp.name.toLowerCase().includes(term) || (sp.region || '').toLowerCase().includes(term)))
-          .sort((a, b) => (a.name.toLowerCase().startsWith(term) ? 0 : 1) - (b.name.toLowerCase().startsWith(term) ? 0 : 1) || a.name.localeCompare(b.name)).slice(0, 8);
+          .sort((a, b) => (a.name.toLowerCase().startsWith(term) ? 0 : 1) - (b.name.toLowerCase().startsWith(term) ? 0 : 1) || homeRank(a) - homeRank(b) || a.name.localeCompare(b.name)).slice(0, 8);
         let html = `<div class="ms-sec">Surf spots</div>${spots.length ? spots.map(sp => `<button type="button" class="ms-item" data-spot="${esc(sp.id)}"><strong>${esc(sp.name)}</strong><span class="sub">${esc(sp.region || 'Your spot')}</span></button>`).join('') : '<div class="sub ms-hint">No spots match.</div>'}`;
         html += '<div class="ms-sec">Places</div>';
         if (places && placesFor === term) html += places.length ? places.map((p, i) => `<button type="button" class="ms-item" data-place="${i}"><strong>${esc(p.name || p.display_name.split(',')[0])}</strong><span class="sub">${esc(p.display_name)}</span></button>`).join('') + '<div class="sub ms-credit">Places: © OpenStreetMap contributors (Nominatim)</div>' : '<div class="sub ms-hint">No places found.</div>';
@@ -2248,8 +2261,12 @@ function setupRating(map, items) {
     timer = setTimeout(async () => {
       if (!anyOn()) return;
       const my = ++token, b = map.getBounds().pad(0.2), c = map.getCenter();
+      /* Load the home area's spots first; outside it, only primary spots (plus favorites and surfed spots),
+         so the model service gets few requests. Other spots stay gray. */
+      const surfedIds = new Set(S.sessions.map(x => x.spotId));
       const inView = items.filter(it => map.hasLayer(it.m) && b.contains(it.m.getLatLng())).map(it => spotById(it.id)).filter(Boolean)
-        .sort((a, z) => map.distance(c, [a.lat, a.lon]) - map.distance(c, [z.lat, z.lon])).slice(0, 40);
+        .filter(sp => homeRank(sp) === 0 || sp.primary || sp.fav || surfedIds.has(sp.id))
+        .sort((a, z) => homeRank(a) - homeRank(z) || map.distance(c, [a.lat, a.lon]) - map.distance(c, [z.lat, z.lon])).slice(0, 40);
       paint();
       await loadRatingSeries(inView);
       if (my !== token || !anyOn()) return;
@@ -3404,7 +3421,9 @@ function spotsMap(el, sessions, { small, showAll, mode, state } = {}) {
     if (map.pulseLayer && (state && state.overlays ? state.overlays.has('pulse') : prefs.showPulse)) map.pulseLayer.addTo(map);
     if (map.hazardLayer && (state && state.overlays ? state.overlays.has('hazard') : prefs.showHazard)) map.hazardLayer.addTo(map);
   }
+  const hb = !small && homeBounds();
   if (state && state.center) map.setView(state.center, state.zoom ?? 11, { animate: false });
+  else if (hb) map.fitBounds(hb, { padding: [30, 30], maxZoom: 12, animate: false });
   else if (pts.length === 1) map.setView(pts[0], 13, { animate: false });
   else if (pts.length) map.fitBounds(pts, { padding: [40, 40], maxZoom: 13, animate: false });
   return map;
@@ -3881,6 +3900,7 @@ function viewHelp() {
       <li>Tap the <strong>magnifier</strong> (top left) to search: matching surf spots show first as you type, then press Search for towns and addresses.</li>
       <li>Turn on <strong>Surf rating (spots)</strong> in the layers list to color the spots by a 0–5 rating from swell size and period, swell direction, wind (offshore or onshore) and, once you've rated a few sessions there, the tide. It follows the hour on the CDIP time panel.</li>
       <li>The <strong>layers</strong> button opens menus for the base map, the CDIP wave model (wave height or peak period) and the spot style (my sessions, surf rating, swell pulse, rating + pulse or shore hazard), plus a switch for buoys.</li>
+      <li><strong>Home area</strong> (Settings): the map opens on it, and surf ratings, shore hazard and swell pulse load its spots first. Outside it, only primary spots (plus favorites and spots you've surfed) get data; the rest stay gray. It's set automatically from the first spot you surfed (Ventura until then), and you can change it.</li>
       <li><strong>Buoys and time</strong>: at Now, buoy labels show each buoy's latest reading. Step the CDIP time panel forward and the labels switch to that hour's forecast for each buoy (white with a dashed border, marked "forecast"); the header says which. A buoy's popup always lists the latest reading, with a note at the top for the hour on the panel.</li>
       <li><strong>Shore hazard</strong> colors spots by how far up the beach the water may reach: tide plus wave runup (Stockdon 2006 formula). It takes big surf and a high tide together to rate high. Spot forecasts show it per day and per hour; tap Shore ⓘ for details.</li>
       <li>Turn on <strong>Swell pulse (spots)</strong> to make each spot dot breathe: its size follows the swell height and its pace follows the swell period (one grow-and-shrink every 0.7 × the period, so a 12-second swell grows for about 4 seconds and shrinks for 4). Buoys pulse too, from their own readings. It also follows the CDIP time panel, and works with the surf rating colors.</li>
@@ -3912,6 +3932,9 @@ function viewSettings() {
     <p class="note">These are the choices offered when you add a board or log a session. Open a list to turn the whole field off if you don't use it.</p>
     <h2 class="sec">Spots</h2>
     <div class="card"><a class="row" href="#/settings/spots"><span class="grow"><span class="label">Surf spots</span><br><span class="sub">${plural(S.spots.filter(s => !s.hidden).length, 'spot')}</span></span><span class="chev" aria-hidden="true">&#8250;</span></a></div>
+    <h2 class="sec">Home area</h2>
+    <div class="card"><div class="stack"><label for="homeRegion" class="sub">Shown and loaded first: the map opens here, its spots get swell and ratings first, and they lead spot lists and searches.</label>
+      <select id="homeRegion" data-pref="homeRegion"><option value="" ${prefs.homeRegion ? '' : 'selected'}>Automatic: ${esc(autoHomeRegion())}${S.sessions.some(x => x.spotId) ? ' (first spot surfed)' : ''}</option>${[...new Set(S.spots.map(sp => sp.region).filter(Boolean))].sort().map(r => `<option value="${esc(r)}" ${prefs.homeRegion === r ? 'selected' : ''}>${esc(r)}</option>`).join('')}</select></div></div>
     <h2 class="sec">Units</h2>
     <div class="card"><div class="stack"><label for="units" class="sub">Swell height</label>
       <select id="units" data-pref="units"><option value="ft" ${prefs.units === 'ft' ? 'selected' : ''}>Feet</option><option value="m" ${prefs.units === 'm' ? 'selected' : ''}>Meters</option></select>
