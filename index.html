@@ -182,11 +182,18 @@ header.top .favhdr svg.star.on { fill: #ffc531; stroke: #ffc531; }
 .sechead { display: flex; align-items: baseline; justify-content: space-between; }
 .linkbtn { border: 0; background: none; color: var(--accent); font-weight: 600; min-height: 36px; padding: 0 4px; }
 .movebtn { min-width: 44px; min-height: 40px; padding: 0; margin-left: 6px; font-size: 14px; }
-.spotrow .olbox { display: block; margin-top: 8px; }
+.spotrow { flex-wrap: wrap; align-content: flex-start; row-gap: 0; padding-bottom: 12px; }
+.spotrow .grow { padding-bottom: 2px; }
+.spotrow .olbox { display: block; flex: 0 0 100%; order: 5; margin-top: 6px; }
+.spotrow .olbox .outlook { margin: 0; }
+.outlook .oc { background: var(--tag); border-radius: 8px; padding: 7px 8px; font: inherit; font-size: 12px; line-height: 1.35; min-width: 0; color: inherit; text-align: left; border: 0; min-height: 0; display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; width: 100%; }
+.outlook button.oc { cursor: pointer; }
+.outlook .ol { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; font-weight: 700; margin-bottom: 4px; }
+.outlook .ol .rbadge { font-size: 11px; padding: 0 5px; }
+.outlook .oh { font-size: 15px; font-weight: 700; line-height: 1.2; }
+.outlook .ov { color: var(--muted); }
+.outlook .ov span { white-space: nowrap; }
 .outlook { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 4px 0 8px; }
-.outlook .oc { background: var(--tag); border-radius: 8px; padding: 6px 7px; font-size: 12px; line-height: 1.35; min-width: 0; }
-.outlook .ol { font-weight: 700; font-size: 12px; margin-bottom: 2px; }
-.outlook .ov { overflow-wrap: anywhere; }
 .daystbl { overflow-x: auto; margin-top: 10px; }
 .daystbl table { width: 100%; font-size: 13px; }
 .daystbl table { border-collapse: separate; border-spacing: 0; }
@@ -203,11 +210,11 @@ header.top .favhdr svg.star.on { fill: #ffc531; stroke: #ffc531; }
 .daynav .btn { min-height: 38px; padding: 0 10px; font-size: 14px; }
 .daynav .btn.disabled { opacity: .4; pointer-events: none; }
 table.hourly { width: 100%; font-size: 13px; margin-top: 10px; }
-table.hourly th, table.hourly td { padding: 4px 4px; text-align: left; }
-.outlook button.oc { text-align: left; border: 0; font: inherit; color: inherit; min-height: 0; display: block; width: 100%; cursor: pointer; }
+table.hourly th, table.hourly td { padding: 6px 4px; text-align: left; vertical-align: middle; line-height: 1.25; }
+table.hourly tr + tr > * { border-top: 1px solid var(--line, rgba(127,127,127,.18)); }
+table.hourly td small { display: block; color: var(--muted); font-size: 11px; white-space: nowrap; }
+table.hourly td b { white-space: nowrap; font-weight: 650; }
 .outlook button.oc:active { filter: brightness(.95); }
-.outlook .ol { display: flex; justify-content: space-between; align-items: center; gap: 4px; }
-.outlook .ol .rbadge { font-size: 11px; min-width: 26px; padding: 0 4px; }
 .rguide { margin: 12px 0; }
 .rscale { display: grid; grid-template-columns: repeat(5, 1fr); border-radius: 8px; overflow: hidden; }
 .rscale .rs { color: #fff; text-align: center; padding: 4px 2px; font-size: 11px; line-height: 1.25; text-shadow: 0 1px 1px rgba(0,0,0,.3); }
@@ -310,10 +317,6 @@ dl.specs dd { margin: 0; }
 .hero.gallery .gtrack { display: flex; height: 100%; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
 .hero.gallery .gtrack::-webkit-scrollbar { display: none; }
 .hero.gallery .gtrack img { flex: 0 0 100%; scroll-snap-align: start; }
-.photo-field { display: flex; gap: 12px; align-items: center; }
-.photo-field .prev { width: 84px; height: 112px; border-radius: 10px; background: var(--tag); object-fit: cover; flex: none; position: relative; overflow: hidden; }
-.photo-field .prev img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.photo-field .btns { display: flex; flex-direction: column; gap: 8px; flex: 1; }
 label.btn input { display: none; }
 
 /* stars */
@@ -427,8 +430,7 @@ details.install li { margin: 3px 0; }
 .rthumb { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; flex: none; background: var(--tag); }
 .rthumb.noimg { display: flex; align-items: center; justify-content: center; color: var(--muted); }
 .rthumb.noimg svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.4; }
-.tile .ph.sq, .photo-field .prev.sq { aspect-ratio: 1 / 1; }
-.photo-field .prev.sq { height: 84px; }
+.tile .ph.sq { aspect-ratio: 1 / 1; }
 .picklist { max-height: 55vh; overflow-y: auto; margin: 0 0 8px; }
 .pickrow { display: flex; gap: 12px; align-items: center; padding: 10px 4px; border-bottom: 1px solid var(--line); min-height: 52px; cursor: pointer; }
 .pickrow:last-child { border-bottom: 0; }
@@ -501,7 +503,6 @@ svg.chart .warrow { fill: #5b7fa6; }
 .leaflet-popup-content.more .morehint { display: block; }
 .cdipplot { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
 .cdipplot img { display: block; width: 100%; height: auto; min-height: 60px; margin-top: 4px; border-radius: 6px; background: #fff; }
-.fct-days td, .fct-days th { padding-right: 8px; white-space: nowrap; }
 .spotgroup .sec .sub { font-weight: 400; text-transform: none; letter-spacing: 0; }
 .leaflet-control-layers { border-radius: 10px !important; }
 .leaflet-control-layers-toggle { width: 44px !important; height: 44px !important; }
@@ -529,7 +530,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 13.5 (ratings shown as words; score on hover or tap)';
+const BUILD = 'Build 13.6 (tidier forecast boxes and tables; clean-up and fixes)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -1126,7 +1127,7 @@ function makeMap(el, opts = {}) {
           <div class="lyr-panel">
             <div class="lc-head"><span>Map layers</span><button type="button" class="lc-close" aria-label="Close layer list">&times;</button></div>
             <label class="lyr-row"><span>Base map</span><select data-lyr="base">${Object.keys(BASEMAPS).map(k => `<option value="${k}">${esc(BASEMAPS[k].label)}</option>`).join('')}</select></label>
-            ${map.waveLayers ? `<label class="lyr-row"><span>Wave model <small>CDIP, Calif.</small></span><select data-lyr="grid"><option value="off">Off</option>${Object.entries(GRID_LAYERS).map(([k, c]) => `<option value="${k}">${esc(c.title)}</option>`).join('')}</select></label>` : ''}
+            ${map.waveLayers ? `<label class="lyr-row"><span>Waves <small>CDIP model</small></span><select data-lyr="grid"><option value="off">Off</option>${Object.entries(GRID_LAYERS).map(([k, c]) => `<option value="${k}">${esc(c.title)}</option>`).join('')}</select></label>` : ''}
             ${map.ratingLayer ? `<label class="lyr-row"><span>Spot style</span><select data-lyr="style"><option value="sessions">My sessions</option><option value="rating">Surf rating</option><option value="pulse">Swell pulse</option><option value="both">Rating + pulse</option><option value="hazard">Shore hazard</option></select></label>` : ''}
             ${overlays['Buoys'] ? '<label class="lyr-row lyr-sw"><span>Buoys</span><input type="checkbox" role="switch" data-lyr="buoys"></label>' : ''}
           </div>`;
@@ -1534,7 +1535,7 @@ function buoyLayer() {
     for (const m of markers.values()) {
       const el = m.getElement(), lb = el && el.querySelector('.blbl');
       if (!lb) continue;
-      const d = el.querySelector('.bdot').getBoundingClientRect();
+      const d = el.querySelector('.buoy').getBoundingClientRect();
       if (d.right < box.left || d.left > box.right || d.bottom < box.top || d.top > box.bottom) { lb.className = 'blbl p-r'; continue; }
       items.push({ lb, d, h: m.swellH ?? -1 });
     }
@@ -1762,7 +1763,7 @@ function buildForecast(fc, ex, opts = {}) {
     html += chart('Tide', TH, axisSVG(tAx, ty, L, W) + dayTicks(TH) + `<path d="${tl}" class="ln tide"/>`, 'Tide forecast for 5 days');
   }
   html += `${opts.noTable ? '' : daysTableHTML(fc, ex, opts.spotId, opts.buoy)}
-    <div class="sub">${esc(fc.source || '')}. Heights are significant wave height.${fc.site && ex && ex.sdir && ex.sdir.length ? ' Swell direction is offshore (Open-Meteo), like the buoys; in 10 m of water the swell has bent toward the beach.' : ''}${fc.link ? ` <a href="${fc.link}" target="_blank" rel="noopener">CDIP forecast</a>` : ''}${wind.length || tide.length ? (ex && ex.windSrc === 'NWS' ? ' Wind: National Weather Service. Tide: Open-Meteo.com (CC BY 4.0), modeled sea level.' : ' Wind and tide: Open-Meteo.com (CC BY 4.0); tide is modeled sea level.') : ''} Tap or drag on a chart for that hour.${opts.spotId ? ' <button type="button" class="linkbtn small" data-act="ratingHelp">About ratings</button>' : ''}</div></div>`;
+    <div class="sub">${esc(fc.source || '')}. Heights are significant wave height.${offshoreDir(fc, ex) ? ' Swell direction is offshore (Open-Meteo), like the buoys; in 10 m of water the swell has bent toward the beach.' : ''}${fc.link ? ` <a href="${fc.link}" target="_blank" rel="noopener">CDIP forecast</a>` : ''}${wind.length || tide.length ? (ex && ex.windSrc === 'NWS' ? ' Wind: National Weather Service. Tide: Open-Meteo.com (CC BY 4.0), modeled sea level.' : ' Wind and tide: Open-Meteo.com (CC BY 4.0); tide is modeled sea level.') : ''} Tap or drag on a chart for that hour.${opts.spotId ? ' <button type="button" class="linkbtn small" data-act="ratingHelp">About ratings</button>' : ''}</div></div>`;
   return { html, model: { tA, tB, W, L, x, swell: use, wind, tide, turns: tideTurns(tide), more: opts.buoy && ex ? [['Secondary', ex.sw2 || []], ['Tertiary', ex.sw3 || []]] : null } };
 }
 function bindForecast(root, model, start, onPick) {
@@ -1827,9 +1828,12 @@ async function placeForecast(sp) {
   const [fc, ex] = await Promise.all([spotForecast(sp), forecastExtras(sp.lat, sp.lon).catch(() => null)]);
   return { fc, ex };
 }
+/* CDIP's nearshore spot points report the bent, near-shore direction, so the offshore one is shown instead.
+   Buoy forecasts (fc.cdip) already are offshore. */
+const offshoreDir = (fc, ex) => !!(fc && fc.site && !fc.cdip && ex && ex.sdir && ex.sdir.length);
 function swellPoints(fc, ex) {
   const t0 = new Date(fc.t0.length === 17 ? fc.t0.replace('Z', ':00Z') : fc.t0).getTime();
-  const off = fc.site && ex && ex.sdir && ex.sdir.length ? ex.sdir : null;
+  const off = offshoreDir(fc, ex) ? ex.sdir : null;
   return fc.hs.map((h, i) => { const t = t0 + i * fc.step * 3600 * 1000, o = off ? nearestPt(off, t) : null;
     return { t, h, p: fc.tp && fc.tp[i], d: fc.dp && fc.dp[i], o: o && Math.abs(o.t - t) < 3 * 3600000 ? o.d : null }; }).filter(p => p.h != null);
 }
@@ -1876,13 +1880,15 @@ const tShort = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute
    (now: the rating this hour; days: the best daylight rating). */
 function outlookHTML(fc, ex, sp) {
   const cols = [['Now', daySummary(fc, ex, 0, true, sp)], ['Tomorrow', daySummary(fc, ex, dayStart(1), false, sp)], [new Date(dayStart(2)).toLocaleDateString(undefined, { weekday: 'long' }), daySummary(fc, ex, dayStart(2), false, sp)]];
+  const bits = list => list.filter(Boolean).map(x => `<span>${x}</span>`).join(' · ');
   return `<div class="outlook">${cols.map(([label, s]) => {
-    const inner = `<div class="ol">${esc(label)}${s && s.rating != null ? ratingBadge(s.rating) : ''}</div>${s ? `
-      <div class="ov"><b>${esc(hRange(s.hLo, s.hHi))}</b>${s.p != null ? ` @ ${Math.round(s.p)} s` : ''}${sDir(s) != null ? ` ${dirDeg(sDir(s))}` : ''}</div>
+    const inner = `<div class="ol"><span>${esc(label)}</span>${s && s.rating != null ? ratingBadge(s.rating) : ''}</div>${s ? `
+      <div class="oh">${esc(hRange(s.hLo, s.hHi))}</div>
+      <div class="ov">${bits([s.p != null ? `${Math.round(s.p)} s` : '', sDir(s) != null ? dirDeg(sDir(s)) : ''])}</div>
       ${s.wS != null ? `<div class="ov">Wind ${s.now ? esc(fmtWind(s.wS)) : `${esc(fmtWindN(s.wLo))}–${esc(fmtWind(s.wS))}`} ${compass(s.wD)}</div>` : ''}
-      ${s.now ? (s.tide ? `<div class="ov">Tide ${esc(fmtTideH(s.tide.h))} ${s.tide.rising ? '↑' : '↓'}${s.next ? ` · ${s.next.type[0].toUpperCase()} ${esc(tShort(s.next.t))}` : ''}</div>` : '')
-        : s.turns.length ? `<div class="ov">${s.turns.map(p => `${p.type[0].toUpperCase()} ${esc(tShort(p.t))}`).join(' · ')}</div>` : ''}`
-      : '<div class="ov sub">–</div>'}`;
+      ${s.now ? (s.tide ? `<div class="ov">Tide ${bits([`${esc(fmtTideH(s.tide.h))} ${s.tide.rising ? '↑' : '↓'}`, s.next ? `${s.next.type[0].toUpperCase()} ${esc(tShort(s.next.t))}` : ''])}</div>` : '')
+        : s.turns.length ? `<div class="ov">${bits(s.turns.map(p => `${p.type[0].toUpperCase()} ${esc(tShort(p.t))}`))}</div>` : ''}`
+      : '<div class="ov">–</div>'}`;
     return sp && s ? `<button type="button" class="oc" data-act="openDay" data-id="${esc(sp.id)}" data-day="${dayKey(s.start)}" aria-label="${esc(label)}: full forecast">${inner}</button>` : `<div class="oc">${inner}</div>`;
   }).join('')}</div>`;
 }
@@ -1930,7 +1936,7 @@ function viewSpotDay(id, key) {
       const sw = swellPoints(fc, ex).filter(p => p.t >= start && p.t < end);
       const wind = ((ex && ex.wind) || []), tide = (ex && ex.tide) || [];
       const rows = sw.map(p => { const w = nearestPt(wind, p.t), td = tide.length ? tideAt(tide, p.t) : null; const r = spotRating(sp, { h: p.h, p: p.p, d: p.d, wS: w && w.s, wD: w && w.d, tide: td && td.h }, tide);
-        return `<tr><th>${esc(tShort(p.t))}</th><td>${esc(fmtHeight(p.h))}${p.p != null ? ` @ ${Math.round(p.p)} s` : ''} ${sDir(p) != null ? dirDeg(sDir(p)) : ''}</td><td>${w ? `${esc(fmtWind(w.s))} ${compass(w.d)}` : ''}</td><td>${td ? esc(fmtTideH(td.h)) : ''}</td><td>${r != null ? ratingBadge(r) : ''}</td><td>${(() => { const z = td ? shoreHazard(p.h, p.p, td.h) : null; return z ? hazardBadge(z) : ''; })()}</td></tr>`; }).join('');
+        return `<tr><th>${esc(tShort(p.t))}</th><td><b>${esc(fmtHeight(p.h))}</b><small>${[p.p != null ? `${Math.round(p.p)} s` : '', sDir(p) != null ? dirDeg(sDir(p)) : ''].filter(Boolean).join(' · ')}</small></td><td>${w ? `<b>${esc(fmtWind(w.s))}</b><small>${compass(w.d)}</small>` : ''}</td><td>${td ? esc(fmtTideH(td.h)) : ''}</td><td>${r != null ? ratingBadge(r) : ''}</td><td>${(() => { const z = td ? shoreHazard(p.h, p.p, td.h) : null; return z ? hazardBadge(z) : ''; })()}</td></tr>`; }).join('');
       box.innerHTML = f.html + (rows ? `${ratingGuideHTML()}<table class="bt hourly"><tr><th></th><th>Swell</th><th>Wind</th><th>Tide</th><th>Rating</th><th>Shore</th></tr>${rows}</table>` : '<div class="sub">No forecast for this day.</div>');
       bindForecast(box, f.model);
     } catch (e) { const box = $('#dayFc'); if (box) box.innerHTML = '<span class="sub">Couldn’t load the forecast.</span>'; }
@@ -1971,7 +1977,7 @@ function spotRating(sp, c, tide) {
   return Math.max(0, Math.min(5, Math.round(score * 10) / 10));
 }
 /* Tap a rating or hazard badge (outside links and buttons) to see its value. */
-document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.rbadge[data-tip]'); if (b && !b.closest('a, button')) toast(b.dataset.tip); });
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.rbadge[data-tip]'); if (b && !b.closest('a, button')) toast(b.dataset.tip); }, true);
 const RATING_SCALE = [[1, '#8a9a9f', 'Poor'], [2, '#d0843f', 'Poor+'], [3, '#e8c547', 'Fair'], [4, '#3fb36b', 'Good'], [5.01, '#2f7fe0', 'Great']];
 const ratingInfo = r => RATING_SCALE.find(([max]) => r < max) || RATING_SCALE[RATING_SCALE.length - 1];
 /* ---------- shoreline hazard: how high waves plus tide reach up the beach ----------
@@ -3636,7 +3642,8 @@ function spotRow(sp, opts = {}) {
   if (opts.reorder) return `<div class="row"><span class="grow"><span class="label">${esc(sp.name)}</span></span>
     <button type="button" class="movebtn" data-act="favUp" data-id="${esc(sp.id)}" aria-label="Move up" ${opts.first ? 'disabled' : ''}>&#9650;</button><button type="button" class="movebtn" data-act="favDown" data-id="${esc(sp.id)}" aria-label="Move down" ${opts.last ? 'disabled' : ''}>&#9660;</button></div>`;
   return `<a class="row spotrow" href="#/spot/${encodeURIComponent(sp.id)}"><span class="grow"><span class="label">${esc(sp.name)}</span><br><span class="sub">${esc(sub)}</span>
-    ${opts.outlook ? `<span class="olbox" data-ol="${esc(sp.id)}"><span class="sub">Loading the outlook…</span></span>` : ''}</span>
+</span>
+    ${opts.outlook ? `<span class="olbox" data-ol="${esc(sp.id)}"><span class="sub">Loading the outlook…</span></span>` : ''}
     <button type="button" class="favbtn" data-act="fav" data-id="${esc(sp.id)}" aria-label="${sp.fav ? 'Remove from favorites' : 'Add to favorites'}" aria-pressed="${!!sp.fav}">${STAR(sp.fav)}</button><span class="chev" aria-hidden="true">&#8250;</span></a>`;
 }
 function viewSpotsTab() {
