@@ -21,25 +21,20 @@ def call(action, **params):
         return json.load(r)["result"]
 
 
-for name, rid in (("stations", STATIONS), ("results", RESULTS)):
-    try:
-        r = call("datastore_search", resource_id=rid, limit=3)
-        print(name, "total", r.get("total"))
-        print(name, "fields", [f["id"] + ":" + f.get("type", "") for f in r["fields"]])
-        for rec in r["records"]:
-            print(name, "row", json.dumps(rec)[:600])
-    except Exception as e:  # noqa: BLE001
-        print(name, "error", e)
-for q in ('SELECT MAX("SampleDate") AS m FROM "%s"' % RESULTS,):
-    try:
-        print("sql", q, call("datastore_search_sql", sql=q)["records"])
-    except Exception as e:  # noqa: BLE001
-        print("sql error", e)
-try:
-    r = call("package_search", q="Safe to Swim fecal indicator bacteria", rows=5)
-    for p in r["results"]:
-        print("pkg", p["name"], p.get("metadata_modified"), p.get("license_id"))
-        for res in p.get("resources", []):
-            print("   res", res["id"], res.get("name"), res.get("last_modified"), res.get("datastore_active"))
-except Exception as e:  # noqa: BLE001
-    print("pkg error", e)
+FIB = "15a63495-8d9f-4a49-b43a-3092ef3106b9"
+r = call("datastore_search", resource_id=FIB, limit=2)
+print("fib total", r.get("total"))
+print("fib fields", [f["id"] + ":" + f.get("type", "") for f in r["fields"]])
+for rec in r["records"]:
+    print("fib row", json.dumps(rec))
+cols = [f["id"] for f in r["fields"]]
+date = next(c for c in cols if "date" in c.lower())
+print("sql", call("datastore_search_sql", sql=f'SELECT MAX("{date}") AS m, COUNT(*) AS n FROM "{FIB}" WHERE "{date}" >= \'2026-10-01\'')["records"])
+rows = call("datastore_search_sql", sql=f'SELECT * FROM "{FIB}" WHERE "{date}" >= \'2026-11-01\' AND "{cols[cols.index(date)]}" IS NOT NULL LIMIT 5')["records"]
+for x in rows:
+    print("recent", json.dumps(x))
+for c in cols:
+    if any(k in c.lower() for k in ("analyte", "parameter", "unit", "county", "program", "source", "datasource")):
+        print("distinct", c, call("datastore_search_sql", sql=f'SELECT "{c}", COUNT(*) n FROM "{FIB}" WHERE "{date}" >= \'2026-09-01\' GROUP BY "{c}" ORDER BY n DESC LIMIT 25')["records"])
+p = call("package_show", id="surface-water-fecal-indicator-bacteria-results")
+print("license", p.get("license_id"), p.get("license_title"), (p.get("notes") or "")[:1500])
