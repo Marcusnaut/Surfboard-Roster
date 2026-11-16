@@ -179,6 +179,26 @@ svg.star.on { fill: #e0a526; stroke: #c48d16; }
 header.top .favhdr svg.star { stroke: var(--brand-ink); }
 header.top .favhdr svg.star.on { fill: #ffc531; stroke: #ffc531; }
 .spotfind { width: 100%; margin-bottom: 10px; }
+.sechead { display: flex; align-items: baseline; justify-content: space-between; }
+.linkbtn { border: 0; background: none; color: var(--accent); font-weight: 600; min-height: 36px; padding: 0 4px; }
+.movebtn { min-width: 44px; min-height: 40px; padding: 0; margin-left: 6px; font-size: 14px; }
+.spotrow .olbox { display: block; margin-top: 8px; }
+.outlook { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 4px 0 8px; }
+.outlook .oc { background: var(--tag); border-radius: 8px; padding: 6px 7px; font-size: 12px; line-height: 1.35; min-width: 0; }
+.outlook .ol { font-weight: 700; font-size: 12px; margin-bottom: 2px; }
+.outlook .ov { overflow-wrap: anywhere; }
+.daystbl { overflow-x: auto; margin-top: 10px; }
+.daystbl table { width: 100%; font-size: 13px; }
+.daystbl th, .daystbl td { text-align: center; padding: 4px 3px; vertical-align: top; line-height: 1.3; }
+.daystbl tr > th:first-child { text-align: left; color: var(--muted); font-weight: 600; padding-left: 0; }
+.daystbl th.dh a { display: inline-block; min-width: 40px; padding: 4px 6px; border-radius: 8px; background: var(--tag); color: var(--accent); font-weight: 700; text-decoration: none; }
+.daynav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.daynav .btn { min-height: 38px; padding: 0 10px; font-size: 14px; }
+.daynav .btn.disabled { opacity: .4; pointer-events: none; }
+table.hourly { width: 100%; font-size: 13px; margin-top: 10px; }
+table.hourly th, table.hourly td { padding: 4px 4px; text-align: left; }
+.rbadge { display: inline-block; min-width: 30px; text-align: center; color: #fff; font-weight: 700; font-size: 12px; border-radius: 6px; padding: 1px 5px; text-shadow: 0 1px 1px rgba(0,0,0,.25); }
+.legset { display: inline-flex; gap: 4px 10px; flex-wrap: wrap; align-items: center; }
 .seg button[aria-pressed=true] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
 .filters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
 .filters select { min-height: 40px; font-size: 14px; }
@@ -456,7 +476,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 11.2 (forecast loads only the place you tap)';
+const BUILD = 'Build 12 (spot outlooks, day view, surf rating map, wind units)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -622,7 +642,7 @@ async function seed() {
 
 /* ---------- in-memory state ---------- */
 const S = { options: [], boards: [], sessions: [], spots: [], photos: new Map(), meta: {}, fins: [], finLinks: [] };
-const PREF_DEFAULTS = { boardsView: 'tiles', boardSort: 'model', filterType: '', filterShaper: '', showRetired: false, pagerIndex: 0, units: 'ft', sessionSort: 'newest', finsView: 'table', finPagerIndex: 0, finSort: 'name', filterFinSetup: '', showRetiredFins: false, showAllSpots: true, statsSpot: '', disabledLists: [], baseMap: 'map', showBuoys: true, showWaves: false, showPeriod: false };
+const PREF_DEFAULTS = { boardsView: 'tiles', boardSort: 'model', filterType: '', filterShaper: '', showRetired: false, pagerIndex: 0, units: 'ft', sessionSort: 'newest', finsView: 'table', finPagerIndex: 0, finSort: 'name', filterFinSetup: '', showRetiredFins: false, showAllSpots: true, statsSpot: '', disabledLists: [], baseMap: 'map', showBuoys: true, showWaves: false, showPeriod: false, showRating: false, windUnits: 'kt' };
 let prefs = { ...PREF_DEFAULTS };
 async function loadAll() {
   const [options, boards, sessions, spots, photos, meta, fins, finLinks] = await Promise.all(STORES.map(getAll));
@@ -1017,6 +1037,9 @@ function makeMap(el, opts = {}) {
     }
     const want = Object.keys(GRID_LAYERS).find(k => st.overlays ? st.overlays.has(k) : prefs[GRID_LAYERS[k].pref]);
     if (want) map.waveLayers[want].addTo(map);
+    /* Not a real layer: switching it on colors the spot dots by surf rating (see setupRating). */
+    map.ratingLayer = L.layerGroup();
+    overlays[RATING_NAME] = map.ratingLayer;
     map.on('overlayadd', e => {
       const key = Object.keys(map.waveLayers).find(k => map.waveLayers[k] === e.layer);
       if (!key) return;
@@ -1045,6 +1068,7 @@ function makeMap(el, opts = {}) {
     map.on('overlayadd overlayremove', e => {
       if (e.name === 'Buoys') savePrefs({ showBuoys: e.type === 'overlayadd' });
       for (const cfg of Object.values(GRID_LAYERS)) if (e.name === cfg.name) savePrefs({ [cfg.pref]: e.type === 'overlayadd' });
+      if (e.name === RATING_NAME) savePrefs({ showRating: e.type === 'overlayadd' });
     });
   }
   map.setView(DEFAULT_VIEW.center, DEFAULT_VIEW.zoom);
@@ -1318,7 +1342,11 @@ function sparkline(hist) {
     <svg class="chart" viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="Swell height over the last 24 hours">${axisSVG(ax, y, L, W)}<path d="${d}" class="ln"/><text x="${L}" y="${H - 1}">24 h ago</text><text x="${W - 2}" y="${H - 1}" text-anchor="end">now</text></svg></div>`;
 }
 const fmtTemp = c => c == null ? '' : prefs.units === 'm' ? `${c.toFixed(1)}°C` : `${(c * 9 / 5 + 32).toFixed(0)}°F`;
-const fmtWind = ms => ms == null ? '' : `${Math.round(ms * 1.944)} kt`;
+const WIND_UNITS = { kt: [1.944, 'kt', 'Knots'], mph: [2.237, 'mph', 'Miles per hour'], kmh: [3.6, 'km/h', 'Kilometers per hour'], ms: [1, 'm/s', 'Meters per second'] };
+const windU = () => WIND_UNITS[prefs.windUnits] || WIND_UNITS.kt;
+const windN = ms => ms == null ? null : Math.round(ms * windU()[0]);
+const fmtWindN = ms => ms == null ? '' : String(windN(ms));
+const fmtWind = ms => ms == null ? '' : `${windN(ms)} ${windU()[1]}`;
 function buoyPopup(b, r, data) {
   if (!r || !r.time) return `<div class="popup-title">${esc(b.name)} <span class="sub">#${esc(b.id)}</span></div>
     <div class="sub">${data ? 'No recent reading from this buoy.' : "Buoy readings haven't loaded yet. They need a connection, and the data job has to have run at least once."}</div>
@@ -1493,27 +1521,21 @@ function tideTurns(tide) {
 }
 /* The 5-day forecast block: swell chart, wind chart, tide chart and a daily table. Tap or drag on any chart
    to read every value for that hour; the marker starts at the current hour. */
-function buildForecast(fc, ex) {
+function buildForecast(fc, ex, opts = {}) {
   const t0 = new Date(fc.t0.length === 17 ? fc.t0.replace('Z', ':00Z') : fc.t0).getTime();
   const pts = fc.hs.map((h, i) => ({ t: t0 + i * fc.step * 3600 * 1000, h, p: fc.tp && fc.tp[i], d: fc.dp && fc.dp[i] })).filter(p => p.h != null && p.t >= Date.now() - fc.step * 3600 * 1000);
   if (pts.length < 4) return { html: '<div class="fc"><div class="sub">No forecast available here right now.</div></div>' };
-  const end = pts[0].t + 5 * 86400000, use = pts.filter(p => p.t < end);
+  const end = pts[0].t + 5 * 86400000, use = opts.from ? swellPoints(fc).filter(p => p.t >= opts.from - 3600000 && p.t <= opts.to + 3600000) : pts.filter(p => p.t < end);
+  if (use.length < 2) return { html: '<div class="fc"><div class="sub">No forecast for this day.</div></div>' };
   const tA = use[0].t, tB = use[use.length - 1].t;
   const wind = ((ex && ex.wind) || []).filter(p => p.t >= tA && p.t <= tB);
   const tide = ((ex && ex.tide) || []).filter(p => p.t >= tA - 3600000 && p.t <= tB + 3600000);
   const days = new Map();
   for (const p of use) { const k = new Date(p.t).toDateString(); if (!days.has(k)) days.set(k, []); days.get(k).push(p); }
-  const rows = [...days].slice(0, 5).map(([k, ps]) => {
-    const hs = ps.map(p => p.h), per = ps.map(p => p.p).filter(x => x != null), dir = circMean(ps.map(p => p.d));
-    const lo = Math.min(...hs), hi = Math.max(...hs);
-    const range = prefs.units === 'm' ? `${lo.toFixed(1)}–${hi.toFixed(1)} m` : `${(lo * 3.281).toFixed(1)}–${(hi * 3.281).toFixed(1)} ft`;
-    const dw = wind.filter(p => new Date(p.t).toDateString() === k);
-    const wtxt = dw.length ? `${Math.round(Math.max(...dw.map(p => p.s)) * 1.944)} kt ${compass(circMean(dw.map(p => p.d)))}` : '';
-    return `<tr><th>${esc(new Date(ps[0].t).toLocaleDateString(undefined, { weekday: 'short' }))}</th><td>${range}</td><td>${per.length ? Math.round(Math.max(...per)) + ' s' : ''}</td><td>${dir != null ? compass(dir) : ''}</td>${wind.length ? `<td>${wtxt}</td>` : ''}</tr>`;
-  }).join('');
   const W = 260, L = 30, B = 12;
   const x = t => L + (t - tA) / Math.max(1, tB - tA) * (W - L - 2);
-  const dayTicks = H => [...days.keys()].slice(1, 5).map(k => { const t = new Date(k).getTime(); return t > tA && t < tB ? `<line x1="${x(t).toFixed(1)}" x2="${x(t).toFixed(1)}" y1="14" y2="${H - B}" class="tick"/><text x="${(x(t) + 3).toFixed(1)}" y="${H - 1}">${esc(new Date(t).toLocaleDateString(undefined, { weekday: 'short' }))}</text>` : ''; }).join('');
+  const hourTicks = H => [6, 12, 18].map(hh => { const d = new Date(opts.from); d.setHours(hh); const t = d.getTime(); return `<line x1="${x(t).toFixed(1)}" x2="${x(t).toFixed(1)}" y1="14" y2="${H - B}" class="tick"/><text x="${(x(t) + 3).toFixed(1)}" y="${H - 1}">${tShort(t)}</text>`; }).join('');
+  const dayTicks = H => opts.from ? hourTicks(H) : [...days.keys()].slice(1, 5).map(k => { const t = new Date(k).getTime(); return t > tA && t < tB ? `<line x1="${x(t).toFixed(1)}" x2="${x(t).toFixed(1)}" y1="14" y2="${H - B}" class="tick"/><text x="${(x(t) + 3).toFixed(1)}" y="${H - 1}">${esc(new Date(t).toLocaleDateString(undefined, { weekday: 'short' }))}</text>` : ''; }).join('');
   const cursor = H => `<line class="cur" x1="0" x2="0" y1="12" y2="${H - B}"/>`;
   const chart = (label, H, inner, aria) => `<div class="fcrow"><div class="fcl">${label}</div><svg class="chart fcchart" viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="${aria}">${inner}${cursor(H)}</svg></div>`;
   /* Swell */
@@ -1521,16 +1543,16 @@ function buildForecast(fc, ex) {
   const SH = 92, sAx = heightAxis(0, hmax, true);
   const sy = v => SH - B - (v - sAx.lo) / Math.max(0.01, sAx.hi - sAx.lo) * (SH - B - 18);
   const sLine = use.map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(1)} ${sy(p.h).toFixed(1)}`).join(' ');
-  let html = `<div class="fc"><div class="fct">5-day forecast <span class="sub">· peak ${esc(fmtHeight(hmax))}</span></div>
+  let html = `<div class="fc">${opts.outlook ? outlookHTML(fc, ex) : ''}<div class="fct">${esc(opts.title || '5-day forecast')} <span class="sub">· peak ${esc(fmtHeight(hmax))}</span></div>
     <div class="fcx" aria-live="polite"></div>
     ${chart('Swell', SH, axisSVG(sAx, sy, L, W) + dayTicks(SH) + `<path d="${sLine} L${x(tB).toFixed(1)} ${SH - B} L${x(tA).toFixed(1)} ${SH - B} Z" class="area"/><path d="${sLine}" class="ln"/>`, 'Wave height forecast for 5 days')}`;
   /* Wind: speed line, gusts dashed, arrows every 6 hours pointing the way the wind blows */
   if (wind.length > 3) {
-    const WH = 74, kmax = Math.max(10, ...wind.map(p => (p.g ?? p.s) * 1.944));
-    const step = kmax > 30 ? 10 : 5, top = Math.ceil(kmax / step) * step;
+    const wf = windU()[0], WH = 74, kmax = Math.max(10 * wf / 1.944, ...wind.map(p => (p.g ?? p.s) * wf));
+    const step = kmax > 60 ? 20 : kmax > 30 ? 10 : 5, top = Math.ceil(kmax / step) * step;
     const wy = kt => WH - B - kt / top * (WH - B - 18);
-    const wAx = { ticks: Array.from({ length: top / step + 1 }, (_, i) => ({ m: i * step, label: String(i * step) })), unit: 'kt' };
-    const path = k => wind.filter(p => p[k] != null).map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(1)} ${wy(p[k] * 1.944).toFixed(1)}`).join(' ');
+    const wAx = { ticks: Array.from({ length: top / step + 1 }, (_, i) => ({ m: i * step, label: String(i * step) })), unit: windU()[1] };
+    const path = k => wind.filter(p => p[k] != null).map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(1)} ${wy(p[k] * wf).toFixed(1)}`).join(' ');
     const arrows = wind.filter(p => new Date(p.t).getUTCHours() % 6 === 0 && p.d != null).map(p => `<g transform="translate(${x(p.t).toFixed(1)} 8) rotate(${(p.d + 180) % 360})"><path d="M0 -4.5 L3 3.5 L0 2 L-3 3.5 Z" class="warrow"/></g>`).join('');
     html += chart('Wind', WH, axisSVG(wAx, v => wy(v), L, W) + dayTicks(WH) + `<path d="${path('g')}" class="ln gust"/><path d="${path('s')}" class="ln wind"/>` + arrows, 'Wind forecast for 5 days');
   }
@@ -1543,7 +1565,7 @@ function buildForecast(fc, ex) {
     const tl = vis.map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(1)} ${ty(p.h).toFixed(1)}`).join(' ');
     html += chart('Tide', TH, axisSVG(tAx, ty, L, W) + dayTicks(TH) + `<path d="${tl}" class="ln tide"/>`, 'Tide forecast for 5 days');
   }
-  html += `<table class="bt fct-days"><tr><th></th><th>Height</th><th>Period</th><th>From</th>${wind.length ? '<th>Wind</th>' : ''}</tr>${rows}</table>
+  html += `${opts.noTable ? '' : daysTableHTML(fc, ex, opts.spotId)}
     <div class="sub">${esc(fc.source || '')}. Heights are significant wave height.${fc.link ? ` <a href="${fc.link}" target="_blank" rel="noopener">CDIP forecast</a>` : ''}${wind.length || tide.length ? ' Wind and tide: Open-Meteo.com (CC BY 4.0); tide is modeled sea level.' : ''} Tap or drag on a chart for that hour.</div></div>`;
   return { html, model: { tA, tB, W, L, x, swell: use, wind, tide, turns: tideTurns(tide) } };
 }
@@ -1576,11 +1598,11 @@ function bindForecast(root, model, start, onPick) {
   show(start || Date.now());
 }
 /* The swell forecast shows as soon as it's in; wind and tide are added when they arrive. */
-async function fillForecast(popup, base, get, ll) {
+async function fillForecast(popup, base, get, ll, opts = {}) {
   let picked = null;
   const done = (fc, ex, waiting) => {
     if (!popup.isOpen()) return;
-    const f = buildForecast(fc, ex);
+    const f = buildForecast(fc, ex, { outlook: true, ...opts });
     /* Content as an element, not a string, so later popup refreshes keep the chart's tap handling. */
     const node = document.createElement('div');
     node.innerHTML = base + f.html + (waiting ? '<div class="sub fcwait">Loading wind and tide…</div>' : '');
@@ -1599,6 +1621,193 @@ async function fillForecast(popup, base, get, ll) {
   if (quick !== undefined) { done(fc, quick); return; }
   done(fc, null, true);
   done(fc, await exP);
+}
+/* ---------- forecast summaries: Now / Tomorrow / Next day, per-day columns, and the day view ---------- */
+/* Forecast data for one place: swell (CDIP file or Open-Meteo) plus wind and tide. */
+async function placeForecast(sp) {
+  const [fc, ex] = await Promise.all([spotForecast(sp), forecastExtras(sp.lat, sp.lon).catch(() => null)]);
+  return { fc, ex };
+}
+function swellPoints(fc) {
+  const t0 = new Date(fc.t0.length === 17 ? fc.t0.replace('Z', ':00Z') : fc.t0).getTime();
+  return fc.hs.map((h, i) => ({ t: t0 + i * fc.step * 3600 * 1000, h, p: fc.tp && fc.tp[i], d: fc.dp && fc.dp[i] })).filter(p => p.h != null);
+}
+const dayStart = (offset = 0) => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + offset); return d.getTime(); };
+const dayKey = t => { const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+const keyStart = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d).getTime(); };
+/* Summary of one local day (or the current hour when now is true). */
+function daySummary(fc, ex, start, now) {
+  const end = start + 86400000;
+  const sw = swellPoints(fc).filter(p => now ? true : p.t >= start && p.t < end);
+  const wind = ((ex && ex.wind) || []).filter(p => now ? true : p.t >= start && p.t < end);
+  const tide = (ex && ex.tide) || [];
+  if (now) {
+    const t = Date.now(), s = nearestPt(sw, t), w = nearestPt(wind, t), td = tide.length ? tideAt(tide, t) : null;
+    const next = tideTurns(tide).find(p => p.t > t);
+    return s ? { now: true, hLo: s.h, hHi: s.h, p: s.p, d: s.d, wS: w && w.s, wG: w && w.g, wD: w && w.d, tide: td, next } : null;
+  }
+  if (!sw.length) return null;
+  const hs = sw.map(p => p.h), per = sw.map(p => p.p).filter(x => x != null);
+  const turns = tideTurns(tide).filter(p => p.t >= start && p.t < end);
+  return { start, hLo: Math.min(...hs), hHi: Math.max(...hs), p: per.length ? Math.max(...per) : null, d: circMean(sw.map(p => p.d)),
+    wS: wind.length ? Math.max(...wind.map(p => p.s)) : null, wLo: wind.length ? Math.min(...wind.map(p => p.s)) : null, wD: wind.length ? circMean(wind.map(p => p.d)) : null, turns };
+}
+const hRange = (lo, hi) => { const f = prefs.units === 'm' ? 1 : 3.281, u = prefs.units === 'm' ? 'm' : 'ft'; const a = Math.round(lo * f * 10) / 10, b = Math.round(hi * f * 10) / 10; return a === b ? `${a} ${u}` : `${a}–${b} ${u}`; };
+const tShort = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(':00', '').replace(/\s?([AP])M/i, (m, a) => a.toLowerCase());
+function outlookHTML(fc, ex) {
+  const cols = [['Now', daySummary(fc, ex, 0, true)], ['Tomorrow', daySummary(fc, ex, dayStart(1))], [new Date(dayStart(2)).toLocaleDateString(undefined, { weekday: 'long' }), daySummary(fc, ex, dayStart(2))]];
+  return `<div class="outlook">${cols.map(([label, s]) => `<div class="oc"><div class="ol">${esc(label)}</div>${s ? `
+      <div class="ov"><b>${esc(hRange(s.hLo, s.hHi))}</b>${s.p != null ? ` @ ${Math.round(s.p)} s` : ''}${s.d != null ? ` ${compass(s.d)}` : ''}</div>
+      ${s.wS != null ? `<div class="ov">Wind ${s.now ? esc(fmtWind(s.wS)) : `${esc(fmtWindN(s.wLo))}–${esc(fmtWind(s.wS))}`} ${compass(s.wD)}</div>` : ''}
+      ${s.now ? (s.tide ? `<div class="ov">Tide ${esc(fmtTideH(s.tide.h))} ${s.tide.rising ? '↑' : '↓'}${s.next ? ` · ${s.next.type[0].toUpperCase()} ${esc(tShort(s.next.t))}` : ''}</div>` : '')
+        : s.turns.length ? `<div class="ov">${s.turns.map(p => `${p.type[0].toUpperCase()} ${esc(tShort(p.t))}`).join(' · ')}</div>` : ''}`
+      : '<div class="ov sub">–</div>'}</div>`).join('')}</div>`;
+}
+/* Days across, values down, so the days read left to right. With a spot id, each day opens its day view. */
+function daysTableHTML(fc, ex, spotId) {
+  const days = [];
+  for (let i = 0; i < 5; i++) { const s = daySummary(fc, ex, dayStart(i)); if (s) days.push(s); }
+  if (!days.length) return '';
+  const head = d => { const label = esc(new Date(d.start).toLocaleDateString(undefined, { weekday: 'short' })); return spotId ? `<a href="#/spot/${encodeURIComponent(spotId)}/day/${dayKey(d.start)}">${label}</a>` : label; };
+  const row = (k, f) => `<tr><th>${k}</th>${days.map(d => `<td>${f(d)}</td>`).join('')}</tr>`;
+  return `<div class="daystbl"><table class="bt"><tr><th></th>${days.map(d => `<th class="dh">${head(d)}</th>`).join('')}</tr>
+    ${row('Height', d => esc(hRange(d.hLo, d.hHi)).replace('–', '–<br>'))}
+    ${row('Period', d => d.p != null ? Math.round(d.p) + ' s' : '')}
+    ${row('From', d => d.d != null ? compass(d.d) : '')}
+    ${days.some(d => d.wS != null) ? row('Wind', d => d.wS != null ? `${esc(fmtWind(d.wS))}<br>${compass(d.wD)}` : '') : ''}
+    ${days.some(d => d.turns && d.turns.length) ? row('Tide', d => (d.turns || []).filter(p => p.type === 'high').map(p => `H ${esc(tShort(p.t))}`).join('<br>')) : ''}
+  </table>${spotId ? '<div class="sub">Tap a day for that day’s forecast.</div>' : ''}</div>`;
+}
+/* One day's forecast for a spot: charts for that day, every 3 hours in a table, previous / next day. */
+function viewSpotDay(id, key) {
+  const sp = spotById(id);
+  if (!sp) { location.replace('#/spots'); return; }
+  const start = keyStart(key), label = new Date(start).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+  setTop(sp.name, `#/spot/${encodeURIComponent(id)}`);
+  const nav = (off, txt) => { const k = dayKey(start + off * 86400000 + 3600000 * 2); const ok = keyStart(k) >= dayStart(0) && keyStart(k) < dayStart(5); return ok ? `<a class="btn" href="#/spot/${encodeURIComponent(id)}/day/${k}">${txt}</a>` : `<span class="btn disabled">${txt}</span>`; };
+  setMain(`<div class="daynav">${nav(-1, '‹ Previous')}<strong>${esc(label)}</strong>${nav(1, 'Next ›')}</div>
+    <div class="card" id="dayFc" style="padding:10px 12px"><span class="sub">Loading the forecast…</span></div>
+    <div class="actions-row"><a class="btn" href="#/spot/${encodeURIComponent(id)}">Back to ${esc(sp.name)}</a><a class="btn primary" href="#/sessions/new?spot=${encodeURIComponent(id)}">Log a session here</a></div>`);
+  (async () => {
+    try {
+      const { fc, ex } = await placeForecast(sp);
+      const box = $('#dayFc');
+      if (!box || !location.hash.includes('/day/' + key)) return;
+      const end = start + 86400000;
+      const f = buildForecast(fc, ex, { from: start, to: end, title: label, noTable: true });
+      const sw = swellPoints(fc).filter(p => p.t >= start && p.t < end);
+      const wind = ((ex && ex.wind) || []), tide = (ex && ex.tide) || [];
+      const rows = sw.map(p => { const w = nearestPt(wind, p.t), td = tide.length ? tideAt(tide, p.t) : null; const r = spotRating(sp, { h: p.h, p: p.p, d: p.d, wS: w && w.s, wD: w && w.d, tide: td && td.h }, tide);
+        return `<tr><th>${esc(tShort(p.t))}</th><td>${esc(fmtHeight(p.h))}${p.p != null ? ` @ ${Math.round(p.p)} s` : ''} ${p.d != null ? compass(p.d) : ''}</td><td>${w ? `${esc(fmtWind(w.s))} ${compass(w.d)}` : ''}</td><td>${td ? esc(fmtTideH(td.h)) : ''}</td><td>${r != null ? ratingBadge(r) : ''}</td></tr>`; }).join('');
+      box.innerHTML = f.html + (rows ? `<table class="bt hourly"><tr><th></th><th>Swell</th><th>Wind</th><th>Tide</th><th>Rating</th></tr>${rows}</table>` : '<div class="sub">No forecast for this day.</div>');
+      bindForecast(box, f.model);
+    } catch (e) { const box = $('#dayFc'); if (box) box.innerHTML = '<span class="sub">Couldn’t load the forecast.</span>'; }
+  })();
+}
+/* ---------- surf rating ----------
+   A rough 0–5 rating for a spot at one hour, from swell size and period, whether the swell can reach the spot
+   (its direction against the spot's seaward angle), the wind (offshore, cross or onshore, and how strong) and,
+   when you've rated enough sessions there, how the tide has worked for you. */
+const lerp = (pts, x) => { if (x <= pts[0][0]) return pts[0][1]; for (let i = 1; i < pts.length; i++) if (x <= pts[i][0]) { const [a, fa] = pts[i - 1], [b, fb] = pts[i]; return fa + (fb - fa) * (x - a) / (b - a); } return pts[pts.length - 1][1]; };
+const angDiff = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
+function tideFactor(sp, tideH, tide) {
+  const rated = S.sessions.filter(s => s.spotId === sp.id && s.fun && s.tide && s.tide.stage);
+  if (rated.length < 3 || tideH == null || !tide || tide.length < 6) return 1;
+  const vals = tide.map(p => p.h), lo = Math.min(...vals), hi = Math.max(...vals);
+  const pos = hi - lo > 0.05 ? (tideH - lo) / (hi - lo) : 0.5;
+  const stage = pos < 0.34 ? 'low' : pos > 0.66 ? 'high' : 'mid';
+  const by = s => avg(rated.filter(x => x.tide.stage === s).map(x => x.fun));
+  const best = Math.max(...['low', 'mid', 'high'].map(by).filter(v => v != null));
+  const here = by(stage);
+  return here == null ? 0.9 : 0.75 + 0.25 * here / best;
+}
+function spotRating(sp, c, tide) {
+  if (!c || c.h == null) return null;
+  const face = faceFeet({ swellH: c.h, swellP: c.p });
+  const size = lerp([[0, 0], [1, 0.15], [2, 0.45], [3, 0.75], [4, 0.95], [5, 1], [8, 1], [10, 0.85], [14, 0.6], [20, 0.4]], face);
+  const period = c.p == null ? 0.7 : lerp([[6, 0.35], [8, 0.5], [10, 0.7], [12, 0.85], [14, 1]], c.p);
+  const ang = Number.isFinite(sp.ang) ? sp.ang : null;
+  const expo = ang == null || c.d == null ? 0.85 : lerp([[50, 1], [90, 0.55], [130, 0.15], [180, 0.1]], angDiff(c.d, ang));
+  let wind = 0.85;
+  if (c.wS != null) {
+    const kt = c.wS * 1.944;
+    const onshore = ang == null || c.wD == null ? 0.3 : Math.cos(angDiff(c.wD, ang) * Math.PI / 180);
+    if (onshore < -0.3) wind = kt <= 18 ? 1 : lerp([[18, 1], [30, 0.7]], kt);
+    else wind = 1 - Math.min(1, Math.max(0, (kt - 4) / 16)) * (0.35 + 0.55 * Math.max(0, (onshore + 0.3) / 1.3));
+  }
+  const score = 5 * Math.pow(size, 0.8) * Math.pow(period, 0.6) * expo * wind * tideFactor(sp, c.tide, tide);
+  return Math.max(0, Math.min(5, Math.round(score * 10) / 10));
+}
+const RATING_SCALE = [[1, '#8a9a9f', 'Poor'], [2, '#d0843f', 'Poor to fair'], [3, '#e8c547', 'Fair'], [4, '#3fb36b', 'Good'], [5.01, '#2f7fe0', 'Very good']];
+const ratingInfo = r => RATING_SCALE.find(([max]) => r < max) || RATING_SCALE[RATING_SCALE.length - 1];
+const ratingBadge = r => { const [, col, label] = ratingInfo(r); return `<span class="rbadge" style="background:${col}" title="${label}">${r.toFixed(1)}</span>`; };
+/* Map: color spot dots by rating for the hour on the CDIP time panel (or now). Swell, tide and wind come
+   from Open-Meteo in a few combined requests for the spots in view only. */
+const RATING_NAME = 'Surf rating (spots)';
+const rateCache = new Map();
+async function loadRatingSeries(spots) {
+  const need = spots.filter(sp => { const c = rateCache.get(sp.id); return !c || Date.now() - c.at > 60 * 60 * 1000; });
+  for (let i = 0; i < need.length; i += 40) {
+    const chunk = need.slice(i, i + 40);
+    const base = { latitude: chunk.map(s => s.lat.toFixed(3)).join(','), longitude: chunk.map(s => s.lon.toFixed(3)).join(','), forecast_days: '6', timezone: 'GMT' };
+    const get = async (url, extra) => {
+      try { const r = await fetch(`${url}?${new URLSearchParams({ ...base, ...extra })}`); if (!r.ok) return null; const j = await r.json(); return Array.isArray(j) ? j : [j]; } catch (e) { return null; }
+    };
+    const [m, w] = await Promise.all([
+      get(MARINE_URL, { hourly: 'swell_wave_height,swell_wave_period,swell_wave_direction,wave_height,wave_period,wave_direction,sea_level_height_msl', cell_selection: 'sea' }),
+      get(WEATHER_URL, { hourly: 'wind_speed_10m,wind_direction_10m', wind_speed_unit: 'ms' })
+    ]);
+    chunk.forEach((sp, k) => {
+      const mh = m && m[k] && m[k].hourly, wh = w && w[k] && w[k].hourly;
+      if (!mh && !wh) return;
+      const times = ((mh || wh).time || []).map(t => new Date(t + 'Z').getTime());
+      rateCache.set(sp.id, { at: Date.now(), times, m: mh, w: wh,
+        tide: mh && mh.sea_level_height_msl ? times.map((t, i) => ({ t, h: mh.sea_level_height_msl[i] })).filter(p => p.h != null) : [] });
+    });
+  }
+}
+function ratingAt(sp, t) {
+  const c = rateCache.get(sp.id);
+  if (!c || !c.times.length) return null;
+  let i = 0, best = Infinity;
+  c.times.forEach((x, k) => { const d = Math.abs(x - t); if (d < best) { best = d; i = k; } });
+  if (best > 3 * 3600000) return null;
+  const m = c.m || {}, w = c.w || {}, v = (o, k) => o[k] ? o[k][i] : null;
+  return spotRating(sp, { h: v(m, 'swell_wave_height') ?? v(m, 'wave_height'), p: v(m, 'swell_wave_period') ?? v(m, 'wave_period'), d: v(m, 'swell_wave_direction') ?? v(m, 'wave_direction'),
+    wS: v(w, 'wind_speed_10m'), wD: v(w, 'wind_direction_10m'), tide: v(m, 'sea_level_height_msl') }, c.tide);
+}
+function setupRating(map, items) {
+  const layer = map.ratingLayer;
+  if (!layer) return;
+  let timer = null, token = 0;
+  const legend = on => { const a = $('#legFun'), b = $('#legRate'); if (a) a.hidden = on; if (b) b.hidden = !on; };
+  const restore = () => items.forEach(it => it.m.setStyle(it.orig));
+  const when = () => { for (const g of Object.values(map.waveLayers || {})) if (map.hasLayer(g) && g.stepTime()) return Date.parse(g.stepTime()); return Date.now(); };
+  const paint = () => {
+    const t = when();
+    for (const it of items) {
+      const sp = spotById(it.id), r = sp ? ratingAt(sp, t) : null;
+      it.m.setStyle(r == null ? { radius: 4, color: '#fff', weight: 1, fillColor: '#b8c2c6', fillOpacity: 0.9 } : { radius: 7, color: '#fff', weight: 1.5, fillColor: ratingInfo(r)[1], fillOpacity: 0.95 });
+      it.rating = r;
+    }
+    if (map.redrawLabels) map.redrawLabels();
+  };
+  const refresh = () => {
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      if (!map.hasLayer(layer)) return;
+      const my = ++token, b = map.getBounds().pad(0.2), c = map.getCenter();
+      const inView = items.filter(it => map.hasLayer(it.m) && b.contains(it.m.getLatLng())).map(it => spotById(it.id)).filter(Boolean)
+        .sort((a, z) => map.distance(c, [a.lat, a.lon]) - map.distance(c, [z.lat, z.lon])).slice(0, 80);
+      paint();
+      await loadRatingSeries(inView);
+      if (my === token && map.hasLayer(layer)) paint();
+    }, 350);
+  };
+  layer.on('add', () => { legend(true); refresh(); });
+  layer.on('remove', () => { legend(false); restore(); if (map.redrawLabels) map.redrawLabels(); });
+  map.on('moveend spotschange', () => { if (map.hasLayer(layer)) refresh(); });
+  map.on('wavestep overlayadd overlayremove', () => { if (map.hasLayer(layer)) paint(); });
 }
 
 /* ---------- photos ---------- */
@@ -2546,8 +2755,8 @@ const toH = m => m == null ? '' : prefs.units === 'm' ? +m.toFixed(2) : +(m * 3.
 const fromH = v => v === '' || v == null || isNaN(+v) ? null : prefs.units === 'm' ? +v : +v / 3.281;
 const toT = c => c == null ? '' : prefs.units === 'm' ? +c.toFixed(1) : Math.round(c * 9 / 5 + 32);
 const fromT = v => v === '' || isNaN(+v) ? null : prefs.units === 'm' ? +v : (+v - 32) * 5 / 9;
-const toKt = ms => ms == null ? '' : Math.round(ms * 1.944);
-const fromKt = v => v === '' || isNaN(+v) ? null : +v / 1.944;
+const toKt = ms => ms == null ? '' : windN(ms);
+const fromKt = v => v === '' || isNaN(+v) ? null : +v / windU()[0];
 const num = v => v === '' || isNaN(+v) ? null : +v;
 function dirSelect(id) {
   return `<select id="${id}"><option value="">–</option>${COMPASS.map((c, i) => `<option value="${i * 22.5}">${c}</option>`).join('')}</select>`;
@@ -2562,7 +2771,7 @@ function condEditHTML() {
     <h4>Tide</h4>
     <div class="grid3">${f('c_tH', `Height (${hUnit()})`, 'inputmode="text"')}${sel('c_tS', 'Stage', [['low', 'Low'], ['mid', 'Mid'], ['high', 'High']])}${sel('c_tT', 'Trend', [['rising', 'Rising'], ['falling', 'Falling'], ['slack', 'Slack']])}</div>
     <h4>Weather</h4>
-    <div class="grid3">${f('c_wS', 'Wind (kt)')}${f('c_wG', 'Gusts (kt)')}<div class="field"><label for="c_wD">Wind from</label>${dirSelect('c_wD')}</div></div>
+    <div class="grid3">${f('c_wS', `Wind (${windU()[1]})`)}${f('c_wG', `Gusts (${windU()[1]})`)}<div class="field"><label for="c_wD">Wind from</label>${dirSelect('c_wD')}</div></div>
     <div class="grid3">${f('c_aT', `Air (${tUnit()})`, 'inputmode="text"')}${sel('c_sky', 'Sky', SKY)}</div>
     <div class="sub" style="margin-bottom:8px">Your changes are kept when you save. Tap Refresh above to go back to the looked-up values.</div>
   </details>`;
@@ -2717,14 +2926,18 @@ function spotsMap(el, sessions, { small, showAll, state } = {}) {
       renderer: map.spotRenderer, radius: 3, color: '#33373a', weight: 1.5, fillColor: '#ffffff', fillOpacity: 1
     }).addTo(list.length ? map : unsurfed);
     m.spotId = sp.id;
-    labelItems.push({ m, name: sp.name, rank: list.length, ang: Number.isFinite(sp.ang) ? sp.ang : null });
+    labelItems.push({ m, id: sp.id, name: sp.name, rank: list.length, ang: Number.isFinite(sp.ang) ? sp.ang : null, orig: { radius: m.options.radius, color: m.options.color, weight: m.options.weight, fillColor: m.options.fillColor, fillOpacity: m.options.fillOpacity } });
     const base = spotSummary(sp, list);
     m.bindPopup(base + (small ? '' : FC_LOADING), POPUP_OPTS);
-    if (!small) m.on('popupopen', e => fillForecast(e.popup, base, () => spotForecast(sp), [sp.lat, sp.lon]));
+    if (!small) m.on('popupopen', e => fillForecast(e.popup, base, () => spotForecast(sp), [sp.lat, sp.lon], { spotId: sp.id }));
     if (list.length) pts.push([sp.lat, sp.lon]);
   }
   if (showAll) unsurfed.addTo(map);
-  if (!small) spotLabels(map, labelItems);
+  if (!small) {
+    spotLabels(map, labelItems);
+    setupRating(map, labelItems);
+    if (map.ratingLayer && (state && state.overlays ? state.overlays.has('rating') : prefs.showRating)) map.ratingLayer.addTo(map);
+  }
   if (state && state.center) map.setView(state.center, state.zoom ?? 11, { animate: false });
   else if (pts.length === 1) map.setView(pts[0], 13, { animate: false });
   else if (pts.length) map.fitBounds(pts, { padding: [40, 40], maxZoom: 13, animate: false });
@@ -2838,6 +3051,7 @@ function mapLink(map) {
   if (ov['Buoys'] && map.hasLayer(ov['Buoys'])) on.push('buoys');
   let grid = null;
   for (const [k, g] of Object.entries(map.waveLayers || {})) if (map.hasLayer(g)) { on.push(k); grid = g; }
+  if (map.ratingLayer && map.hasLayer(map.ratingLayer)) on.push('rating');
   p.push(`l=${on.join(',') || 'none'}`, `spots=${map.showAll ? 'all' : 'surfed'}`);
   const t = grid && grid.stepTime();
   if (t) p.push(`t=${t.replace('.000Z', 'Z')}`);
@@ -2850,7 +3064,8 @@ function viewMap(q = new URLSearchParams()) {
   const n = S.sessions.length;
   setTop('Map', null, `<div class="map-legend">
       <span><strong>${n}</strong> session${n === 1 ? '' : 's'} · <strong>${surfed}</strong> spot${surfed === 1 ? '' : 's'}</span>
-      <span><span class="dot" style="background:#1f9d8f"></span>fun</span><span><span class="dot" style="background:#e0a526"></span>ok</span><span><span class="dot" style="background:#c8553d"></span>meh</span>
+      <span id="legFun" class="legset" ${(st.overlays ? st.overlays.has('rating') : prefs.showRating) ? 'hidden' : ''}><span><span class="dot" style="background:#1f9d8f"></span>fun</span><span><span class="dot" style="background:#e0a526"></span>ok</span><span><span class="dot" style="background:#c8553d"></span>meh</span></span>
+      <span id="legRate" class="legset" ${(st.overlays ? st.overlays.has('rating') : prefs.showRating) ? '' : 'hidden'}>Rating ${RATING_SCALE.map(([, c, l]) => `<span title="${l}"><span class="dot" style="background:${c}"></span>${l.replace('Poor to fair', 'p–f').replace('Very good', 'v.good').toLowerCase()}</span>`).join('')}</span>
       <span class="lbuoy cdip">${BUOY_SVG}CDIP</span><span class="lbuoy">${BUOY_SVG}NOAA</span>
       <label class="check"><input type="checkbox" data-mapspots ${showAll ? 'checked' : ''}> All spots</label>
       <span class="sub" id="noSurfed" ${!showAll && !surfed ? '' : 'hidden'}>No surfed spots yet</span>
@@ -3040,25 +3255,51 @@ async function toggleFav(id) {
   await loadAll();
   toast(sp.fav ? 'Removed from favorites' : 'Added to favorites');
 }
-function spotRow(sp) {
+const favList = () => spotsSorted().filter(sp => sp.fav && !sp.hidden).sort((a, b) => (a.favOrder ?? 1e9) - (b.favOrder ?? 1e9));
+async function moveFav(id, dir) {
+  const list = favList(), i = list.findIndex(sp => sp.id === id), j = i + dir;
+  if (i < 0 || j < 0 || j >= list.length) return;
+  [list[i], list[j]] = [list[j], list[i]];
+  await putMany('spots', list.map((sp, k) => ({ ...sp, favOrder: k })));
+  await loadAll();
+}
+let spotsReorder = false;
+function spotRow(sp, opts = {}) {
   const list = sessionsFor('spotId', sp.id), st = statsOf(list);
   const bb = topBy(list.filter(x => x.fun), 'boardId', id => boardName(boardById(id)));
   const sub = [sp.region || 'Your spot', st.count ? plural(st.count, 'session') : '', st.last ? `last ${fmtDate(st.last)}` : '', bb ? `best: ${bb.label}` : ''].filter(Boolean).join(' · ');
-  return `<a class="row" href="#/spot/${encodeURIComponent(sp.id)}"><span class="grow"><span class="label">${esc(sp.name)}</span><br><span class="sub">${esc(sub)}</span></span>
+  if (opts.reorder) return `<div class="row"><span class="grow"><span class="label">${esc(sp.name)}</span></span>
+    <button type="button" class="movebtn" data-act="favUp" data-id="${esc(sp.id)}" aria-label="Move up" ${opts.first ? 'disabled' : ''}>&#9650;</button><button type="button" class="movebtn" data-act="favDown" data-id="${esc(sp.id)}" aria-label="Move down" ${opts.last ? 'disabled' : ''}>&#9660;</button></div>`;
+  return `<a class="row spotrow" href="#/spot/${encodeURIComponent(sp.id)}"><span class="grow"><span class="label">${esc(sp.name)}</span><br><span class="sub">${esc(sub)}</span>
+    ${opts.outlook ? `<span class="olbox" data-ol="${esc(sp.id)}"><span class="sub">Loading the outlook…</span></span>` : ''}</span>
     <button type="button" class="favbtn" data-act="fav" data-id="${esc(sp.id)}" aria-label="${sp.fav ? 'Remove from favorites' : 'Add to favorites'}" aria-pressed="${!!sp.fav}">${STAR(sp.fav)}</button><span class="chev" aria-hidden="true">&#8250;</span></a>`;
 }
 function viewSpotsTab() {
   setTop('Spots');
-  const favs = spotsSorted().filter(sp => sp.fav && !sp.hidden);
+  const favs = favList();
   const surfed = spotsSorted().filter(sp => !sp.fav && !sp.hidden && S.sessions.some(s => s.spotId === sp.id))
     .sort((a, b) => sessionsFor('spotId', b.id).length - sessionsFor('spotId', a.id).length);
   setMain(`
     <input type="search" id="spotFind" class="spotfind" placeholder="Find a spot to add" aria-label="Find a spot" autocomplete="off">
     <div id="spotFound"></div>
-    <h2 class="sec">Favorites</h2>
-    ${favs.length ? `<div class="card">${favs.map(spotRow).join('')}</div>` : '<div class="card"><div class="stack sub">Tap the star on any spot to keep it here. Find spots above, on the map, or below.</div></div>'}
-    ${surfed.length ? `<h2 class="sec">Other spots you've surfed</h2><div class="card">${surfed.map(spotRow).join('')}</div>` : ''}
+    <div class="sechead"><h2 class="sec">Favorites</h2>${favs.length > 1 ? `<button type="button" class="linkbtn" data-act="favReorder">${spotsReorder ? 'Done' : 'Reorder'}</button>` : ''}</div>
+    ${favs.length ? `<div class="card">${favs.map((sp, i) => spotRow(sp, spotsReorder ? { reorder: true, first: i === 0, last: i === favs.length - 1 } : { outlook: true })).join('')}</div>` : '<div class="card"><div class="stack sub">Tap the star on any spot to keep it here. Find spots above, on the map, or below.</div></div>'}
+    ${surfed.length ? `<h2 class="sec">Other spots you've surfed</h2><div class="card">${surfed.map(sp => spotRow(sp)).join('')}</div>` : ''}
     <p class="note">Open a spot for the forecast, a board pick for right now, and your sessions there.</p>`);
+  /* Now / tomorrow / next day for each favorite, loaded one place at a time. */
+  if (!spotsReorder) (async () => {
+    for (const sp of favs) {
+      try {
+        const { fc, ex } = await placeForecast(sp);
+        const el = document.querySelector(`[data-ol="${CSS.escape(sp.id)}"]`);
+        if (!el) return;
+        el.innerHTML = outlookHTML(fc, ex);
+      } catch (e) {
+        const el = document.querySelector(`[data-ol="${CSS.escape(sp.id)}"]`);
+        if (el) el.innerHTML = '<span class="sub">Forecast unavailable right now.</span>';
+      }
+    }
+  })();
   const find = $('#spotFind'), out = $('#spotFound');
   find.addEventListener('input', () => {
     const q = find.value.trim().toLowerCase();
@@ -3104,7 +3345,7 @@ function viewSpotPage(id) {
       const draw = (ex, waiting) => {
         const box = $('#spotFc');
         if (!box || location.hash !== `#/spot/${encodeURIComponent(id)}`) return;
-        const f = buildForecast(fc, ex);
+        const f = buildForecast(fc, ex, { outlook: true, spotId: id });
         box.innerHTML = f.html + (waiting ? '<div class="sub fcwait">Loading wind and tide…</div>' : '');
         bindForecast(box, f.model, picked, t => { picked = t; });
       };
@@ -3153,6 +3394,8 @@ function viewHelp() {
     ${sec('Spots and favorites', `<ul>
       <li>The <strong>Spots</strong> tab lists your favorite spots, then other spots you've surfed. Find any spot with the search box and tap the star to make it a favorite.</li>
       <li>Open a spot for a <strong>board pick for right now</strong> (from your past sessions in similar conditions), the 5-day forecast with swell, wind and tide, the best boards you've ridden there, and your sessions there.</li>
+      <li>Each favorite shows <strong>Now, Tomorrow and the next day</strong>: swell, wind and tide. Tap <strong>Reorder</strong> to change their order.</li>
+      <li>In a forecast, the days run left to right. Tap a day for that day's charts and a 3-hourly table with a surf rating, then step to the previous or next day.</li>
       <li>Spot popups on the map have a <strong>Spot page</strong> link too.</li></ul>`)}
     ${sec('Stats and the board pick', `<ul>
       <li>Stats sit with Sessions: use the Sessions / Stats switch at the top. Stats shows totals, your most ridden and most fun boards and spots, fun by tide and sessions per month. Some cards unlock after you've logged enough sessions.</li>
@@ -3163,11 +3406,12 @@ function viewHelp() {
       <li>Buttons on the right: zoom, <strong>full screen</strong>, <strong>find my location</strong> and the <strong>layers</strong> list (Hydro, Topo or Imagery base maps; buoys; CDIP wave height or peak period).</li>
       <li>With a CDIP layer on, the panel at the bottom steps from Now through the forecast hours.</li>
       <li>Tap the <strong>magnifier</strong> (top left) to search: matching surf spots show first as you type, then press Search for towns and addresses.</li>
+      <li>Turn on <strong>Surf rating (spots)</strong> in the layers list to color the spots by a 0–5 rating from swell size and period, swell direction, wind (offshore or onshore) and, once you've rated a few sessions there, the tide. It follows the hour on the CDIP time panel.</li>
       <li>Zoom in to see spot names. The web address updates as you move the map, so you can bookmark or share the exact view.</li></ul>`)}
     ${sec('Settings', `<ul>
       <li>Edit the choices offered on forms (board types, fin systems, wave sizes and more). Add values, hide ones you don't use, or turn a whole field off.</li>
       <li><strong>Surf spots</strong>: search, rename, move, hide or delete spots. A spot with sessions can't be deleted; move those sessions to another spot first, or hide it.</li>
-      <li>Units (feet or meters), backup and export (including CSV files for spreadsheets), and Refresh app.</li></ul>`)}
+      <li>Units (feet or meters, and wind in knots, mph, km/h or m/s), backup and export (including CSV files for spreadsheets), and Refresh app.</li></ul>`)}
     ${sec('Where the data comes from', `<ul>
       <li>Wave forecasts and map layers: data courtesy of <a href="https://cdip.ucsd.edu/" target="_blank" rel="noopener">CDIP</a>, Scripps Institution of Oceanography.</li>
       <li>Swell, tide and weather: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0). Tide is modeled sea level, not a tide table.</li>
@@ -3192,7 +3436,9 @@ function viewSettings() {
     <div class="card"><a class="row" href="#/settings/spots"><span class="grow"><span class="label">Surf spots</span><br><span class="sub">${plural(S.spots.filter(s => !s.hidden).length, 'spot')}</span></span><span class="chev" aria-hidden="true">&#8250;</span></a></div>
     <h2 class="sec">Units</h2>
     <div class="card"><div class="stack"><label for="units" class="sub">Swell height</label>
-      <select id="units" data-pref="units"><option value="ft" ${prefs.units === 'ft' ? 'selected' : ''}>Feet</option><option value="m" ${prefs.units === 'm' ? 'selected' : ''}>Meters</option></select></div></div>
+      <select id="units" data-pref="units"><option value="ft" ${prefs.units === 'ft' ? 'selected' : ''}>Feet</option><option value="m" ${prefs.units === 'm' ? 'selected' : ''}>Meters</option></select>
+      <label for="windUnits" class="sub" style="margin-top:8px">Wind speed</label>
+      <select id="windUnits" data-pref="windUnits">${Object.entries(WIND_UNITS).map(([k, u]) => `<option value="${k}" ${(prefs.windUnits || 'kt') === k ? 'selected' : ''}>${u[2]} (${u[1]})</option>`).join('')}</select></div></div>
     <h2 class="sec">Backup and export</h2>
     <div class="card"><div class="stack">
       <button class="primary" data-act="export">Export backup</button>
@@ -3495,6 +3741,8 @@ document.addEventListener('click', async e => {
   try {
     switch (act) {
       case 'close': closeDialog(); break;
+      case 'favReorder': spotsReorder = !spotsReorder; route(); break;
+      case 'favUp': case 'favDown': await moveFav(id, act === 'favUp' ? -1 : 1); route(); break;
       case 'fav': e.preventDefault(); await toggleFav(id); if (location.hash.startsWith('#/spot') || location.hash.startsWith('#/spots')) { const q = $('#spotFind') && $('#spotFind').value; route(); if (q && $('#spotFind')) { $('#spotFind').value = q; $('#spotFind').dispatchEvent(new Event('input')); } } break;
       case 'refresh-app': await refreshApp(); break;
       case 'back': goBack(el.dataset.fallback || '#/boards'); break;
@@ -3652,7 +3900,7 @@ function route() {
     case 'map': return viewMap(q);
     case 'stats': return viewStats();
     case 'spots': return viewSpotsTab();
-    case 'spot': return viewSpotPage(parts[1]);
+    case 'spot': return parts[2] === 'day' ? viewSpotDay(parts[1], parts[3]) : viewSpotPage(parts[1]);
     case 'settings':
       if (parts[1] === 'help') return viewHelp();
       if (parts[1] === 'list') return viewList(parts[2]);
