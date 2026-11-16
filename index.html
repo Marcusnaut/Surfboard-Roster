@@ -189,8 +189,15 @@ header.top .favhdr svg.star.on { fill: #ffc531; stroke: #ffc531; }
 .outlook .ov { overflow-wrap: anywhere; }
 .daystbl { overflow-x: auto; margin-top: 10px; }
 .daystbl table { width: 100%; font-size: 13px; }
-.daystbl th, .daystbl td { text-align: center; padding: 4px 3px; vertical-align: top; line-height: 1.3; }
-.daystbl tr > th:first-child { text-align: left; color: var(--muted); font-weight: 600; padding-left: 0; }
+.daystbl table { border-collapse: separate; border-spacing: 0; }
+.daystbl th, .daystbl td { text-align: center; padding: 7px 3px; vertical-align: middle; line-height: 1.25; border: 0; }
+.daystbl tr + tr > * { border-top: 1px solid var(--line, rgba(127,127,127,.18)); }
+.daystbl tr:nth-child(even) > * { background: var(--zebra, rgba(127,127,127,.09)); }
+.daystbl tr > th:first-child { text-align: left; color: var(--muted); font-weight: 600; padding-left: 6px; font-size: 12px; white-space: nowrap; }
+.daystbl tr > th:first-child small { display: block; font-weight: 400; font-size: 11px; }
+.daystbl td small { display: block; color: var(--muted); font-size: 11px; }
+.daystbl td b { font-weight: 650; }
+.daystbl tr:first-child > * { background: none; border-top: 0; }
 .daystbl th.dh a { display: inline-block; min-width: 40px; padding: 4px 6px; border-radius: 8px; background: var(--tag); color: var(--accent); font-weight: 700; text-decoration: none; }
 .daynav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
 .daynav .btn { min-height: 38px; padding: 0 10px; font-size: 14px; }
@@ -389,7 +396,23 @@ details.install li { margin: 3px 0; }
 .leaflet-top.leaflet-right { z-index: 1001; }
 .lc-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -2px -6px 4px 0; font-weight: 650; font-size: 14px; }
 .lc-close { min-height: 36px; min-width: 36px; padding: 0; border: 0; border-radius: 8px; background: var(--chip, rgba(0,0,0,.06)); font-size: 24px; line-height: 1; color: inherit; }
-.leaflet-control-layers:not(.leaflet-control-layers-expanded) .lc-head { display: none; }
+.lyr:not(.leaflet-control-layers-expanded) .lyr-panel { display: none; }
+.lyr.leaflet-control-layers-expanded .leaflet-control-layers-toggle { display: none; }
+.lyr-panel { min-width: 236px; }
+.water-icon { background: none; border: 0; }
+.water-icon svg { filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)); display: block; }
+.wq { margin: 6px 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.wqchip { color: #fff; font-weight: 650; font-size: 13px; padding: 2px 8px; border-radius: 10px; }
+td.over { color: #d64541; font-weight: 700; }
+.whist { display: inline-flex; align-items: center; gap: 3px; margin-right: 8px; white-space: nowrap; }
+.lyr-row { display: flex !important; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; border-top: 1px solid var(--line, rgba(0,0,0,.08)); }
+.lyr-row > span { display: flex; flex-direction: column; line-height: 1.15; }
+.lyr-row small { color: var(--muted); font-size: 12px; }
+.lyr-row select { min-height: 36px; max-width: 140px; font: inherit; font-size: 15px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--line, #ccd); background: var(--surface); color: var(--ink); }
+.lyr-sw input { appearance: none; -webkit-appearance: none; width: 44px; height: 26px; border-radius: 13px; background: #b9c2c6; position: relative; margin: 0; flex: none; cursor: pointer; transition: background .15s; }
+.lyr-sw input::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: left .15s; }
+.lyr-sw input:checked { background: var(--accent); }
+.lyr-sw input:checked::after { left: 21px; }
 .leaflet-container.imagery .spotlbl { color: #fff; text-shadow: 0 0 2px #000, 0 0 3px #000, 0 0 4px rgba(0,0,0,.8); }
 .wave-ctl { background: var(--surface); color: var(--ink); border-radius: 12px; padding: 6px 10px 8px; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,.18); width: 230px; margin-bottom: 30px !important; }
 .wave-ctl .wrow { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
@@ -440,7 +463,15 @@ nav.tabs a { font-size: 10px; }
 .buoy.cdip .blbl { background: rgba(28,84,160,.94); }
 .buoy .blbl .barrow { width: 11px; height: 11px; fill: currentColor; margin-right: 3px; vertical-align: -1px; }
 .leaflet-container.far .buoy .blbl { display: none; }
-.buoy .blbl { position: absolute; left: 25px; top: 50%; transform: translateY(-50%); white-space: nowrap; background: rgba(11,58,74,.92); color: #fff; font-size: 12px; font-weight: 650; padding: 2px 7px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.3); pointer-events: none; }
+.buoy .blbl { position: absolute; white-space: nowrap; background: rgba(11,58,74,.92); color: #fff; font-size: 12px; font-weight: 650; padding: 2px 6px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.3); pointer-events: none; line-height: 1.15; text-align: center; }
+.buoy .blbl b { display: block; font-weight: 700; }
+.buoy .blbl small { display: block; font-size: 10.5px; font-weight: 600; opacity: .85; }
+/* Label spots around the buoy, picked so labels don't overlap (placeBuoyLabels). */
+.buoy .blbl.p-r { left: 25px; top: 50%; transform: translateY(-50%); }
+.buoy .blbl.p-l { right: 25px; top: 50%; transform: translateY(-50%); }
+.buoy .blbl.p-t { bottom: 25px; left: 50%; transform: translateX(-50%); }
+.buoy .blbl.p-b { top: 25px; left: 50%; transform: translateX(-50%); }
+.buoy .blbl.p-off { display: none; }
 .buoy.stale .bdot { opacity: .55; }
 .buoy.stale .blbl { background: rgba(80,95,100,.85); }
 table.bt { border-collapse: collapse; margin: 8px 0 4px; font-size: 13px; width: 100%; }
@@ -504,7 +535,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 12.7 (person icon for your location; buoy swells tidy-up)';
+const BUILD = 'Build 13 (new layers panel, water quality, buoy labels that don't overlap, cleaner day table, person icon)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -520,6 +551,7 @@ const BASEMAPS = {
 const USGS_CREDIT = '<a href="https://www.usgs.gov/programs/national-geospatial-program/national-map" target="_blank" rel="noopener">USGS The National Map</a>';
 const BUOY_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/buoys.json';
 const WAVEGRID_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/wavegrid.json';
+const WATER_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/water.json';
 /* CDIP's California wave-height grid (0.01°), drawn as image tiles by CDIP's own WMS server. */
 const WAVE_WMS = 'https://thredds.cdip.ucsd.edu/thredds/wms/cdip/model/MOP_grids/CA_0.01_';
 const WAVE_MAX_M = 6.096; /* 20 ft, the top of CDIP's own color scale */
@@ -670,7 +702,7 @@ async function seed() {
 
 /* ---------- in-memory state ---------- */
 const S = { options: [], boards: [], sessions: [], spots: [], photos: new Map(), meta: {}, fins: [], finLinks: [] };
-const PREF_DEFAULTS = { boardsView: 'tiles', boardSort: 'model', filterType: '', filterShaper: '', showRetired: false, pagerIndex: 0, units: 'ft', sessionSort: 'newest', finsView: 'table', finPagerIndex: 0, finSort: 'name', filterFinSetup: '', showRetiredFins: false, showAllSpots: true, statsSpot: '', disabledLists: [], baseMap: 'map', showBuoys: true, showWaves: false, showPeriod: false, showRating: false, showPulse: false, windUnits: 'kt' };
+const PREF_DEFAULTS = { boardsView: 'tiles', boardSort: 'model', filterType: '', filterShaper: '', showRetired: false, pagerIndex: 0, units: 'ft', sessionSort: 'newest', finsView: 'table', finPagerIndex: 0, finSort: 'name', filterFinSetup: '', showRetiredFins: false, showAllSpots: true, statsSpot: '', disabledLists: [], baseMap: 'map', showBuoys: true, showWaves: false, showPeriod: false, showRating: false, showPulse: false, showWater: false, windUnits: 'kt' };
 let prefs = { ...PREF_DEFAULTS };
 async function loadAll() {
   const [options, boards, sessions, spots, photos, meta, fins, finLinks] = await Promise.all(STORES.map(getAll));
@@ -1060,6 +1092,9 @@ function makeMap(el, opts = {}) {
     const layer = buoyLayer();
     overlays['Buoys'] = layer;
     if (st.overlays ? st.overlays.has('buoys') : prefs.showBuoys) layer.addTo(map);
+    const water = waterLayer();
+    overlays[WATER_NAME] = water;
+    if (st.overlays ? st.overlays.has('water') : prefs.showWater) water.addTo(map);
     /* CDIP grids: wave height or peak period, one at a time (they would hide each other). */
     map.waveLayers = {};
     for (const [key, cfg] of Object.entries(GRID_LAYERS)) {
@@ -1085,13 +1120,64 @@ function makeMap(el, opts = {}) {
     });
   }
   if (layersControl !== false) {
-    const lc = L.control.layers(Object.fromEntries(Object.keys(BASEMAPS).map(k => [BASEMAPS[k].label, bases[k]])), overlays, { position: 'topright', collapsed: true }).addTo(map);
-    /* A close (X) button at the top of the open layer list. */
-    const head = L.DomUtil.create('div', 'lc-head');
-    head.innerHTML = '<span>Map layers</span><button type="button" class="lc-close" aria-label="Close layer list">&times;</button>';
-    lc._section.insertBefore(head, lc._section.firstChild);
-    L.DomEvent.disableClickPropagation(head);
-    head.querySelector('.lc-close').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); lc.collapse(); });
+    /* Map layers panel: choices are menus (base map, wave model, spot style), on/off layers are switches.
+       Changes go through the same overlayadd / overlayremove / baselayerchange events the rest of the map listens to. */
+    const fireOv = (layer, name, on) => map.fire(on ? 'overlayadd' : 'overlayremove', { layer, name });
+    const setOv = (layer, name, on) => { if (!layer || on === map.hasLayer(layer)) return; on ? map.addLayer(layer) : map.removeLayer(layer); fireOv(layer, name, on); };
+    const styleOf = () => { const r = map.ratingLayer && map.hasLayer(map.ratingLayer), p = map.pulseLayer && map.hasLayer(map.pulseLayer); return r && p ? 'both' : r ? 'rating' : p ? 'pulse' : 'sessions'; };
+    const gridOf = () => Object.keys(map.waveLayers || {}).find(k => map.hasLayer(map.waveLayers[k])) || 'off';
+    const Ctl = L.Control.extend({
+      options: { position: 'topright' },
+      onAdd() {
+        const d = L.DomUtil.create('div', 'leaflet-control-layers leaflet-control lyr');
+        d.innerHTML = `<a class="leaflet-control-layers-toggle" href="#" role="button" title="Map layers" aria-label="Map layers"></a>
+          <div class="lyr-panel">
+            <div class="lc-head"><span>Map layers</span><button type="button" class="lc-close" aria-label="Close layer list">&times;</button></div>
+            <label class="lyr-row"><span>Base map</span><select data-lyr="base">${Object.keys(BASEMAPS).map(k => `<option value="${k}">${esc(BASEMAPS[k].label)}</option>`).join('')}</select></label>
+            ${map.waveLayers ? `<label class="lyr-row"><span>Wave model <small>CDIP, Calif.</small></span><select data-lyr="grid"><option value="off">Off</option>${Object.entries(GRID_LAYERS).map(([k, c]) => `<option value="${k}">${esc(c.title)}</option>`).join('')}</select></label>` : ''}
+            ${map.ratingLayer ? `<label class="lyr-row"><span>Spot style</span><select data-lyr="style"><option value="sessions">My sessions</option><option value="rating">Surf rating</option><option value="pulse">Swell pulse</option><option value="both">Rating + pulse</option></select></label>` : ''}
+            ${overlays['Buoys'] ? '<label class="lyr-row lyr-sw"><span>Buoys</span><input type="checkbox" role="switch" data-lyr="buoys"></label>' : ''}
+            ${overlays[WATER_NAME] ? '<label class="lyr-row lyr-sw"><span>Water quality <small>Calif. beaches</small></span><input type="checkbox" role="switch" data-lyr="water"></label>' : ''}
+          </div>`;
+        L.DomEvent.disableClickPropagation(d);
+        L.DomEvent.disableScrollPropagation(d);
+        const q = k => d.querySelector(`[data-lyr="${k}"]`);
+        const sync = () => {
+          q('base').value = map.baseKey;
+          if (q('grid')) q('grid').value = gridOf();
+          if (q('style')) q('style').value = styleOf();
+          if (q('buoys')) q('buoys').checked = map.hasLayer(overlays['Buoys']);
+          if (q('water')) q('water').checked = map.hasLayer(overlays[WATER_NAME]);
+        };
+        const open = on => { d.classList.toggle('leaflet-control-layers-expanded', on); if (on) sync(); };
+        d.querySelector('.leaflet-control-layers-toggle').addEventListener('click', e => { e.preventDefault(); open(!d.classList.contains('leaflet-control-layers-expanded')); });
+        d.querySelector('.lc-close').addEventListener('click', e => { e.preventDefault(); open(false); });
+        q('base').addEventListener('change', e => {
+          const key = e.target.value; if (key === map.baseKey) return;
+          map.removeLayer(bases[map.baseKey]); bases[key].addTo(map); bases[key].bringToBack();
+          map.fire('baselayerchange', { layer: bases[key], name: BASEMAPS[key].label });
+        });
+        if (q('grid')) q('grid').addEventListener('change', e => {
+          const want = e.target.value, was = gridOf();
+          if (want === was) return;
+          const old = map.waveLayers[was], next = map.waveLayers[want];
+          if (next && old) next.carryTime(old.stepTime());
+          if (old) setOv(old, GRID_LAYERS[was].name, false);
+          if (next) setOv(next, GRID_LAYERS[want].name, true);
+        });
+        if (q('style')) q('style').addEventListener('change', e => {
+          const v = e.target.value;
+          setOv(map.ratingLayer, RATING_NAME, v === 'rating' || v === 'both');
+          setOv(map.pulseLayer, PULSE_NAME, v === 'pulse' || v === 'both');
+        });
+        if (q('buoys')) q('buoys').addEventListener('change', e => setOv(overlays['Buoys'], 'Buoys', e.target.checked));
+        if (q('water')) q('water').addEventListener('change', e => setOv(overlays[WATER_NAME], WATER_NAME, e.target.checked));
+        map.on('overlayadd overlayremove baselayerchange', () => { if (d.classList.contains('leaflet-control-layers-expanded')) sync(); });
+        this.expand = () => open(true); this.collapse = () => open(false);
+        return d;
+      }
+    });
+    const lc = new Ctl().addTo(map);
     map.layersCtl = lc;
     map.on('baselayerchange', e => {
       const key = Object.keys(bases).find(k => bases[k] === e.layer) || 'map';
@@ -1101,6 +1187,7 @@ function makeMap(el, opts = {}) {
     });
     map.on('overlayadd overlayremove', e => {
       if (e.name === 'Buoys') savePrefs({ showBuoys: e.type === 'overlayadd' });
+      if (e.name === WATER_NAME) savePrefs({ showWater: e.type === 'overlayadd' });
       for (const cfg of Object.values(GRID_LAYERS)) if (e.name === cfg.name) savePrefs({ [cfg.pref]: e.type === 'overlayadd' });
       if (e.name === RATING_NAME) savePrefs({ showRating: e.type === 'overlayadd' });
       if (e.name === PULSE_NAME) savePrefs({ showPulse: e.type === 'overlayadd' });
@@ -1339,11 +1426,11 @@ function buoyPulseVars(ps) {
 function buoyIcon(b, r) {
   const ps = primarySwell(r);
   const stale = !r || isStale(r.time);
-  const label = ps ? `${ps.dir ? ps.dir + ' ' : ''}${fmtHeight(ps.h)}` : 'No data';
   const arrow = ps && ps.deg != null ? `<svg class="barrow" viewBox="0 0 20 20" style="transform:rotate(${(ps.deg + 180) % 360}deg)" aria-hidden="true"><path d="M10 2 L15 15 L10 12 L5 15 Z"/></svg>` : '';
+  const lbl = ps ? `<b>${arrow}${esc(fmtHeight(ps.h))}</b>${ps.dir ? `<small>${esc(ps.dir)}</small>` : ''}` : 'No data';
   return L.divIcon({
     className: 'buoy-icon', iconSize: [21, 21], iconAnchor: [10, 10], popupAnchor: [0, -11],
-    html: `<div class="buoy ${cdipNumber(b) ? 'cdip' : ''} ${stale || !ps ? 'stale' : ''}"><span class="bdot" style="${buoyPulseVars(ps)}">${BUOY_SVG}</span><span class="blbl">${arrow}${esc(label)}</span></div>`
+    html: `<div class="buoy ${cdipNumber(b) ? 'cdip' : ''} ${stale || !ps ? 'stale' : ''}"><span class="bdot" style="${buoyPulseVars(ps)}">${BUOY_SVG}</span><span class="blbl p-r">${lbl}</span></div>`
   });
 }
 function buoyList(data) {
@@ -1423,6 +1510,65 @@ function buoyPopup(b, r, data) {
     ${buoyLinks(b)}
     ${cdipPlots(b)}`;
 }
+/* ---------- Beach water quality (California) ---------- */
+const WATER_NAME = 'Water quality';
+/* California's single-sample limits for ocean beaches (AB 411), per 100 mL. E. coli is read against the
+   fecal coliform limit, as counties use it in its place. */
+const WATER_TESTS = [['ent', 'Enterococcus', 104], ['fc', 'Fecal coliform', 400], ['ec', 'E. coli', 400], ['tc', 'Total coliform', 10000]];
+const WATER_LEVELS = { good: ['Good', '#2fa36b'], caution: ['Watch', '#e8a33d'], bad: ['Over limit', '#d64541'], old: ['Old sample', '#9aa3a7'] };
+function waterScore(smp) {
+  if (!smp) return { level: 'old', r: null };
+  let r = 0;
+  for (const [k, , lim] of WATER_TESTS) if (smp[k] != null) r = Math.max(r, smp[k] / lim);
+  const fecal = smp.fc ?? smp.ec;
+  if (smp.tc != null && smp.tc > 1000 && fecal != null && fecal / smp.tc > 0.1) r = Math.max(r, 1.01);
+  const days = (Date.now() - Date.parse(smp.d + 'T12:00:00')) / 86400000;
+  return { level: days > 45 ? 'old' : r > 1 ? 'bad' : r > 0.5 ? 'caution' : 'good', r, days };
+}
+const DROP_PATH = 'M9 1.5C9 1.5 2.5 9 2.5 13a6.5 6.5 0 0 0 13 0C15.5 9 9 1.5 9 1.5z';
+function waterIcon(level) {
+  const c = WATER_LEVELS[level][1];
+  return L.divIcon({ className: 'water-icon', iconSize: [18, 22], iconAnchor: [9, 20], popupAnchor: [0, -18],
+    html: `<svg viewBox="0 0 18 22" width="18" height="22" aria-hidden="true"><path d="${DROP_PATH}" fill="${c}" stroke="#fff" stroke-width="1.6"/>${level === 'bad' ? '<path d="M9 9v4.5" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="16.3" r="1.1" fill="#fff"/>' : ''}</svg>` });
+}
+function waterPopup(st) {
+  const smp = st.samples && st.samples[0], sc = waterScore(smp), [label, color] = WATER_LEVELS[sc.level];
+  const val = (x, k) => x[k] == null ? '' : `${x[k + 'q'] === '<' ? '&lt;' : x[k + 'q'] === '>' ? '&gt;' : ''}${Math.round(x[k]).toLocaleString()}`;
+  const rows = WATER_TESTS.filter(([k]) => smp && smp[k] != null).map(([k, name, lim]) => `<tr><th>${name}</th><td${smp[k] > lim ? ' class="over"' : ''}>${val(smp, k)}</td><td class="sub">${lim.toLocaleString()}</td></tr>`).join('');
+  const hist = (st.samples || []).slice(1).map(x => { const s2 = waterScore(x); return `<span class="whist" title="${esc(WATER_LEVELS[s2.level][0])}"><span class="dot" style="background:${WATER_LEVELS[s2.level][1]}"></span>${esc(new Date(x.d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))}</span>`; }).join('');
+  return `<div class="popup-title">${esc(st.name)}</div>
+    ${st.desc && st.desc.toLowerCase() !== st.name.toLowerCase() ? `<div class="sub">${esc(st.desc)}</div>` : ''}
+    <div class="wq"><span class="wqchip" style="background:${color}">${esc(label)}</span> <span class="sub">Sampled ${smp ? esc(new Date(smp.d + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })) + ` (${Math.round(sc.days)} days ago)` : '–'}${st.agency ? ` · ${esc(st.agency)}` : ''}</span></div>
+    ${rows ? `<table class="bt"><tr><th></th><th>Result</th><th>Limit</th></tr>${rows}</table><div class="sub">Bacteria per 100 mL.</div>` : ''}
+    ${hist ? `<div class="sub" style="margin-top:6px">Earlier: ${hist}</div>` : ''}
+    <div class="sub" style="margin-top:6px">Past samples, not today’s water. Results reach the state’s data a week or more after sampling. Stay out for about 3 days after rain. Data: California State Water Board (BeachWatch / Safe to Swim). <a href="https://mywaterquality.ca.gov/safe_to_swim/" target="_blank" rel="noopener">Safe to Swim map</a></div>`;
+}
+let waterFetch = null;
+async function loadWater() {
+  if (S.waterData && Date.now() - S.waterAt < 60 * 60 * 1000) return S.waterData;
+  if (!waterFetch) waterFetch = (async () => {
+    try { const r = await fetch(`${WATER_URL}?t=${Math.floor(Date.now() / 3600000)}`, { cache: 'no-store' }); if (r.ok) { S.waterData = await r.json(); S.waterAt = Date.now(); } } catch (e) {}
+    waterFetch = null;
+    return S.waterData;
+  })();
+  return waterFetch;
+}
+function waterLayer() {
+  const group = L.layerGroup();
+  let drawn = false;
+  group.on('add', async () => {
+    if (drawn) return;
+    const data = await loadWater();
+    if (!data || drawn) return;
+    drawn = true;
+    for (const st of data.stations || []) {
+      const lvl = waterScore(st.samples && st.samples[0]).level;
+      L.marker([st.lat, st.lon], { icon: waterIcon(lvl), title: `${st.name}: ${WATER_LEVELS[lvl][0]}`, zIndexOffset: -100 })
+        .bindPopup(() => waterPopup(st), { maxWidth: 320 }).addTo(group);
+    }
+  });
+  return group;
+}
 function buoyLayer() {
   const group = L.layerGroup();
   const markers = new Map();
@@ -1439,14 +1585,48 @@ function buoyLayer() {
         m.on('click', e => L.DomEvent.stopPropagation(e));
         markers.set(b.id, m);
       } else { m.setLatLng(pos); m.setIcon(buoyIcon(b, r)); }
+      m.swellH = (primarySwell(r) || {}).h;
       const base = buoyPopup(b, r, data);
       m.off('popupopen');
       m.bindPopup(base + (b.lat != null ? FC_LOADING : ''), POPUP_OPTS);
       m.on('popupopen', e => fillForecast(e.popup, base, () => buoyForecast(b), [b.lat, b.lon]));
     }
   };
+  /* Place each label right, left, above or below its buoy, whichever is clear of other buoys and labels
+     already placed (biggest swell first). A label with no clear spot is hidden; tap the buoy for it. */
+  let map = null, queued = false;
+  const place = () => {
+    queued = false;
+    if (!map || !map.hasLayer(group) || map.getContainer().classList.contains('far')) return;
+    const box = map.getContainer().getBoundingClientRect();
+    const items = [];
+    for (const m of markers.values()) {
+      const el = m.getElement(), lb = el && el.querySelector('.blbl');
+      if (!lb) continue;
+      const d = el.querySelector('.bdot').getBoundingClientRect();
+      if (d.right < box.left || d.left > box.right || d.bottom < box.top || d.top > box.bottom) { lb.className = 'blbl p-r'; continue; }
+      items.push({ lb, d, h: m.swellH ?? -1 });
+    }
+    const hit = (a, b) => a.left < b.right + 2 && b.left < a.right + 2 && a.top < b.bottom + 2 && b.top < a.bottom + 2;
+    const taken = items.map(x => x.d);
+    map.getContainer().querySelectorAll('.leaflet-control').forEach(e => { if (e.offsetParent) taken.push(e.getBoundingClientRect()); });
+    items.sort((a, b) => b.h - a.h);
+    for (const it of items) {
+      let ok = null;
+      for (const p of ['p-r', 'p-l', 'p-t', 'p-b']) {
+        it.lb.className = 'blbl ' + p;
+        const r = it.lb.getBoundingClientRect();
+        if (r.left >= box.left && r.right <= box.right && !taken.some(t => t !== it.d && hit(r, t))) { ok = r; break; }
+      }
+      if (ok) taken.push(ok); else it.lb.className = 'blbl p-off';
+    }
+  };
+  const later = () => { if (!queued) { queued = true; requestAnimationFrame(place); } };
+  group.placeLabels = place;
+  group.on('add', e => { map = e.target._map || map; if (!map) return; map.on('zoomend moveend resize', place); later(); });
+  group.on('remove', () => { if (map) map.off('zoomend moveend resize', place); });
   draw(S.buoyData || S.meta.buoys || null);
-  loadBuoyData().then(d => { if (d) draw(d); });
+  loadBuoyData().then(d => { if (d) { draw(d); later(); } });
   return group;
 }
 
@@ -1775,13 +1955,15 @@ function daysTableHTML(fc, ex, spotId) {
   if (!days.length) return '';
   const head = d => { const label = esc(new Date(d.start).toLocaleDateString(undefined, { weekday: 'short' })); return spotId ? `<a href="#/spot/${encodeURIComponent(spotId)}/day/${dayKey(d.start)}">${label}</a>` : label; };
   const row = (k, f) => `<tr><th>${k}</th>${days.map(d => `<td>${f(d)}</td>`).join('')}</tr>`;
+  const hU = prefs.units === 'm' ? 'm' : 'ft', hN = v => (Math.round(v * (prefs.units === 'm' ? 1 : 3.281) * 10) / 10).toString();
+  const lab = (t, u) => `${t}${u ? `<small>${u}</small>` : ''}`;
   return `<div class="daystbl"><table class="bt"><tr><th></th>${days.map(d => `<th class="dh">${head(d)}</th>`).join('')}</tr>
     ${days.some(d => d.rating != null) ? row('Rating', d => d.rating != null ? ratingBadge(d.rating) : '') : ''}
-    ${row('Height', d => esc(hRange(d.hLo, d.hHi)).replace('–', '–<br>'))}
-    ${row('Period', d => d.p != null ? Math.round(d.p) + ' s' : '')}
-    ${row('From', d => sDir(d) != null ? `${compass(sDir(d))}<br>${Math.round(sDir(d))}°` : '')}
-    ${days.some(d => d.wS != null) ? row('Wind', d => d.wS != null ? `${esc(fmtWind(d.wS))}<br>${compass(d.wD)}` : '') : ''}
-    ${days.some(d => d.turns && d.turns.length) ? row('Tide', d => (d.turns || []).filter(p => p.type === 'high').map(p => `H ${esc(tShort(p.t))}`).join('<br>')) : ''}
+    ${row(lab('Height', hU), d => { const a = hN(d.hLo), b = hN(d.hHi); return `<b>${a === b ? a : `${a}–${b}`}</b>`; })}
+    ${row(lab('Period', 's'), d => d.p != null ? Math.round(d.p) : '')}
+    ${row('From', d => sDir(d) != null ? `<b>${compass(sDir(d))}</b><small>${Math.round(sDir(d))}°</small>` : '')}
+    ${days.some(d => d.wS != null) ? row(lab('Wind', windU()[1]), d => d.wS != null ? `<b>${esc(fmtWindN(d.wS))}</b><small>${compass(d.wD)}</small>` : '') : ''}
+    ${days.some(d => d.turns && d.turns.length) ? row(lab('High tide', ''), d => (d.turns || []).filter(p => p.type === 'high').map(p => esc(tShort(p.t))).join('<br>')) : ''}
   </table>${spotId ? `<div class="sub">Tap a day for that day’s forecast.${days.some(d => d.rating != null) ? ' Rating is the best of the daylight hours.' : ''}</div>` : ''}</div>`;
 }
 /* One day's forecast for a spot: charts for that day, every 3 hours in a table, previous / next day. */
@@ -3231,6 +3413,7 @@ function mapLink(map) {
   p.push(`c=${c.lat.toFixed(4)},${c.lng.toFixed(4)}`, `z=${map.getZoom()}`, `b=${BASEMAPS[map.baseKey].label.toLowerCase()}`);
   const ov = map.overlayLayers || {}, on = [];
   if (ov['Buoys'] && map.hasLayer(ov['Buoys'])) on.push('buoys');
+  if (ov[WATER_NAME] && map.hasLayer(ov[WATER_NAME])) on.push('water');
   let grid = null;
   for (const [k, g] of Object.entries(map.waveLayers || {})) if (map.hasLayer(g)) { on.push(k); grid = g; }
   if (map.ratingLayer && map.hasLayer(map.ratingLayer)) on.push('rating');
