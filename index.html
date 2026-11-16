@@ -215,6 +215,8 @@ table.hourly th, table.hourly td { padding: 4px 4px; text-align: left; }
 .infobtn { border: 0; background: none; color: inherit; font: inherit; padding: 0 2px; min-height: 28px; text-decoration: underline; text-underline-offset: 2px; }
 .linkbtn.small { min-height: 0; padding: 0; font-size: inherit; text-decoration: underline; }
 .rbadge { display: inline-block; min-width: 30px; text-align: center; color: #fff; font-weight: 700; font-size: 12px; border-radius: 6px; padding: 1px 5px; text-shadow: 0 1px 1px rgba(0,0,0,.25); }
+.pulsedot { background: #1f7fb8; animation: breathe 3s ease-in-out infinite; }
+@keyframes breathe { 0%, 100% { transform: scale(.6); } 50% { transform: scale(1.3); } }
 .legset { display: inline-flex; gap: 4px 10px; flex-wrap: wrap; align-items: center; }
 .seg button[aria-pressed=true] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
 .filters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
@@ -493,7 +495,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 12.1 (ratings on every summary, rating guide, tappable days, wind backup)';
+const BUILD = 'Build 12.2 (swell pulse map symbols)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -659,7 +661,7 @@ async function seed() {
 
 /* ---------- in-memory state ---------- */
 const S = { options: [], boards: [], sessions: [], spots: [], photos: new Map(), meta: {}, fins: [], finLinks: [] };
-const PREF_DEFAULTS = { boardsView: 'tiles', boardSort: 'model', filterType: '', filterShaper: '', showRetired: false, pagerIndex: 0, units: 'ft', sessionSort: 'newest', finsView: 'table', finPagerIndex: 0, finSort: 'name', filterFinSetup: '', showRetiredFins: false, showAllSpots: true, statsSpot: '', disabledLists: [], baseMap: 'map', showBuoys: true, showWaves: false, showPeriod: false, showRating: false, windUnits: 'kt' };
+const PREF_DEFAULTS = { boardsView: 'tiles', boardSort: 'model', filterType: '', filterShaper: '', showRetired: false, pagerIndex: 0, units: 'ft', sessionSort: 'newest', finsView: 'table', finPagerIndex: 0, finSort: 'name', filterFinSetup: '', showRetiredFins: false, showAllSpots: true, statsSpot: '', disabledLists: [], baseMap: 'map', showBuoys: true, showWaves: false, showPeriod: false, showRating: false, showPulse: false, windUnits: 'kt' };
 let prefs = { ...PREF_DEFAULTS };
 async function loadAll() {
   const [options, boards, sessions, spots, photos, meta, fins, finLinks] = await Promise.all(STORES.map(getAll));
@@ -1057,6 +1059,8 @@ function makeMap(el, opts = {}) {
     /* Not a real layer: switching it on colors the spot dots by surf rating (see setupRating). */
     map.ratingLayer = L.layerGroup();
     overlays[RATING_NAME] = map.ratingLayer;
+    map.pulseLayer = L.layerGroup();
+    overlays[PULSE_NAME] = map.pulseLayer;
     map.on('overlayadd', e => {
       const key = Object.keys(map.waveLayers).find(k => map.waveLayers[k] === e.layer);
       if (!key) return;
@@ -1086,6 +1090,7 @@ function makeMap(el, opts = {}) {
       if (e.name === 'Buoys') savePrefs({ showBuoys: e.type === 'overlayadd' });
       for (const cfg of Object.values(GRID_LAYERS)) if (e.name === cfg.name) savePrefs({ [cfg.pref]: e.type === 'overlayadd' });
       if (e.name === RATING_NAME) savePrefs({ showRating: e.type === 'overlayadd' });
+      if (e.name === PULSE_NAME) savePrefs({ showPulse: e.type === 'overlayadd' });
     });
   }
   map.setView(DEFAULT_VIEW.center, DEFAULT_VIEW.zoom);
@@ -1859,38 +1864,92 @@ function ratingGuideHTML(full) {
     </ul>
     <p class="sub">Daily ratings show the best daylight hour (6 am to 6 pm). It's a rough guide from model data and each spot's estimated seaward angle, not a surf report.</p></div></div>`;
 }
+/* Swell at one time for a spot from the map's combined Open-Meteo data. */
+function swellAt(sp, t) {
+  const c = rateCache.get(sp.id);
+  if (!c || !c.times.length || !c.m) return null;
+  let i = 0, best = Infinity;
+  c.times.forEach((x, k) => { const d = Math.abs(x - t); if (d < best) { best = d; i = k; } });
+  if (best > 3 * 3600000) return null;
+  const v = k => c.m[k] ? c.m[k][i] : null;
+  const h = v('swell_wave_height') ?? v('wave_height'), p = v('swell_wave_period') ?? v('wave_period');
+  return h == null ? null : { h, p };
+}
+/* Map spot symbols. Two switches in the layers list, usable alone or together:
+   - Surf rating: dot color from the 0–5 rating.
+   - Swell pulse: each dot breathes. Its size follows swell height and its pace follows swell period:
+     it grows for half the period and shrinks for the other half (12 s swell: 6 s out, 6 s back).
+   While either is on, the colors and sizes for past sessions are set aside. */
+const PULSE_NAME = 'Swell pulse (spots)';
+const PULSE_COLOR = '#1f7fb8';
+const reducedMotion = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 function setupRating(map, items) {
-  const layer = map.ratingLayer;
-  if (!layer) return;
-  let timer = null, token = 0;
-  const legend = on => { const a = $('#legFun'), b = $('#legRate'); if (a) a.hidden = on; if (b) b.hidden = !on; };
-  const restore = () => items.forEach(it => it.m.setStyle(it.orig));
+  const rLayer = map.ratingLayer, pLayer = map.pulseLayer;
+  if (!rLayer || !pLayer) return;
+  let timer = null, token = 0, raf = null, lastFrame = 0;
+  const rOn = () => map.hasLayer(rLayer), pOn = () => map.hasLayer(pLayer), anyOn = () => rOn() || pOn();
+  const legend = () => {
+    const a = $('#legFun'), b = $('#legRate'), c = $('#legPulse');
+    if (a) a.hidden = anyOn(); if (b) b.hidden = !rOn(); if (c) c.hidden = !pOn();
+  };
+  const restore = () => items.forEach(it => { it.pulse = null; it.m.setStyle(it.orig); });
   const when = () => { for (const g of Object.values(map.waveLayers || {})) if (map.hasLayer(g) && g.stepTime()) return Date.parse(g.stepTime()); return Date.now(); };
   const paint = () => {
+    if (!anyOn()) return;
     const t = when();
     for (const it of items) {
-      const sp = spotById(it.id), r = sp ? ratingAt(sp, t) : null;
-      it.m.setStyle(r == null ? { radius: 4, color: '#fff', weight: 1, fillColor: '#b8c2c6', fillOpacity: 0.9 } : { radius: 7, color: '#fff', weight: 1.5, fillColor: ratingInfo(r)[1], fillOpacity: 0.95 });
+      const sp = spotById(it.id);
+      const r = sp && rOn() ? ratingAt(sp, t) : null;
+      const sw = sp && pOn() ? swellAt(sp, t) : null;
       it.rating = r;
+      const fill = rOn() ? (r == null ? '#b8c2c6' : ratingInfo(r)[1]) : PULSE_COLOR;
+      if (pOn() && sw) {
+        /* Size from swell height in feet: about 5 px at flat to 26 px at 10 ft and up. */
+        const ft = sw.h * 3.281, rMax = Math.max(5, Math.min(26, 5 + ft * 2.1));
+        it.pulse = { rMin: Math.max(3, rMax * 0.45), rMax, half: Math.max(2, (sw.p || 10) / 2) * 1000, phase: (it.id.length * 377) % 1000 };
+        it.m.setStyle({ radius: it.pulse.rMax, color: '#fff', weight: 1.5, fillColor: fill, fillOpacity: rOn() ? 0.95 : 0.55 });
+      } else {
+        it.pulse = null;
+        const known = rOn() ? r != null : false;
+        it.m.setStyle(known ? { radius: 7, color: '#fff', weight: 1.5, fillColor: fill, fillOpacity: 0.95 } : { radius: 4, color: '#fff', weight: 1, fillColor: '#b8c2c6', fillOpacity: 0.9 });
+      }
     }
     if (map.redrawLabels) map.redrawLabels();
+    animate();
   };
+  /* Breathing: smooth in and out with a cosine; about 30 frames a second, paused when the app is hidden. */
+  const frame = now => {
+    raf = null;
+    if (!pOn() || !map._container || !map._container.isConnected) return;
+    if (document.visibilityState === 'visible' && now - lastFrame > 33) {
+      lastFrame = now;
+      for (const it of items) {
+        const p = it.pulse;
+        if (!p || !map.hasLayer(it.m)) continue;
+        const k = 0.5 - 0.5 * Math.cos(Math.PI * ((now + p.phase) % (2 * p.half)) / p.half);
+        it.m.setRadius(p.rMin + (p.rMax - p.rMin) * k);
+      }
+    }
+    raf = requestAnimationFrame(frame);
+  };
+  const animate = () => { if (pOn() && !reducedMotion() && !raf) raf = requestAnimationFrame(frame); };
   const refresh = () => {
     clearTimeout(timer);
     timer = setTimeout(async () => {
-      if (!map.hasLayer(layer)) return;
+      if (!anyOn()) return;
       const my = ++token, b = map.getBounds().pad(0.2), c = map.getCenter();
       const inView = items.filter(it => map.hasLayer(it.m) && b.contains(it.m.getLatLng())).map(it => spotById(it.id)).filter(Boolean)
         .sort((a, z) => map.distance(c, [a.lat, a.lon]) - map.distance(c, [z.lat, z.lon])).slice(0, 80);
       paint();
       await loadRatingSeries(inView);
-      if (my === token && map.hasLayer(layer)) paint();
+      if (my === token && anyOn()) paint();
     }, 350);
   };
-  layer.on('add', () => { legend(true); refresh(); });
-  layer.on('remove', () => { legend(false); restore(); if (map.redrawLabels) map.redrawLabels(); });
-  map.on('moveend spotschange', () => { if (map.hasLayer(layer)) refresh(); });
-  map.on('wavestep overlayadd overlayremove', () => { if (map.hasLayer(layer)) paint(); });
+  const changed = () => { legend(); if (anyOn()) refresh(); else { restore(); if (map.redrawLabels) map.redrawLabels(); } };
+  [rLayer, pLayer].forEach(l => { l.on('add', changed); l.on('remove', changed); });
+  map.on('moveend spotschange', () => { if (anyOn()) refresh(); });
+  map.on('wavestep overlayadd overlayremove', () => { if (anyOn()) paint(); });
+  map.on('unload', () => { if (raf) cancelAnimationFrame(raf); });
 }
 
 /* ---------- photos ---------- */
@@ -3020,6 +3079,7 @@ function spotsMap(el, sessions, { small, showAll, state } = {}) {
     spotLabels(map, labelItems);
     setupRating(map, labelItems);
     if (map.ratingLayer && (state && state.overlays ? state.overlays.has('rating') : prefs.showRating)) map.ratingLayer.addTo(map);
+    if (map.pulseLayer && (state && state.overlays ? state.overlays.has('pulse') : prefs.showPulse)) map.pulseLayer.addTo(map);
   }
   if (state && state.center) map.setView(state.center, state.zoom ?? 11, { animate: false });
   else if (pts.length === 1) map.setView(pts[0], 13, { animate: false });
@@ -3135,6 +3195,7 @@ function mapLink(map) {
   let grid = null;
   for (const [k, g] of Object.entries(map.waveLayers || {})) if (map.hasLayer(g)) { on.push(k); grid = g; }
   if (map.ratingLayer && map.hasLayer(map.ratingLayer)) on.push('rating');
+  if (map.pulseLayer && map.hasLayer(map.pulseLayer)) on.push('pulse');
   p.push(`l=${on.join(',') || 'none'}`, `spots=${map.showAll ? 'all' : 'surfed'}`);
   const t = grid && grid.stepTime();
   if (t) p.push(`t=${t.replace('.000Z', 'Z')}`);
@@ -3147,7 +3208,8 @@ function viewMap(q = new URLSearchParams()) {
   const n = S.sessions.length;
   setTop('Map', null, `<div class="map-legend">
       <span><strong>${n}</strong> session${n === 1 ? '' : 's'} · <strong>${surfed}</strong> spot${surfed === 1 ? '' : 's'}</span>
-      <span id="legFun" class="legset" ${(st.overlays ? st.overlays.has('rating') : prefs.showRating) ? 'hidden' : ''}><span><span class="dot" style="background:#1f9d8f"></span>fun</span><span><span class="dot" style="background:#e0a526"></span>ok</span><span><span class="dot" style="background:#c8553d"></span>meh</span></span>
+      <span id="legFun" class="legset" ${(st.overlays ? st.overlays.has('rating') || st.overlays.has('pulse') : prefs.showRating || prefs.showPulse) ? 'hidden' : ''}><span><span class="dot" style="background:#1f9d8f"></span>fun</span><span><span class="dot" style="background:#e0a526"></span>ok</span><span><span class="dot" style="background:#c8553d"></span>meh</span></span>
+      <span id="legPulse" class="legset" ${(st.overlays ? st.overlays.has('pulse') : prefs.showPulse) ? '' : 'hidden'}><span><span class="dot pulsedot"></span>pulse: size = swell height, pace = period</span></span>
       <span id="legRate" class="legset" ${(st.overlays ? st.overlays.has('rating') : prefs.showRating) ? '' : 'hidden'}><button type="button" class="infobtn" data-act="ratingHelp" aria-label="How the rating works">Rating ⓘ</button> ${RATING_SCALE.map(([, c, l]) => `<span title="${l}"><span class="dot" style="background:${c}"></span>${l.replace('Poor to fair', 'p–f').replace('Very good', 'v.good').toLowerCase()}</span>`).join('')}</span>
       <span class="lbuoy cdip">${BUOY_SVG}CDIP</span><span class="lbuoy">${BUOY_SVG}NOAA</span>
       <label class="check"><input type="checkbox" data-mapspots ${showAll ? 'checked' : ''}> All spots</label>
@@ -3493,6 +3555,7 @@ function viewHelp() {
       <li>With a CDIP layer on, the panel at the bottom steps from Now through the forecast hours.</li>
       <li>Tap the <strong>magnifier</strong> (top left) to search: matching surf spots show first as you type, then press Search for towns and addresses.</li>
       <li>Turn on <strong>Surf rating (spots)</strong> in the layers list to color the spots by a 0–5 rating from swell size and period, swell direction, wind (offshore or onshore) and, once you've rated a few sessions there, the tide. It follows the hour on the CDIP time panel.</li>
+      <li>Turn on <strong>Swell pulse (spots)</strong> to make each spot dot breathe: its size follows the swell height and its pace follows the swell period (it grows for half the period and shrinks for the other half, so a 12-second swell grows for 6 seconds). It also follows the CDIP time panel, and works with the surf rating colors.</li>
       <li>Zoom in to see spot names. The web address updates as you move the map, so you can bookmark or share the exact view.</li></ul>`)}
     ${sec('Settings', `<ul>
       <li>Edit the choices offered on forms (board types, fin systems, wave sizes and more). Add values, hide ones you don't use, or turn a whole field off.</li>
