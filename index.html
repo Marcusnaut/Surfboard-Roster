@@ -215,6 +215,9 @@ table.hourly th, table.hourly td { padding: 4px 4px; text-align: left; }
 .infobtn { border: 0; background: none; color: inherit; font: inherit; padding: 0 2px; min-height: 28px; text-decoration: underline; text-underline-offset: 2px; }
 .linkbtn.small { min-height: 0; padding: 0; font-size: inherit; text-decoration: underline; }
 .rbadge { display: inline-block; min-width: 30px; text-align: center; color: #fff; font-weight: 700; font-size: 12px; border-radius: 6px; padding: 1px 5px; text-shadow: 0 1px 1px rgba(0,0,0,.25); }
+.spotsmode { min-height: 32px; padding: 2px 28px 2px 8px; font-size: 13px; width: auto; background-color: var(--surface); }
+.leaflet-container.pulsing .buoy .bdot[style*="--pdur"] { animation: bpulse var(--pdur) ease-in-out infinite; }
+@keyframes bpulse { 0%, 100% { transform: scale(var(--pmin)); } 50% { transform: scale(var(--pmax)); } }
 .pulsedot { background: #1f7fb8; animation: breathe 3s ease-in-out infinite; }
 @keyframes breathe { 0%, 100% { transform: scale(.6); } 50% { transform: scale(1.3); } }
 .legset { display: inline-flex; gap: 4px 10px; flex-wrap: wrap; align-items: center; }
@@ -495,7 +498,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 12.2 (swell pulse map symbols)';
+const BUILD = 'Build 12.3 (primary spots, buoy pulse, smoother pulse)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -622,7 +625,7 @@ async function syncSpots(meta) {
     /* src remembers what the file said last time; if the spot still matches it, you haven't edited it. */
     const ref = src || base;
     const untouched = old.name === ref.name && Math.abs(old.lat - ref.lat) < 1e-6 && Math.abs(old.lon - ref.lon) < 1e-6;
-    const extra = { region: x.region, coast: x.coast, ca: !!x.ca, order: i, builtIn: true, ang: Number.isFinite(x.ang) ? x.ang : null, src: base };
+    const extra = { region: x.region, coast: x.coast, ca: !!x.ca, primary: !!x.primary, order: i, builtIn: true, ang: Number.isFinite(x.ang) ? x.ang : null, src: base };
     puts.push(untouched ? { ...old, ...base, ...extra } : { ...old, ...extra });
   });
   if (puts.length) await putMany('spots', puts);
@@ -644,7 +647,7 @@ async function seed() {
     if (Array.isArray(list) && list.length) {
       const have = new Map((await getAll('spots')).map(x => [x.id, x]));
       await putMany('spots', list.map((x, i) => {
-        const old = have.get(x.id), extra = { region: x.region, coast: x.coast, ca: !!x.ca, order: i, builtIn: true };
+        const old = have.get(x.id), extra = { region: x.region, coast: x.coast, ca: !!x.ca, primary: !!x.primary, order: i, builtIn: true };
         return old ? { ...old, ...extra } : { id: x.id, name: x.name, lat: x.lat, lon: x.lon, hidden: false, ...extra, ang: Number.isFinite(x.ang) ? x.ang : null, src: { name: x.name, lat: x.lat, lon: x.lon } };
       }));
       await setMeta('seeded:spots2', true);
@@ -1308,6 +1311,14 @@ function primarySwell(r) {
   return null;
 }
 const BUOY_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.2v3.3" stroke="#0b3a4a" stroke-width="1.4"/><circle cx="12" cy="2.6" r="1.6" fill="#e0533d"/><path d="M8.2 16.5 10 5.6h4l1.8 10.9z" fill="#ffc531" stroke="#0b3a4a" stroke-width="1.2" stroke-linejoin="round"/><path d="M9.1 11h5.8" stroke="#e0533d" stroke-width="2.2"/><path d="M3 19.2c2 0 2-1.5 4.5-1.5s2.5 1.5 4.5 1.5 2-1.5 4.5-1.5 2.5 1.5 4.5 1.5" fill="none" stroke="#1f6f8b" stroke-width="1.6" stroke-linecap="round"/></svg>';
+/* Swell pulse for buoys (CSS animation, on when the map has the pulsing class): size from the buoy's swell
+   height, one full grow-and-shrink every PULSE_PACE × period seconds, same as the spots. */
+const PULSE_PACE = 0.7;
+function buoyPulseVars(ps) {
+  if (!ps || ps.h == null) return '';
+  const ft = ps.h * 3.281, max = Math.max(0.9, Math.min(1.9, 0.85 + ft * 0.08)), dur = Math.max(2, (ps.p || 10) * PULSE_PACE);
+  return `--pmax:${max.toFixed(2)};--pmin:${(max * 0.62).toFixed(2)};--pdur:${dur.toFixed(1)}s;animation-delay:-${(Math.random() * dur).toFixed(1)}s`;
+}
 function buoyIcon(b, r) {
   const ps = primarySwell(r);
   const stale = !r || isStale(r.time);
@@ -1315,7 +1326,7 @@ function buoyIcon(b, r) {
   const arrow = ps && ps.deg != null ? `<svg class="barrow" viewBox="0 0 20 20" style="transform:rotate(${(ps.deg + 180) % 360}deg)" aria-hidden="true"><path d="M10 2 L15 15 L10 12 L5 15 Z"/></svg>` : '';
   return L.divIcon({
     className: 'buoy-icon', iconSize: [21, 21], iconAnchor: [10, 10], popupAnchor: [0, -11],
-    html: `<div class="buoy ${cdipNumber(b) ? 'cdip' : ''} ${stale || !ps ? 'stale' : ''}"><span class="bdot">${BUOY_SVG}</span><span class="blbl">${arrow}${esc(label)}</span></div>`
+    html: `<div class="buoy ${cdipNumber(b) ? 'cdip' : ''} ${stale || !ps ? 'stale' : ''}"><span class="bdot" style="${buoyPulseVars(ps)}">${BUOY_SVG}</span><span class="blbl">${arrow}${esc(label)}</span></div>`
   });
 }
 function buoyList(data) {
@@ -1878,7 +1889,7 @@ function swellAt(sp, t) {
 /* Map spot symbols. Two switches in the layers list, usable alone or together:
    - Surf rating: dot color from the 0–5 rating.
    - Swell pulse: each dot breathes. Its size follows swell height and its pace follows swell period:
-     it grows for half the period and shrinks for the other half (12 s swell: 6 s out, 6 s back).
+     it grows and shrinks once every 0.7 × the period (12 s swell: about 4 s out, 4 s back).
    While either is on, the colors and sizes for past sessions are set aside. */
 const PULSE_NAME = 'Swell pulse (spots)';
 const PULSE_COLOR = '#1f7fb8';
@@ -1906,7 +1917,7 @@ function setupRating(map, items) {
       if (pOn() && sw) {
         /* Size from swell height in feet: about 5 px at flat to 26 px at 10 ft and up. */
         const ft = sw.h * 3.281, rMax = Math.max(5, Math.min(26, 5 + ft * 2.1));
-        it.pulse = { rMin: Math.max(3, rMax * 0.45), rMax, half: Math.max(2, (sw.p || 10) / 2) * 1000, phase: (it.id.length * 377) % 1000 };
+        it.pulse = { rMin: Math.max(3, rMax * 0.45), rMax, half: Math.max(1.5, (sw.p || 10) * PULSE_PACE / 2) * 1000, phase: (it.id.length * 377) % 1000 };
         it.m.setStyle({ radius: it.pulse.rMax, color: '#fff', weight: 1.5, fillColor: fill, fillOpacity: rOn() ? 0.95 : 0.55 });
       } else {
         it.pulse = null;
@@ -1917,11 +1928,11 @@ function setupRating(map, items) {
     if (map.redrawLabels) map.redrawLabels();
     animate();
   };
-  /* Breathing: smooth in and out with a cosine; about 30 frames a second, paused when the app is hidden. */
+  /* Breathing: smooth in and out with a cosine, every frame, paused when the app is hidden. */
   const frame = now => {
     raf = null;
     if (!pOn() || !map._container || !map._container.isConnected) return;
-    if (document.visibilityState === 'visible' && now - lastFrame > 33) {
+    if (document.visibilityState === 'visible') {
       lastFrame = now;
       for (const it of items) {
         const p = it.pulse;
@@ -1945,7 +1956,11 @@ function setupRating(map, items) {
       if (my === token && anyOn()) paint();
     }, 350);
   };
-  const changed = () => { legend(); if (anyOn()) refresh(); else { restore(); if (map.redrawLabels) map.redrawLabels(); } };
+  const changed = () => {
+    legend();
+    map.getContainer().classList.toggle('pulsing', pOn() && !reducedMotion());
+    if (anyOn()) refresh(); else { restore(); if (map.redrawLabels) map.redrawLabels(); }
+  };
   [rLayer, pLayer].forEach(l => { l.on('add', changed); l.on('remove', changed); });
   map.on('moveend spotschange', () => { if (anyOn()) refresh(); });
   map.on('wavestep overlayadd overlayremove', () => { if (anyOn()) paint(); });
@@ -3045,15 +3060,17 @@ function spotSummary(sp, list) {
     ${bb ? `<div>Most fun here: <strong>${esc(bb.label)}</strong> (${fmtAvg(bb.avg)})</div>` : ''}
     <div class="popup-links"><a href="#/spot/${encodeURIComponent(sp.id)}">Spot page${sp.fav ? ' ★' : ''}</a>${st.count ? `<a href="#/sessions?spot=${encodeURIComponent(sp.id)}">Sessions</a>` : ''}<a href="#/sessions/new?spot=${encodeURIComponent(sp.id)}">Log here</a></div>`;
 }
-function spotsMap(el, sessions, { small, showAll, state } = {}) {
+function spotsMap(el, sessions, { small, showAll, mode, state } = {}) {
   const map = makeMap(el, small ? { zoomControl: false, scrollWheelZoom: false, layersControl: false } : { buoys: true, state, fullscreen: true });
   if (!map) return;
   const bySpot = new Map();
   for (const s of sessions) if (s.spotId) { const g = bySpot.get(s.spotId) || []; g.push(s); bySpot.set(s.spotId, g); }
   const pts = [];
-  /* Spots you haven't surfed sit in their own group so "All spots" can show or hide them in place. */
-  const unsurfed = L.layerGroup();
+  /* Spots you haven't surfed sit in two groups so the spots menu can show them in place:
+     primary (well-known breaks, plus your favorites) and the rest. Spots you've surfed always show. */
+  const unsurfed = L.layerGroup(), minor = L.layerGroup();
   map.unsurfedLayer = unsurfed;
+  map.minorLayer = minor;
   const labelItems = [];
   for (const sp of spotsSorted()) {
     const list = bySpot.get(sp.id) || [];
@@ -3066,7 +3083,7 @@ function spotsMap(el, sessions, { small, showAll, state } = {}) {
       color: '#fff', weight: 2, fillColor: funColor(a), fillOpacity: 0.9
     } : {
       renderer: map.spotRenderer, radius: 3, color: '#33373a', weight: 1.5, fillColor: '#ffffff', fillOpacity: 1
-    }).addTo(list.length ? map : unsurfed);
+    }).addTo(list.length ? map : sp.primary || sp.fav || sp.builtIn === false ? unsurfed : minor);
     m.spotId = sp.id;
     labelItems.push({ m, id: sp.id, name: sp.name, rank: list.length, ang: Number.isFinite(sp.ang) ? sp.ang : null, orig: { radius: m.options.radius, color: m.options.color, weight: m.options.weight, fillColor: m.options.fillColor, fillOpacity: m.options.fillOpacity } });
     const base = spotSummary(sp, list);
@@ -3074,7 +3091,11 @@ function spotsMap(el, sessions, { small, showAll, state } = {}) {
     if (!small) m.on('popupopen', e => fillForecast(e.popup, base, () => spotForecast(sp), [sp.lat, sp.lon], { spotId: sp.id }));
     if (list.length) pts.push([sp.lat, sp.lon]);
   }
-  if (showAll) unsurfed.addTo(map);
+  map.setSpotsMode = m => {
+    map.spotsMode = m;
+    [[unsurfed, m !== 'surfed'], [minor, m === 'all']].forEach(([g, on]) => { if (on) g.addTo(map); else map.removeLayer(g); });
+  };
+  if (small) { if (showAll) { unsurfed.addTo(map); minor.addTo(map); } } else map.setSpotsMode(mode || 'all');
   if (!small) {
     spotLabels(map, labelItems);
     setupRating(map, labelItems);
@@ -3183,7 +3204,7 @@ function mapStateFrom(q) {
   const b = (q.get('b') || '').toLowerCase();
   st.base = Object.keys(BASEMAPS).find(k => BASEMAPS[k].label.toLowerCase() === b || k === b);
   if (q.has('l')) st.overlays = new Set(q.get('l').toLowerCase().split(',').filter(Boolean));
-  if (q.has('spots')) st.showAll = q.get('spots') !== 'surfed';
+  if (q.has('spots')) st.spotsMode = ['all', 'primary', 'surfed'].includes(q.get('spots')) ? q.get('spots') : 'all';
   if (q.get('t') && !isNaN(Date.parse(q.get('t')))) st.waveTime = new Date(q.get('t')).toISOString();
   return st;
 }
@@ -3196,14 +3217,14 @@ function mapLink(map) {
   for (const [k, g] of Object.entries(map.waveLayers || {})) if (map.hasLayer(g)) { on.push(k); grid = g; }
   if (map.ratingLayer && map.hasLayer(map.ratingLayer)) on.push('rating');
   if (map.pulseLayer && map.hasLayer(map.pulseLayer)) on.push('pulse');
-  p.push(`l=${on.join(',') || 'none'}`, `spots=${map.showAll ? 'all' : 'surfed'}`);
+  p.push(`l=${on.join(',') || 'none'}`, `spots=${map.spotsMode || 'all'}`);
   const t = grid && grid.stepTime();
   if (t) p.push(`t=${t.replace('.000Z', 'Z')}`);
   return '#/map?' + p.join('&');
 }
 function viewMap(q = new URLSearchParams()) {
   const st = mapStateFrom(q);
-  const showAll = st.showAll ?? prefs.showAllSpots;
+  const mode = st.spotsMode || prefs.spotsMode || (prefs.showAllSpots === false ? 'surfed' : 'all');
   const surfed = new Set(S.sessions.map(s => s.spotId).filter(Boolean)).size;
   const n = S.sessions.length;
   setTop('Map', null, `<div class="map-legend">
@@ -3212,15 +3233,14 @@ function viewMap(q = new URLSearchParams()) {
       <span id="legPulse" class="legset" ${(st.overlays ? st.overlays.has('pulse') : prefs.showPulse) ? '' : 'hidden'}><span><span class="dot pulsedot"></span>pulse: size = swell height, pace = period</span></span>
       <span id="legRate" class="legset" ${(st.overlays ? st.overlays.has('rating') : prefs.showRating) ? '' : 'hidden'}><button type="button" class="infobtn" data-act="ratingHelp" aria-label="How the rating works">Rating ⓘ</button> ${RATING_SCALE.map(([, c, l]) => `<span title="${l}"><span class="dot" style="background:${c}"></span>${l.replace('Poor to fair', 'p–f').replace('Very good', 'v.good').toLowerCase()}</span>`).join('')}</span>
       <span class="lbuoy cdip">${BUOY_SVG}CDIP</span><span class="lbuoy">${BUOY_SVG}NOAA</span>
-      <label class="check"><input type="checkbox" data-mapspots ${showAll ? 'checked' : ''}> All spots</label>
-      <span class="sub" id="noSurfed" ${!showAll && !surfed ? '' : 'hidden'}>No surfed spots yet</span>
+      <select class="spotsmode" data-mapspots aria-label="Which spots to show">${[['all', 'All spots'], ['primary', 'Primary spots'], ['surfed', 'My spots']].map(([k, l]) => `<option value="${k}" ${mode === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <span class="sub" id="noSurfed" ${mode === 'surfed' && !surfed ? '' : 'hidden'}>No surfed spots yet</span>
     </div>`);
   $('#top').classList.add('maphdr');
   setMain(`<div style="position:relative"><div id="bigmap"></div></div>`, true);
   measure();
-  const map = spotsMap($('#bigmap'), S.sessions, { showAll, state: st });
+  const map = spotsMap($('#bigmap'), S.sessions, { mode, state: st });
   if (!map) return;
-  map.showAll = showAll;
   let timer = null;
   const sync = () => {
     clearTimeout(timer);
@@ -3555,7 +3575,8 @@ function viewHelp() {
       <li>With a CDIP layer on, the panel at the bottom steps from Now through the forecast hours.</li>
       <li>Tap the <strong>magnifier</strong> (top left) to search: matching surf spots show first as you type, then press Search for towns and addresses.</li>
       <li>Turn on <strong>Surf rating (spots)</strong> in the layers list to color the spots by a 0–5 rating from swell size and period, swell direction, wind (offshore or onshore) and, once you've rated a few sessions there, the tide. It follows the hour on the CDIP time panel.</li>
-      <li>Turn on <strong>Swell pulse (spots)</strong> to make each spot dot breathe: its size follows the swell height and its pace follows the swell period (it grows for half the period and shrinks for the other half, so a 12-second swell grows for 6 seconds). It also follows the CDIP time panel, and works with the surf rating colors.</li>
+      <li>Turn on <strong>Swell pulse (spots)</strong> to make each spot dot breathe: its size follows the swell height and its pace follows the swell period (one grow-and-shrink every 0.7 × the period, so a 12-second swell grows for about 4 seconds and shrinks for 4). Buoys pulse too, from their own readings. It also follows the CDIP time panel, and works with the surf rating colors.</li>
+      <li>The spots menu in the header picks <strong>All spots</strong>, <strong>Primary spots</strong> (well-known breaks plus your favorites and spots you've surfed) or <strong>My spots</strong>, to thin out a crowded map.</li>
       <li>Zoom in to see spot names. The web address updates as you move the map, so you can bookmark or share the exact view.</li></ul>`)}
     ${sec('Settings', `<ul>
       <li>Edit the choices offered on forms (board types, fin systems, wave sizes and more). Add values, hide ones you don't use, or turn a whole field off.</li>
@@ -3952,15 +3973,14 @@ document.addEventListener('change', async e => {
   const el = e.target;
   try {
     if ('mapspots' in el.dataset) {
-      /* Show or hide unsurfed spots in place, keeping the current view. */
-      const map = mounted.maps.find(m => m.unsurfedLayer);
-      await savePrefs({ showAllSpots: el.checked });
+      /* All, primary or my spots: shown or hidden in place, keeping the current view. */
+      const map = mounted.maps.find(m => m.setSpotsMode);
+      await savePrefs({ spotsMode: el.value });
       if (map) {
         map.closePopup();
-        if (el.checked) map.unsurfedLayer.addTo(map); else map.removeLayer(map.unsurfedLayer);
-        map.showAll = el.checked;
+        map.setSpotsMode(el.value);
         const note = $('#noSurfed');
-        if (note) note.hidden = el.checked || new Set(S.sessions.map(s => s.spotId).filter(Boolean)).size > 0;
+        if (note) note.hidden = el.value !== 'surfed' || new Set(S.sessions.map(s => s.spotId).filter(Boolean)).size > 0;
         map.fire('spotschange');
       } else route();
     } else if (el.dataset.pref) {
