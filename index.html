@@ -504,7 +504,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 12.6 (buoys show primary, secondary and tertiary swells; directions in degrees)';
+const BUILD = 'Build 12.7 (person icon for your location; buoy swells tidy-up)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -822,6 +822,8 @@ function unmount() {
    places from OpenStreetMap's Nominatim when you press Search (their rules allow searches, not search-as-you-type). */
 const ICON_LOC = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7.5"/></svg>';
 const ICON_SEARCH = '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>';
+/* You are here: a simple person, so it can't be mistaken for a spot dot. */
+const ME_SVG = '<svg viewBox="0 0 22 26" width="22" height="26" aria-label="You are here"><g stroke="#fff" stroke-width="5" stroke-linecap="round" fill="#fff"><circle cx="11" cy="5" r="3.2"/><path d="M11 10v7M5.5 12.5h11M11 17l-4 6M11 17l4 6"/></g><g stroke="#2f7fe0" stroke-width="2.6" stroke-linecap="round" fill="#2f7fe0"><circle cx="11" cy="5" r="3.2" stroke-width="0"/><path d="M11 10v7M5.5 12.5h11M11 17l-4 6M11 17l4 6" fill="none"/></g></svg>';
 function addLocateControl(map) {
   let dot = null, ring = null;
   const Ctl = L.Control.extend({
@@ -839,7 +841,7 @@ function addLocateControl(map) {
           const ll = [pos.coords.latitude, pos.coords.longitude], acc = pos.coords.accuracy || 50;
           if (dot) { dot.remove(); ring.remove(); }
           ring = L.circle(ll, { radius: acc, color: '#2f7fe0', weight: 1, fillColor: '#2f7fe0', fillOpacity: 0.12, interactive: false }).addTo(map);
-          dot = L.circleMarker(ll, { radius: 7, color: '#fff', weight: 2.5, fillColor: '#2f7fe0', fillOpacity: 1, interactive: false }).addTo(map);
+          dot = L.marker(ll, { icon: L.divIcon({ className: 'me-icon', html: ME_SVG, iconSize: [22, 26], iconAnchor: [11, 24] }), interactive: false, keyboard: false, zIndexOffset: 1000 }).addTo(map);
           map.setView(ll, Math.max(map.getZoom(), acc > 2000 ? 11 : 13));
         }, err => {
           d.classList.remove('busy');
@@ -1313,7 +1315,8 @@ function ago(iso) {
 const isStale = iso => !iso || Date.now() - new Date(iso) > 3 * 3600 * 1000;
 /* Primary swell from NDBC (SwH/SwD), falling back to combined waves (WVHT/MWD). */
 /* Swells split from the buoy's newest wave spectrum (fetch_buoys.py), biggest first: [{h, p, d}]. */
-const buoySwells = r => r && Array.isArray(r.swells) && r.swells.length ? r.swells : null;
+/* With only one swell in the spectrum, NDBC's own swell / wind-swell split reads better, so that is used instead. */
+const buoySwells = r => r && Array.isArray(r.swells) && r.swells.length > 1 ? r.swells : null;
 function primarySwell(r) {
   if (!r) return null;
   const sw = buoySwells(r);
