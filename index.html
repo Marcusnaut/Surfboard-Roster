@@ -204,6 +204,9 @@ header.top .favhdr svg.star.on { fill: #ffc531; stroke: #ffc531; }
 .daystbl tr > th:first-child small { display: block; font-weight: 400; font-size: 11px; }
 .daystbl td small { display: block; color: var(--muted); font-size: 11px; }
 .daystbl td b { font-weight: 650; }
+.daystbl .tt { display: block; white-space: nowrap; }
+.daystbl .tt + .tt { margin-top: 4px; }
+.daystbl .tt b { font-weight: 600; font-size: 12px; }
 .daystbl tr:first-child > * { background: none; border-top: 0; }
 .daystbl th.dh a { display: inline-block; min-width: 40px; padding: 4px 6px; border-radius: 8px; background: var(--tag); color: var(--accent); font-weight: 700; text-decoration: none; }
 .daynav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
@@ -534,7 +537,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 14 (Stats view for boards and fins replaces Full page)';
+const BUILD = 'Build 14.1 (faster spot ratings; shore hazard setting; daylight tides with heights)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -549,6 +552,7 @@ const BASEMAPS = {
 };
 const USGS_CREDIT = '<a href="https://www.usgs.gov/programs/national-geospatial-program/national-map" target="_blank" rel="noopener">USGS The National Map</a>';
 const BUOY_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/buoys.json';
+const SERIES_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/spotseries.json';
 const WAVEGRID_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/wavegrid.json';
 /* CDIP's California wave-height grid (0.01°), drawn as image tiles by CDIP's own WMS server. */
 const WAVE_WMS = 'https://thredds.cdip.ucsd.edu/thredds/wms/cdip/model/MOP_grids/CA_0.01_';
@@ -1145,7 +1149,7 @@ function makeMap(el, opts = {}) {
             <div class="lc-head"><span>Map layers</span><button type="button" class="lc-close" aria-label="Close layer list">&times;</button></div>
             <label class="lyr-row"><span>Base map</span><select data-lyr="base">${Object.keys(BASEMAPS).map(k => `<option value="${k}">${esc(BASEMAPS[k].label)}</option>`).join('')}</select></label>
             ${map.waveLayers ? `<label class="lyr-row"><span>Waves <small>CDIP model</small></span><select data-lyr="grid"><option value="off">Off</option>${Object.entries(GRID_LAYERS).map(([k, c]) => `<option value="${k}">${esc(c.title)}</option>`).join('')}</select></label>` : ''}
-            ${map.ratingLayer ? `<label class="lyr-row"><span>Spot style</span><select data-lyr="style"><option value="sessions">My sessions</option><option value="rating">Surf rating</option><option value="pulse">Swell pulse</option><option value="both">Rating + pulse</option><option value="hazard">Shore hazard</option></select></label>` : ''}
+            ${map.ratingLayer ? `<label class="lyr-row"><span>Spot style</span><select data-lyr="style"><option value="sessions">My sessions</option><option value="rating">Surf rating</option><option value="pulse">Swell pulse</option><option value="both">Rating + pulse</option>${hazardOn() ? '<option value="hazard">Shore hazard</option>' : ''}</select></label>` : ''}
             ${overlays['Buoys'] ? '<label class="lyr-row lyr-sw"><span>Buoys</span><input type="checkbox" role="switch" data-lyr="buoys"></label>' : ''}
           </div>`;
         L.DomEvent.disableClickPropagation(d);
@@ -1877,7 +1881,7 @@ function bindForecast(root, model, start, onPick) {
     const sx = model.x(t).toFixed(1);
     charts.forEach(c => { const l = c.querySelector('.cur'); l.setAttribute('x1', sx); l.setAttribute('x2', sx); });
     const s = nearestPt(model.swell, t), w = nearestPt(model.wind, t), td = model.tide.length ? tideAt(model.tide, t) : null;
-    const hz = td ? shoreHazard(s.h, s.p, td.h) : null;
+    const hz = td && hazardOn() ? shoreHazard(s.h, s.p, td.h) : null;
     const next = model.turns.find(p => p.t > t);
     out.innerHTML = `<strong>${esc(fcTime(s.t))}</strong>
       <span>Swell <b>${esc(fmtHeight(s.h))}</b>${s.p != null ? ` @ ${Math.round(s.p)} s` : ''}${sDir(s) != null ? ` ${dirText(s)}` : ''}</span>
@@ -1973,8 +1977,10 @@ function daySummary(fc, ex, start, now, sp) {
   const turns = tideTurns(tide).filter(p => p.t >= start && p.t < end);
   return { start, hLo: Math.min(...hs), hHi: Math.max(...hs), p: per.length ? Math.max(...per) : null, d: circMean(sw.map(p => p.d)), o: circMean(sw.map(p => p.o)),
     wS: wind.length ? Math.max(...wind.map(p => p.s)) : null, wLo: wind.length ? Math.min(...wind.map(p => p.s)) : null, wD: wind.length ? circMean(wind.map(p => p.d)) : null, turns,
-    rating: dayRating(sp, fc, ex, start), hazard: dayHazard(fc, ex, start) };
+    rating: dayRating(sp, fc, ex, start), hazard: hazardOn() ? dayHazard(fc, ex, start) : null };
 }
+/* Highs and lows during or near daylight (5 am to 8 pm), for the day summaries. */
+const dayTides = d => (d.turns || []).filter(p => { const h = new Date(p.t).getHours(); return h >= 5 && h < 20; });
 const hRange = (lo, hi) => { const f = prefs.units === 'm' ? 1 : 3.281, u = prefs.units === 'm' ? 'm' : 'ft'; const a = Math.round(lo * f * 10) / 10, b = Math.round(hi * f * 10) / 10; return a === b ? `${a} ${u}` : `${a}–${b} ${u}`; };
 const tShort = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(':00', '').replace(/\s?([AP])M/i, (m, a) => a.toLowerCase());
 /* Now / Tomorrow / next day. With a spot, each box opens that day's full forecast and shows its rating
@@ -1988,7 +1994,7 @@ function outlookHTML(fc, ex, sp) {
       <div class="ov">${bits([s.p != null ? `${Math.round(s.p)} s` : '', sDir(s) != null ? dirDeg(sDir(s)) : ''])}</div>
       ${s.wS != null ? `<div class="ov">Wind ${s.now ? esc(fmtWind(s.wS)) : `${esc(fmtWindN(s.wLo))}–${esc(fmtWind(s.wS))}`} ${compass(s.wD)}</div>` : ''}
       ${s.now ? (s.tide ? `<div class="ov">Tide ${bits([`${esc(fmtTideH(s.tide.h))} ${s.tide.rising ? '↑' : '↓'}`, s.next ? `${s.next.type[0].toUpperCase()} ${esc(tShort(s.next.t))}` : ''])}</div>` : '')
-        : s.turns.length ? `<div class="ov">${bits(s.turns.map(p => `${p.type[0].toUpperCase()} ${esc(tShort(p.t))}`))}</div>` : ''}`
+        : dayTides(s).length ? `<div class="ov">${bits(dayTides(s).map(p => `${p.type[0].toUpperCase()} ${esc(tShort(p.t))}`))}</div>` : ''}`
       : '<div class="ov">–</div>'}`;
     return sp && s ? `<button type="button" class="oc" data-act="openDay" data-id="${esc(sp.id)}" data-day="${dayKey(s.start)}" aria-label="${esc(label)}: full forecast">${inner}</button>` : `<div class="oc">${inner}</div>`;
   }).join('')}</div>`;
@@ -2014,7 +2020,7 @@ function daysTableHTML(fc, ex, spotId, buoy) {
       return days.some(big) ? row(lab(name, hU), d => { const q = big(d); return q ? `<b>${hN(q.h)}</b><small>${q.d != null ? dirDeg(q.d) : ''}${q.p != null ? ` · ${Math.round(q.p)} s` : ''}</small>` : '–'; }) : '';
     }).join('') : ''}
     ${days.some(d => d.wS != null) ? row(lab('Wind', windU()[1]), d => d.wS != null ? `<b>${esc(fmtWindN(d.wS))}</b><small>${compass(d.wD)}</small>` : '') : ''}
-    ${days.some(d => d.turns && d.turns.length) ? row(lab('High tide', ''), d => (d.turns || []).filter(p => p.type === 'high').map(p => esc(tShort(p.t))).join('<br>')) : ''}
+    ${days.some(d => dayTides(d).length) ? row('Tides', d => dayTides(d).map(p => `<span class="tt"><b>${p.type === 'high' ? 'High' : 'Low'} ${esc(tShort(p.t))}</b><small>${esc(fmtTideH(p.h))}</small></span>`).join('') || '–') : ''}
   </table>${spotId ? `<div class="sub">Tap a day for that day’s forecast.${days.some(d => d.rating != null) ? ' Rating is the best of the daylight hours.' : ''}</div>` : ''}</div>`;
 }
 /* One day's forecast for a spot: charts for that day, every 3 hours in a table, previous / next day. */
@@ -2037,8 +2043,8 @@ function viewSpotDay(id, key) {
       const sw = swellPoints(fc, ex).filter(p => p.t >= start && p.t < end);
       const wind = ((ex && ex.wind) || []), tide = (ex && ex.tide) || [];
       const rows = sw.map(p => { const w = nearestPt(wind, p.t), td = tide.length ? tideAt(tide, p.t) : null; const r = spotRating(sp, { h: p.h, p: p.p, d: p.d, wS: w && w.s, wD: w && w.d, tide: td && td.h }, tide);
-        return `<tr><th>${esc(tShort(p.t))}</th><td><b>${esc(fmtHeight(p.h))}</b><small>${[p.p != null ? `${Math.round(p.p)} s` : '', sDir(p) != null ? dirDeg(sDir(p)) : ''].filter(Boolean).join(' · ')}</small></td><td>${w ? `<b>${esc(fmtWind(w.s))}</b><small>${compass(w.d)}</small>` : ''}</td><td>${td ? esc(fmtTideH(td.h)) : ''}</td><td>${r != null ? ratingBadge(r) : ''}</td><td>${(() => { const z = td ? shoreHazard(p.h, p.p, td.h) : null; return z ? hazardBadge(z) : ''; })()}</td></tr>`; }).join('');
-      box.innerHTML = f.html + (rows ? `${ratingGuideHTML()}<table class="bt hourly"><tr><th></th><th>Swell</th><th>Wind</th><th>Tide</th><th>Rating</th><th>Shore</th></tr>${rows}</table>` : '<div class="sub">No forecast for this day.</div>');
+        return `<tr><th>${esc(tShort(p.t))}</th><td><b>${esc(fmtHeight(p.h))}</b><small>${[p.p != null ? `${Math.round(p.p)} s` : '', sDir(p) != null ? dirDeg(sDir(p)) : ''].filter(Boolean).join(' · ')}</small></td><td>${w ? `<b>${esc(fmtWind(w.s))}</b><small>${compass(w.d)}</small>` : ''}</td><td>${td ? esc(fmtTideH(td.h)) : ''}</td><td>${r != null ? ratingBadge(r) : ''}</td>${hazardOn() ? `<td>${(() => { const z = td ? shoreHazard(p.h, p.p, td.h) : null; return z ? hazardBadge(z) : ''; })()}</td>` : ''}</tr>`; }).join('');
+      box.innerHTML = f.html + (rows ? `${ratingGuideHTML()}<table class="bt hourly"><tr><th></th><th>Swell</th><th>Wind</th><th>Tide</th><th>Rating</th>${hazardOn() ? '<th>Shore</th>' : ''}</tr>${rows}</table>` : '<div class="sub">No forecast for this day.</div>');
       bindForecast(box, f.model);
     } catch (e) { const box = $('#dayFc'); if (box) box.innerHTML = '<span class="sub">Couldn’t load the forecast.</span>'; }
   })();
@@ -2090,6 +2096,8 @@ const ratingInfo = r => RATING_SCALE.find(([max]) => r < max) || RATING_SCALE[RA
    impact scale: trouble starts when the water reaches the back of the beach. Without each beach's surveyed
    height, the thresholds are fixed heights above mean sea level. */
 const SHORE_SLOPE = 0.07;
+/* Settings switch; when off, nothing is calculated or shown. */
+const hazardOn = () => prefs.shoreHazard !== false;
 const HAZARD_SCALE = [[2.5, '#7fae9b', 'Low'], [3.0, '#e8c547', 'Elevated'], [3.5, '#e8843f', 'High'], [Infinity, '#d64541', 'Extreme']];
 function shoreHazard(h, p, tide, slope = SHORE_SLOPE) {
   if (h == null || p == null || tide == null || h <= 0 || p <= 0) return null;
@@ -2125,9 +2133,36 @@ const ratingBadge = r => { const [, col, label] = ratingInfo(r); const tip = `${
 const RATING_NAME = 'Surf rating (spots)';
 const rateCache = new Map();
 let rateErr = null;
+/* All built-in spots' model swell, wind and tide in one file from the data job (fetch_spot_series.py),
+   so the map needn't ask Open-Meteo per view. Spots not in it (your own) are asked for directly. */
+let seriesFile = null, seriesAt = 0, seriesFetch = null;
+async function loadSeriesFile() {
+  if (seriesFile && Date.now() - seriesAt < 60 * 60 * 1000) return seriesFile;
+  if (!seriesFetch) seriesFetch = (async () => {
+    try { const r = await fetch(`${SERIES_URL}?t=${Math.floor(Date.now() / 1800000)}`); if (r.ok) { seriesFile = await r.json(); seriesAt = Date.now(); } } catch (e) {}
+    seriesFetch = null;
+    return seriesFile;
+  })();
+  return seriesFetch;
+}
+function seriesEntry(file, id) {
+  const x = file && file.spots && file.spots[id];
+  if (!x) return null;
+  const t0 = Date.parse(file.t0.length === 17 ? file.t0.replace('Z', ':00Z') : file.t0), n = (x.sh || x.ws || []).length;
+  const times = Array.from({ length: n }, (_, i) => t0 + i * file.step * 3600000);
+  const sc = (a, f) => (a || []).map(v => v == null ? null : v / f);
+  const m = { swell_wave_height: sc(x.sh, 10), swell_wave_period: sc(x.sp, 1), swell_wave_direction: sc(x.sd, 1), wave_height: sc(x.wh, 10), sea_level_height_msl: sc(x.th, 100) };
+  const w = { wind_speed_10m: sc(x.ws, 10), wind_direction_10m: sc(x.wd, 1) };
+  return { at: Date.now(), times, m, w, tide: times.map((t, i) => ({ t, h: m.sea_level_height_msl[i] })).filter(p => p.h != null) };
+}
 async function loadRatingSeries(spots) {
   rateErr = null;
-  const need = spots.filter(sp => { const c = rateCache.get(sp.id); return !c || Date.now() - c.at > 60 * 60 * 1000; });
+  const stale = sp => { const c = rateCache.get(sp.id); return !c || Date.now() - c.at > 60 * 60 * 1000; };
+  if (spots.some(stale)) {
+    const file = await loadSeriesFile();
+    for (const sp of spots) if (stale(sp)) { const e = seriesEntry(file, sp.id); if (e) rateCache.set(sp.id, e); }
+  }
+  const need = spots.filter(stale);
   for (let i = 0; i < need.length; i += 40) {
     const chunk = need.slice(i, i + 40);
     const base = { latitude: chunk.map(s => s.lat.toFixed(3)).join(','), longitude: chunk.map(s => s.lon.toFixed(3)).join(','), forecast_days: '6', timezone: 'GMT' };
@@ -2168,7 +2203,7 @@ function ratingScaleHTML() {
 }
 /* Pages show the scale with an info button; the button (and the How to use guide) shows the full explanation. */
 function ratingGuideHTML(full) {
-  if (!full) return `<div class="rguide"><div class="rhead"><span class="sub">Surf rating</span><button type="button" class="rinfo" data-act="ratingHelp" aria-label="How the rating is calculated">ⓘ How it's calculated</button></div>${ratingScaleHTML()}</div>`;
+  if (!full) return `<div class="rguide"><div class="rhead"><span class="sub">Surf rating · rough guess</span><button type="button" class="rinfo" data-act="ratingHelp" aria-label="How the rating is calculated">ⓘ How it's calculated</button></div>${ratingScaleHTML()}</div>`;
   return `<div class="rguide">${ratingScaleHTML()}
     <div class="rexplain"><h4>How the rating is calculated</h4>
     <p>Each hour gets a score from 0 to 5, shown as a word: poor, poor+, fair, good or great. Hover over a rating (or tap it on a phone) to see the score. It multiplies five things, so one poor factor pulls the whole score down:</p>
@@ -2179,7 +2214,8 @@ function ratingGuideHTML(full) {
       <li><strong>Wind</strong>: under about 5 kt or offshore is best. Onshore and cross-shore wind lowers the score more the stronger it blows. With no wind data, wind counts as slightly below perfect.</li>
       <li><strong>Tide</strong>: only once you've rated 3 or more sessions at the spot that saved a tide. It then favors the tide stage (low, mid or high) you've had the most fun at there.</li>
     </ul>
-    <p class="sub">Daily ratings show the best daylight hour (6 am to 6 pm). It's a rough guide from model data and each spot's estimated seaward angle, not a surf report.</p></div></div>`;
+    <p class="sub">Daily ratings show the best daylight hour (6 am to 6 pm).</p>
+    <p><strong>Take it with a grain of salt.</strong> The rating is a rough guess built from forecast models and an estimate of which way each spot faces. It doesn't know about sandbars, local swell blocking, crowds or how the spot really breaks, and the models are often off near shore. It will often be wrong; check the surf or a webcam before you go.</p></div></div>`;
 }
 /* Swell at one time for a spot from the map's combined Open-Meteo data. */
 function swellAt(sp, t) {
@@ -2210,6 +2246,8 @@ function hazardAt(sp, t) {
   return shoreHazard(v('wave_height') ?? v('swell_wave_height'), v('swell_wave_period') ?? v('wave_period'), v('sea_level_height_msl'));
 }
 const PULSE_COLOR = '#1f7fb8';
+/* Spots with no rating, hazard or swell data yet. */
+const SPOT_GRAY = '#66757b';
 const reducedMotion = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 function setupRating(map, items) {
   const rLayer = map.ratingLayer, pLayer = map.pulseLayer, hLayer = map.hazardLayer;
@@ -2237,7 +2275,7 @@ function setupRating(map, items) {
       const z = sp && hOn() ? hazardAt(sp, t) : null;
       const sw = sp && pOn() ? swellAt(sp, t) : null;
       it.rating = r;
-      const fill = hOn() ? (z == null ? '#b8c2c6' : hazardInfo(z.twl)[1]) : rOn() ? (r == null ? '#b8c2c6' : ratingInfo(r)[1]) : PULSE_COLOR;
+      const fill = hOn() ? (z == null ? SPOT_GRAY : hazardInfo(z.twl)[1]) : rOn() ? (r == null ? SPOT_GRAY : ratingInfo(r)[1]) : PULSE_COLOR;
       if (pOn() && sw && map.hasLayer(it.m)) {
         /* Size from swell height in feet: about 5 px at flat to 26 px at 10 ft and up. */
         const ft = sw.h * 3.281, rMax = Math.max(5, Math.min(26, 5 + ft * 2.1)), dur = Math.max(3, (sw.p || 10) * PULSE_PACE);
@@ -2250,7 +2288,7 @@ function setupRating(map, items) {
       } else {
         it.pulse = null;
         const known = hOn() ? z != null : rOn() ? r != null : false;
-        it.m.setStyle(known ? { radius: 7, color: '#fff', weight: 1.5, opacity: 1, fillColor: fill, fillOpacity: 0.95 } : { radius: 4, color: '#fff', weight: 1, opacity: 1, fillColor: '#b8c2c6', fillOpacity: 0.9 });
+        it.m.setStyle(known ? { radius: 7, color: '#fff', weight: 1.5, opacity: 1, fillColor: fill, fillOpacity: 0.95 } : { radius: 4, color: '#fff', weight: 1, opacity: 1, fillColor: SPOT_GRAY, fillOpacity: 0.9 });
       }
     }
     if (map.redrawLabels) map.redrawLabels();
@@ -3445,7 +3483,7 @@ function spotsMap(el, sessions, { small, showAll, mode, state } = {}) {
     setupRating(map, labelItems);
     if (map.ratingLayer && (state && state.overlays ? state.overlays.has('rating') : prefs.showRating)) map.ratingLayer.addTo(map);
     if (map.pulseLayer && (state && state.overlays ? state.overlays.has('pulse') : prefs.showPulse)) map.pulseLayer.addTo(map);
-    if (map.hazardLayer && (state && state.overlays ? state.overlays.has('hazard') : prefs.showHazard)) map.hazardLayer.addTo(map);
+    if (map.hazardLayer && hazardOn() && (state && state.overlays ? state.overlays.has('hazard') : prefs.showHazard)) map.hazardLayer.addTo(map);
   }
   const hb = !small && homeBounds();
   if (state && state.center) map.setView(state.center, state.zoom ?? 11, { animate: false });
@@ -3577,8 +3615,8 @@ function viewMap(q = new URLSearchParams()) {
   const n = S.sessions.length;
   setTop('Map', null, `<div class="map-legend">
       <span><strong>${n}</strong> session${n === 1 ? '' : 's'} · <strong>${surfed}</strong> spot${surfed === 1 ? '' : 's'}</span>
-      <span id="legHaz" class="legset" ${(st.overlays ? st.overlays.has('hazard') : prefs.showHazard) ? '' : 'hidden'}><button type="button" class="infobtn" data-act="hazardHelp" aria-label="How shoreline hazard works">Shore ⓘ</button> ${HAZARD_SCALE.map(([, c, l]) => `<span><span class="dot" style="background:${c}"></span>${l.toLowerCase()}</span>`).join('')}</span>
-      <span id="legFun" class="legset" ${(st.overlays ? st.overlays.has('rating') || st.overlays.has('pulse') || st.overlays.has('hazard') : prefs.showRating || prefs.showPulse || prefs.showHazard) ? 'hidden' : ''}><span><span class="dot" style="background:#1f9d8f"></span>fun</span><span><span class="dot" style="background:#e0a526"></span>ok</span><span><span class="dot" style="background:#c8553d"></span>meh</span></span>
+      <span id="legHaz" class="legset" ${hazardOn() && (st.overlays ? st.overlays.has('hazard') : prefs.showHazard) ? '' : 'hidden'}><button type="button" class="infobtn" data-act="hazardHelp" aria-label="How shoreline hazard works">Shore ⓘ</button> ${HAZARD_SCALE.map(([, c, l]) => `<span><span class="dot" style="background:${c}"></span>${l.toLowerCase()}</span>`).join('')}</span>
+      <span id="legFun" class="legset" ${(st.overlays ? st.overlays.has('rating') || st.overlays.has('pulse') || (hazardOn() && st.overlays.has('hazard')) : prefs.showRating || prefs.showPulse || (hazardOn() && prefs.showHazard)) ? 'hidden' : ''}><span><span class="dot" style="background:#1f9d8f"></span>fun</span><span><span class="dot" style="background:#e0a526"></span>ok</span><span><span class="dot" style="background:#c8553d"></span>meh</span></span>
       <span id="legPulse" class="legset" ${(st.overlays ? st.overlays.has('pulse') : prefs.showPulse) ? '' : 'hidden'}><span><span class="dot pulsedot"></span>pulse: size = swell height, pace = period</span></span>
       <span id="legRate" class="legset" ${(st.overlays ? st.overlays.has('rating') : prefs.showRating) ? '' : 'hidden'}><button type="button" class="infobtn" data-act="ratingHelp" aria-label="How the rating works">Rating ⓘ</button> ${RATING_SCALE.map(([, c, l]) => `<span title="${l}"><span class="dot" style="background:${c}"></span>${l.toLowerCase()}</span>`).join('')}</span>
       <span class="lbuoy cdip">${BUOY_SVG}CDIP</span><span class="lbuoy">${BUOY_SVG}NOAA</span><span id="legBuoyT" class="lbt">buoys: latest</span>
@@ -3924,11 +3962,11 @@ function viewHelp() {
       <li>Buttons on the right: zoom, <strong>full screen</strong>, <strong>find my location</strong> and the <strong>layers</strong> list (Hydro, Topo or Imagery base maps; buoys; CDIP wave height or peak period).</li>
       <li>With a CDIP layer on, the panel at the bottom steps from Now through the forecast hours.</li>
       <li>Tap the <strong>magnifier</strong> (top left) to search: matching surf spots show first as you type, then press Search for towns and addresses.</li>
-      <li>Turn on <strong>Surf rating (spots)</strong> in the layers list to color the spots by a 0–5 rating from swell size and period, swell direction, wind (offshore or onshore) and, once you've rated a few sessions there, the tide. It follows the hour on the CDIP time panel.</li>
+      <li>Turn on <strong>Surf rating (spots)</strong> in the layers list to color the spots by a 0–5 rating from swell size and period, swell direction, wind (offshore or onshore) and, once you've rated a few sessions there, the tide. It follows the hour on the CDIP time panel. It's a rough guess from forecast models, often off, so take it with a grain of salt.</li>
       <li>The <strong>layers</strong> button opens menus for the base map, the CDIP wave model (wave height or peak period) and the spot style (my sessions, surf rating, swell pulse, rating + pulse or shore hazard), plus a switch for buoys.</li>
       <li><strong>Home area</strong> (Settings): the map opens on it, and surf ratings, shore hazard and swell pulse load its spots first. Outside it, only primary spots (plus favorites and spots you've surfed) get data; the rest stay gray. It's set automatically from the first spot you surfed (Ventura until then), and you can change it.</li>
       <li><strong>Buoys and time</strong>: at Now, buoy labels show each buoy's latest reading. Step the CDIP time panel forward and the labels switch to that hour's forecast for each buoy (white with a dashed border, marked "forecast"); the header says which. A buoy's popup always lists the latest reading, with a note at the top for the hour on the panel.</li>
-      <li><strong>Shore hazard</strong> colors spots by how far up the beach the water may reach: tide plus wave runup (Stockdon 2006 formula). It takes big surf and a high tide together to rate high. Spot forecasts show it per day and per hour; tap Shore ⓘ for details.</li>
+      <li><strong>Shore hazard</strong> colors spots by how far up the beach the water may reach: tide plus wave runup (Stockdon 2006 formula). It takes big surf and a high tide together to rate high. Spot forecasts show it per day and per hour; tap Shore ⓘ for details. Turn it off in Settings → Forecasts if you don't want it; it's then neither calculated nor shown.</li>
       <li>Turn on <strong>Swell pulse (spots)</strong> to make each spot dot breathe: its size follows the swell height and its pace follows the swell period (one grow-and-shrink every 0.7 × the period, so a 12-second swell grows for about 4 seconds and shrinks for 4). Buoys pulse too, from their own readings. It also follows the CDIP time panel, and works with the surf rating colors.</li>
       <li>The spots menu in the header picks <strong>All spots</strong>, <strong>Primary spots</strong> (well-known breaks plus your favorites and spots you've surfed) or <strong>My spots</strong>, to thin out a crowded map.</li>
       <li>Zoom in to see spot names. The web address updates as you move the map, so you can bookmark or share the exact view.</li></ul>`)}
@@ -3961,6 +3999,8 @@ function viewSettings() {
     <h2 class="sec">Home area</h2>
     <div class="card"><div class="stack"><label for="homeRegion" class="sub">Shown and loaded first: the map opens here, its spots get swell and ratings first, and they lead spot lists and searches.</label>
       <select id="homeRegion" data-pref="homeRegion"><option value="" ${prefs.homeRegion ? '' : 'selected'}>Automatic: ${esc(autoHomeRegion())}${S.sessions.some(x => x.spotId) ? ' (first spot surfed)' : ''}</option>${[...new Set(S.spots.map(sp => sp.region).filter(Boolean))].sort().map(r => `<option value="${esc(r)}" ${prefs.homeRegion === r ? 'selected' : ''}>${esc(r)}</option>`).join('')}</select></div></div>
+    <h2 class="sec">Forecasts</h2>
+    <div class="card"><label class="row check"><span class="grow"><span class="label">Shore hazard</span><br><span class="sub">How far up the beach big surf plus high tide may reach. Off: not calculated, and hidden in forecasts and on the map.</span></span><input type="checkbox" data-pref="shoreHazard" ${hazardOn() ? 'checked' : ''}></label></div>
     <h2 class="sec">Units</h2>
     <div class="card"><div class="stack"><label for="units" class="sub">Swell height</label>
       <select id="units" data-pref="units"><option value="ft" ${prefs.units === 'ft' ? 'selected' : ''}>Feet</option><option value="m" ${prefs.units === 'm' ? 'selected' : ''}>Meters</option></select>
