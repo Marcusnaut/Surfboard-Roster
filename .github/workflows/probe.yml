@@ -1,15 +1,18 @@
-# Temporary: place fields. Remove after use.
+# Temporary: builds places.json once. Remove after use.
 name: Service probe
 on:
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 20
     steps:
-      - run: |
-          set +e
-          for L in 24 4; do curl -s -m 40 "https://carto.nationalmap.gov/arcgis/rest/services/govunits/MapServer/$L?f=json" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('name'), d.get('geometryType'), [f['name'] for f in d.get('fields') or []], d.get('maxRecordCount'), d.get('supportsQueryWithResultOffset') if False else d.get('advancedQueryCapabilities',{}).get('supportsPagination'))"; done
-          curl -s -m 60 "https://carto.nationalmap.gov/arcgis/rest/services/govunits/MapServer/24/query?where=1%3D1&geometry=-119.5,34.0,-119.0,34.5&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=*&returnGeometry=false&returnCentroid=true&outSR=4326&f=json" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('error')); [print(f['attributes'], f.get('centroid')) for f in d.get('features',[])[:6]]"
+      - uses: actions/checkout@v4
+      - run: mkdir out && python3 tools/build_places.py spots.json out/places.json
+      - env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          cd out && git init -q -b probe-samples && git config user.name bot && git config user.email bot@example.com && git add -A && git commit -qm places && git push -q -f "https://x-access-token:${TOKEN}@github.com/${REPO}.git" probe-samples
