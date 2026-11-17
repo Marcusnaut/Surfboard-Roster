@@ -2,9 +2,9 @@
    Network first so a newly pushed build shows up on the next open;
    falls back to the cached copy when offline or the network is slow.
    Only the app's own files are cached; map tiles and swell lookups go straight to the network. */
-const CACHE = 'surfboard-tracker-v62';
+const CACHE = 'surfboard-tracker-v63';
 const ASSETS = [
-  './', './index.html', './manifest.json', './spots.json',
+  './', './index.html', './manifest.json', './spots.json', './places.json',
   './icon-192.png', './icon-512.png', './apple-touch-icon.png',
   './vendor/leaflet.js', './vendor/leaflet.css', './vendor/chart.umd.min.js',
   './vendor/images/layers.png', './vendor/images/layers-2x.png'

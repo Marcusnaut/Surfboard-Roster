@@ -396,6 +396,7 @@ body.mapfs .leaflet-bottom { bottom: env(safe-area-inset-bottom); }
 .spotlbl { position: absolute; left: 0; top: 0; transform-origin: 0 0; height: 18px; line-height: 18px; padding: 0 4px; font-size: 12px; font-weight: 600; white-space: nowrap; color: #14272e; text-align: center;
   text-shadow: 0 0 2px #fff, 0 0 3px #fff, 0 0 4px #fff; }
 .spotlbl.surfed { font-weight: 750; }
+.placelbl { position: absolute; left: 0; top: 0; height: 14px; line-height: 14px; font-size: 11px; font-weight: 500; letter-spacing: .02em; color: #77858b; white-space: nowrap; text-align: center; text-shadow: 0 0 2px #fff, 0 0 3px #fff, 0 0 4px rgba(255,255,255,.9); }
 .installhelp { margin-top: 18px; text-align: left; padding: 14px 16px; }
 .installhelp p { margin: 6px 0 10px; }
 details.install { border-top: 1px solid var(--line); padding: 8px 0; }
@@ -539,7 +540,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 14.3 (city and town names on the Hydro map; reworded rating caveat)';
+const BUILD = 'Build 14.4 (Chart and Relief base maps; lighter town names that avoid the spots)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -550,7 +551,13 @@ const USGS_WMS = 'https://basemap.nationalmap.gov/arcgis/services/{name}/MapServ
 const BASEMAPS = {
   map: { label: 'Hydro', name: 'USGSHydroCached', maxNativeZoom: 16, names: true },
   topo: { label: 'Topo', name: 'USGSTopo', maxNativeZoom: 16 },
-  imagery: { label: 'Imagery', name: 'USGSImageryTopo', maxNativeZoom: 16, dark: true }
+  imagery: { label: 'Imagery', name: 'USGSImageryTopo', maxNativeZoom: 16, dark: true },
+  /* NOAA's electronic nautical charts: depth soundings, contours, reefs, kelp, aids to navigation. */
+  chart: { label: 'Chart', wms: 'https://gis.charttools.noaa.gov/arcgis/rest/services/MCS/NOAAChartDisplay/MapServer/exts/MaritimeChartService/WMSServer', layers: '0,1,2,3,4,5,6,7', maxNativeZoom: 18,
+    credit: '<a href="https://nauticalcharts.noaa.gov/" target="_blank" rel="noopener">NOAA charts</a> (not for navigation)' },
+  /* NOAA NCEI shaded relief of land and seafloor, from its high-resolution coastal elevation models. */
+  relief: { label: 'Relief', arc: 'https://gis.ngdc.noaa.gov/arcgis/rest/services/DEM_mosaics/DEM_global_mosaic_hillshade/ImageServer/exportImage', maxNativeZoom: 17, names: true,
+    credit: '<a href="https://www.ncei.noaa.gov/products/coastal-elevation-models" target="_blank" rel="noopener">NOAA NCEI</a> relief' }
 };
 const USGS_CREDIT = '<a href="https://www.usgs.gov/programs/national-geospatial-program/national-map" target="_blank" rel="noopener">USGS The National Map</a>';
 const BUOY_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/buoys.json';
@@ -1052,29 +1059,23 @@ function refit(delay = 150) {
   clearTimeout(refitT);
   refitT = setTimeout(() => { measure(); mounted.maps.forEach(m => { try { m.invalidateSize(); } catch (e) {} }); }, delay);
 }
+/* An ArcGIS ImageServer drawn as map tiles (one exportImage per tile). */
+const ArcImageLayer = L.TileLayer.extend({
+  getTileUrl(c) {
+    const size = this.getTileSize(), nw = c.scaleBy(size), se = nw.add(size), crs = this._map.options.crs;
+    const a = crs.project(this._map.unproject(nw, c.z)), b = crs.project(this._map.unproject(se, c.z));
+    return `${this._url}?${new URLSearchParams({ bbox: [a.x, b.y, b.x, a.y].map(v => v.toFixed(1)).join(','), bboxSR: 3857, imageSR: 3857, size: `${size.x},${size.y}`, format: 'jpgpng', f: 'image' })}`;
+  }
+});
 function baseLayer(key) {
   const b = BASEMAPS[key];
+  if (b.arc) return new ArcImageLayer(b.arc, { maxZoom: 19, maxNativeZoom: b.maxNativeZoom, attribution: b.credit });
+  if (b.wms) return L.tileLayer.wms(b.wms, { layers: b.layers, styles: '', format: 'image/png', transparent: false, version: '1.3.0', maxZoom: 19, maxNativeZoom: b.maxNativeZoom, attribution: b.credit });
   const base = L.tileLayer.wms(USGS_WMS.replace('{name}', b.name), {
     layers: '0', styles: '', format: 'image/png', transparent: false, version: '1.3.0',
     maxZoom: 19, maxNativeZoom: b.maxNativeZoom, attribution: USGS_CREDIT
   });
-  /* Hydro has no town names, so it gets The National Map's city and town labels on top. */
-  return b.names ? L.featureGroup([base, placeNames()]) : base;
-}
-/* City and town labels (incorporated places) from The National Map's boundaries service, drawn by its
-   ArcGIS export at double resolution so the text stays sharp. Its own pane, above the ocean layers. */
-const NAMES_URL = 'https://carto.nationalmap.gov/arcgis/rest/services/govunits/MapServer/export';
-const PlaceNames = L.TileLayer.extend({
-  getTileUrl(c) {
-    const size = this.getTileSize(), nw = c.scaleBy(size), se = nw.add(size);
-    const crs = this._map.options.crs, a = crs.project(this._map.unproject(nw, c.z)), b = crs.project(this._map.unproject(se, c.z));
-    const q = new URLSearchParams({ bbox: [a.x, b.y, b.x, a.y].map(v => v.toFixed(1)).join(','), bboxSR: 3857, imageSR: 3857, size: '512,512', dpi: 192,
-      format: 'png32', transparent: true, layers: 'show:4', f: 'image' });
-    return `${NAMES_URL}?${q}`;
-  }
-});
-function placeNames() {
-  return new PlaceNames('', { pane: 'names', minZoom: 7, maxZoom: 19, attribution: 'Place names: USGS The National Map' });
+  return base;
 }
 function makeMap(el, opts = {}) {
   if (typeof L === 'undefined') { el.innerHTML = '<div class="empty">Map unavailable.</div>'; return null; }
@@ -1115,7 +1116,6 @@ function makeMap(el, opts = {}) {
   }
   /* Spot dots draw on a canvas with a wide tap tolerance so they're easy to hit with a finger. */
   map.spotRenderer = L.canvas({ tolerance: 14, padding: 0.5 });
-  if (!map.getPane('names')) { const p = map.createPane('names'); p.style.zIndex = 360; p.style.pointerEvents = 'none'; }
   const bases = Object.fromEntries(Object.keys(BASEMAPS).map(k => [k, baseLayer(k)]));
   const cur = st.base && bases[st.base] ? st.base : bases[prefs.baseMap] ? prefs.baseMap : 'map';
   map.baseKey = cur;
@@ -3537,6 +3537,7 @@ function spotsMap(el, sessions, { small, showAll, mode, state } = {}) {
   if (small) { if (showAll) { unsurfed.addTo(map); minor.addTo(map); } } else map.setSpotsMode(mode || 'all');
   if (!small) {
     spotLabels(map, labelItems);
+    placeLabels(map);
     setupRating(map, labelItems);
     if (map.ratingLayer && (state && state.overlays ? state.overlays.has('rating') : prefs.showRating)) map.ratingLayer.addTo(map);
     if (map.pulseLayer && pulseOn() && (state && state.overlays ? state.overlays.has('pulse') : prefs.showPulse)) map.pulseLayer.addTo(map);
@@ -3556,6 +3557,58 @@ let labelCtx = null;
 function textWidth(t) {
   if (!labelCtx) { labelCtx = document.createElement('canvas').getContext('2d'); labelCtx.font = '600 12px ' + getComputedStyle(document.body).fontFamily; }
   return Math.ceil(labelCtx.measureText(t).width);
+}
+/* City and town names for base maps without their own (Hydro, Relief), drawn by the app so they can be small,
+   light and kept clear of the spots: places.json (tools/build_places.py, from The National Map's incorporated
+   places, common names, population). Bigger places first; smaller ones appear as you zoom in. */
+let placesData = null, placesFetch = null;
+async function loadPlaces() {
+  if (placesData) return placesData;
+  if (!placesFetch) placesFetch = fetch('places.json').then(r => r.ok ? r.json() : null).then(d => (placesData = d)).catch(() => null);
+  return placesFetch;
+}
+const PLACE_MIN_POP = [[8, 100000], [9, 40000], [10, 15000], [11, 4000], [12, 0]];
+function placeLabels(map) {
+  if (!map.getPane('places')) { const p = map.createPane('places'); p.style.zIndex = 380; p.style.pointerEvents = 'none'; }
+  const pane = map.getPane('places');
+  let ctx = null;
+  const tw = t => { if (!ctx) { ctx = document.createElement('canvas').getContext('2d'); ctx.font = '500 11px ' + getComputedStyle(document.body).fontFamily; } return Math.ceil(ctx.measureText(t).width); };
+  const hit = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  const draw = () => {
+    if (!map._loaded || !map._container || !map._container.isConnected) return;
+    pane.innerHTML = '';
+    pane.style.display = '';
+    const z = map.getZoom(), min = (PLACE_MIN_POP.find(([zz]) => z <= zz) || [0, 0])[1];
+    if (!placesData || !BASEMAPS[map.baseKey] || !BASEMAPS[map.baseKey].names || z < 8) return;
+    const size = map.getSize(), box = map.getContainer().getBoundingClientRect(), blocked = [];
+    /* Stay clear of controls, buoys and their labels, spot labels and the spot dots themselves. */
+    map.getContainer().querySelectorAll('.leaflet-control, .buoy .bdot, .buoy .blbl, .spotlbl').forEach(e => {
+      const r = e.getBoundingClientRect();
+      if (r.width && r.height) blocked.push({ x: r.left - box.left - 2, y: r.top - box.top - 2, w: r.width + 4, h: r.height + 4 });
+    });
+    map.eachLayer(l => { if (l.spotId && l.getRadius) { const p = map.latLngToContainerPoint(l.getLatLng()), r = l.getRadius() + 3; blocked.push({ x: p.x - r, y: p.y - r, w: 2 * r, h: 2 * r }); } });
+    const seen = new Set(), html = [];
+    for (const [name, lat, lon, pop] of placesData.places) {
+      if (pop < min || seen.has(name)) continue;
+      const p = map.latLngToContainerPoint([lat, lon]);
+      if (p.x < -40 || p.y < -10 || p.x > size.x + 40 || p.y > size.y + 10) continue;
+      const w = tw(name) + 4, h = 14;
+      /* Centered on the place; failing that (coastal towns sit among the spots), nudged a little way off it. */
+      const spot = [[0, 0], [0, -14], [0, 14], [w / 2 + 8, 0], [-w / 2 - 8, 0], [0, -28], [0, 28], [w / 2 + 8, -14], [w / 2 + 8, 14], [-w / 2 - 8, -14], [-w / 2 - 8, 14]]
+        .map(([dx, dy]) => ({ x: p.x - w / 2 + dx, y: p.y - h / 2 + dy, w, h })).find(r => !blocked.some(b => hit(r, b)));
+      if (!spot) continue;
+      seen.add(name);
+      blocked.push({ x: spot.x - 6, y: spot.y - 3, w: spot.w + 12, h: spot.h + 6 });
+      const lp = map.containerPointToLayerPoint([spot.x, spot.y]);
+      html.push(`<div class="placelbl" style="transform:translate(${Math.round(lp.x)}px,${Math.round(lp.y)}px);width:${w}px">${esc(name)}</div>`);
+    }
+    pane.innerHTML = html.join('');
+  };
+  /* After the spot labels (also redrawn on these events), so they get first pick of the space. */
+  const later = () => requestAnimationFrame(() => requestAnimationFrame(draw));
+  map.on('zoomstart', () => { pane.style.display = 'none'; });
+  map.on('moveend zoomend overlayadd overlayremove spotschange baselayerchange', later);
+  loadPlaces().then(later);
 }
 function spotLabels(map, items) {
   if (!map.getPane('spotlabels')) { const p = map.createPane('spotlabels'); p.style.zIndex = 450; p.style.pointerEvents = 'none'; }
@@ -4016,7 +4069,7 @@ function viewHelp() {
     ${sec('The map', `<ul>
       <li>Colored dots are spots you've surfed (size = sessions, color = average fun). Small white dots are spots you haven't surfed; turn them on or off with <strong>All spots</strong> in the header.</li>
       <li>Tap a spot for its sessions and a 5-day forecast (CDIP swell in California, Open-Meteo elsewhere) with swell, wind and tide charts. Tap or drag on a chart to read the swell, wind and tide for that hour, plus the next high or low tide. Tap a buoy for the latest readings (primary, secondary and tertiary swells split from its wave spectrum, each with height, period and direction), a 24-hour chart and a forecast; directions show the compass point and degrees, the way the swell comes from; blue buoys are CDIP buoys and include CDIP's own plots.</li>
-      <li>Buttons on the right: zoom, <strong>full screen</strong>, <strong>find my location</strong> and the <strong>layers</strong> list (Hydro, Topo or Imagery base maps; buoys; CDIP wave height or peak period).</li>
+      <li>Buttons on the right: zoom, <strong>full screen</strong>, <strong>find my location</strong> and the <strong>layers</strong> list (Hydro, Topo, Imagery, Chart or Relief base maps; buoys; CDIP wave height or peak period).</li>
       <li>With a CDIP layer on, the panel at the bottom steps from Now through the forecast hours.</li>
       <li>Tap the <strong>magnifier</strong> (top left) to search: matching surf spots show first as you type, then press Search for towns and addresses.</li>
       <li>Turn on <strong>Surf rating (spots)</strong> in the layers list to color the spots by a 0–5 rating from swell size and period, swell direction, wind (offshore or onshore) and, once you've rated a few sessions there, the tide. It follows the hour on the CDIP time panel. It's a rough guess from forecast models, often off, so take it with a grain of salt.</li>
@@ -4081,6 +4134,7 @@ function viewSettings() {
         · Water temperature map: <a href="https://earthdata.nasa.gov/gibs" target="_blank" rel="noopener">NASA GIBS</a>, JPL MUR analysis (US government data).<br>
         · Swell, tide and weather: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>, licensed <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.<br>
         · Buoys: <a href="https://www.ndbc.noaa.gov/" target="_blank" rel="noopener">NOAA National Data Buoy Center</a> (US public data), updated about every 30 minutes.<br>
+        · Chart base map: <a href="https://nauticalcharts.noaa.gov/" target="_blank" rel="noopener">NOAA electronic nautical charts</a> (not for navigation). Relief base map: <a href="https://www.ncei.noaa.gov/" target="_blank" rel="noopener">NOAA NCEI</a> elevation models. Town names: USGS The National Map (incorporated places). All US public data.<br>
         · Base maps and imagery: <a href="https://www.usgs.gov/programs/national-geospatial-program/national-map" target="_blank" rel="noopener">USGS The National Map</a> (US public domain).</span></div></div>`);
 }
 function viewList(key) {
