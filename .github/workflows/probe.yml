@@ -1,4 +1,4 @@
-# Temporary: checks sea surface temperature sources. Remove after use.
+# Temporary: reads the GIBS sea surface temperature colors. Remove after use.
 name: Service probe
 on:
   workflow_dispatch:
@@ -7,16 +7,19 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 5
     steps:
       - run: |
-          set +e
-          curl -s "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/1.0.0/WMTSCapabilities.xml" -o caps.xml
+          curl -s https://gibs.earthdata.nasa.gov/colormaps/v1.3/GHRSST_Sea_Surface_Temperature.xml -o cm.xml
+          curl -s -D - -o /dev/null -H "Origin: https://marcusnaut.github.io" https://gibs.earthdata.nasa.gov/colormaps/v1.3/GHRSST_Sea_Surface_Temperature.xml | grep -i "access-control" || echo "no CORS header"
           python3 -c "
           import re
-          s=open('caps.xml').read()
-          i=s.index('<ows:Identifier>GHRSST_L4_MUR_Sea_Surface_Temperature</ows:Identifier>')
-          a=s.rfind('<Layer>',0,i); b=s.index('</Layer>',i)
-          print(s[a:b][:3000])
+          s=open('cm.xml').read()
+          e=re.findall(r'rgb=\"(\d+),(\d+),(\d+)\"[^>]*value=\"\[([-\d.INF]+),([-\d.INF]+)\)\"', s)
+          print('entries', len(e), e[1][3:], e[-1][3:])
+          for t in range(4, 31, 1):
+              for r,g,b,lo,hi in e:
+                  try:
+                      if float(lo) <= t < float(hi): print('C', t, '#%02x%02x%02x' % (int(r),int(g),int(b))); break
+                  except ValueError: pass
           "
-          for u in https://gibs.earthdata.nasa.gov/colormaps/v1.3/GHRSST_Sea_Surface_Temperature.xml https://gibs.earthdata.nasa.gov/legends/GHRSST_Sea_Surface_Temperature_H.png https://gibs.earthdata.nasa.gov/legends/GHRSST_Sea_Surface_Temperature_H.svg; do echo "== $u"; curl -s -o /tmp/x -w "%{http_code} %{content_type} %{size_download}\n" "$u"; head -c 1500 /tmp/x | strings | head -25; done
