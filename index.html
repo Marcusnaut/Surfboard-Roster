@@ -369,7 +369,8 @@ details.condedit h4 { margin: 6px 0 6px; font-size: 13px; color: var(--muted); t
 .leaflet-container.imagery { background: #1d2a2f; }
 /* Map legend lives in the header on the Map tab. */
 header.top.maphdr { flex-wrap: wrap; row-gap: 2px; padding-bottom: 6px; }
-header.top.maphdr h1 { flex: 0 0 auto; margin-right: 10px; }
+/* The Map tab is already highlighted below, so its title is kept only for screen readers; the key gets the room. */
+header.top.maphdr h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; margin: 0; }
 .map-legend { display: flex; gap: 4px 10px; align-items: center; flex-wrap: wrap; font-size: 13px; flex: 1 1 260px; }
 .map-legend .check { min-height: 30px; color: inherit; }
 .map-legend .check input { accent-color: #fff; }
@@ -542,7 +543,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 14.6 (Imagery base map fixed)';
+const BUILD = 'Build 14.7 (Map title removed from the header)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
