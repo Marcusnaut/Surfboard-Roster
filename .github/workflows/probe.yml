@@ -1,4 +1,4 @@
-# Temporary: place-name layers and bathymetry sources. Remove after use.
+# Temporary: checks a place-name tile. Remove after use.
 name: Service probe
 on:
   workflow_dispatch:
@@ -7,15 +7,8 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 5
     steps:
       - run: |
-          set +e
-          for svc in geonames govunits; do echo "== $svc"; curl -s -m 40 "https://carto.nationalmap.gov/arcgis/rest/services/$svc/MapServer?f=json" | python3 -c "import json,sys; d=json.load(sys.stdin); print([(l['id'], l['name'], l.get('minScale'), l.get('maxScale')) for l in d.get('layers',[])][:40]); print('copyright:', d.get('copyrightText'))"; done
-          BB="bbox=-13306157,4031474,-13246589,4091042&width=512&height=512"
-          echo "== GEBCO caps"; curl -s -m 40 "https://wms.gebco.net/mapserv?service=WMS&request=GetCapabilities&version=1.3.0" -o g.xml -w "%{http_code} %{size_download}\n"; python3 -c "import re; s=open('g.xml').read(); print(re.findall(r'<Name>([^<]+)</Name>', s)[:20]); print('3857', '3857' in s); print(re.findall(r'AccessConstraints>([^<]*)<', s)[:2], re.findall(r'Fees>([^<]*)<', s)[:2])"
-          echo "== GEBCO map"; curl -s -m 40 -o gm.png -w "%{http_code} %{content_type} %{size_download}\n" "https://wms.gebco.net/mapserv?service=WMS&request=GetMap&version=1.3.0&layers=GEBCO_LATEST&styles=&format=image/png&crs=EPSG:3857&$BB"
-          echo "== NOAA NCEI hillshade"; curl -s -m 40 "https://gis.ngdc.noaa.gov/arcgis/rest/services/DEM_mosaics/DEM_global_mosaic_hillshade/ImageServer?f=json" | head -c 600; echo
-          curl -s -m 40 -o nh.png -w "%{http_code} %{content_type} %{size_download}\n" "https://gis.ngdc.noaa.gov/arcgis/rest/services/DEM_mosaics/DEM_global_mosaic_hillshade/ImageServer/exportImage?bbox=-13306157,4031474,-13246589,4091042&bboxSR=3857&imageSR=3857&size=512,512&format=png&f=image"
-          echo "== NOAA chart WMS"; curl -s -m 40 -o nc.png -w "%{http_code} %{content_type} %{size_download}\n" "https://gis.charttools.noaa.gov/arcgis/rest/services/MCS/NOAAChartDisplay/MapServer/exts/MaritimeChartService/WMSServer?service=WMS&request=GetMap&version=1.3.0&layers=0,1,2,3,4,5,6,7&styles=&format=image/png&transparent=true&crs=EPSG:3857&$BB"
-          echo "== NOAA ENC tiles"; curl -s -m 40 -o nt.png -w "%{http_code} %{content_type} %{size_download}\n" "https://tileservice.charts.noaa.gov/tiles/50000_1/10/171/408.png"
+          for L in 4 3,4; do curl -s -m 40 -o n.png -w "show:$L %{http_code} %{content_type} %{size_download}\n" "https://carto.nationalmap.gov/arcgis/rest/services/govunits/MapServer/export?bbox=-13286590.0,4050551.0,-13267022.1,4070118.9&bboxSR=3857&imageSR=3857&size=512,512&dpi=192&format=png32&transparent=true&layers=show:$L&f=image"; done
+          curl -s -m 40 -o e.png -w "empty-area %{size_download}\n" "https://carto.nationalmap.gov/arcgis/rest/services/govunits/MapServer/export?bbox=-13400000,3900000,-13380000,3920000&bboxSR=3857&imageSR=3857&size=512,512&dpi=192&format=png32&transparent=true&layers=show:4&f=image"
