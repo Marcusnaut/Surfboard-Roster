@@ -542,7 +542,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 14.5 (Chart base map removed; plain white town names on Relief; spot names from zoom 11)';
+const BUILD = 'Build 14.6 (Imagery base map fixed)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -553,7 +553,8 @@ const USGS_WMS = 'https://basemap.nationalmap.gov/arcgis/services/{name}/MapServ
 const BASEMAPS = {
   map: { label: 'Hydro', name: 'USGSHydroCached', maxNativeZoom: 16, names: true },
   topo: { label: 'Topo', name: 'USGSTopo', maxNativeZoom: 16 },
-  imagery: { label: 'Imagery', name: 'USGSImageryTopo', maxNativeZoom: 16, dark: true },
+  /* USGS retired its imagery-with-labels service (USGSImageryTopo) in 2026; plain imagery plus the app's town names. */
+  imagery: { label: 'Imagery', name: 'USGSImageryOnly', maxNativeZoom: 16, dark: true, names: true, plainNames: true },
   /* NOAA NCEI shaded relief of land and seafloor, from its high-resolution coastal elevation models. */
   relief: { label: 'Relief', arc: 'https://gis.ngdc.noaa.gov/arcgis/rest/services/DEM_mosaics/DEM_global_mosaic_hillshade/ImageServer/exportImage', maxNativeZoom: 17, names: true, plainNames: true,
     credit: '<a href="https://www.ncei.noaa.gov/products/coastal-elevation-models" target="_blank" rel="noopener">NOAA NCEI</a> relief' }
