@@ -1,29 +1,15 @@
-# Temporary: chart and relief base map samples. Remove after use.
+# Temporary: place fields. Remove after use.
 name: Service probe
 on:
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 6
     steps:
       - run: |
           set +e
-          mkdir out
-          W="https://gis.charttools.noaa.gov/arcgis/rest/services/MCS/NOAAChartDisplay/MapServer/exts/MaritimeChartService/WMSServer"
-          curl -s -m 40 "$W?service=WMS&request=GetCapabilities&version=1.3.0" -o out/chartcaps.xml
-          python3 -c "import re; s=open('out/chartcaps.xml').read(); print(len(s)); print(re.findall(r'<Name>([^<]+)</Name>', s)[:40]); print(re.findall(r'<Title>([^<]+)</Title>', s)[:40]); print(re.findall(r'AccessConstraints>([^<]*)<', s)[:1]); print(re.findall(r'Fees>([^<]*)<', s)[:1])"
-          BB="bbox=-13286590.0,4050551.0,-13267022.1,4070118.9"
-          curl -s -m 40 -o out/chart.png "$W?service=WMS&request=GetMap&version=1.3.0&layers=0,1,2,3,4,5,6,7&styles=&format=image/png&transparent=false&crs=EPSG:3857&$BB&width=512&height=512"
-          curl -s -m 40 -o out/chart12.png "$W?service=WMS&request=GetMap&version=1.3.0&layers=0,1,2,3,4,5,6,7&styles=&format=image/png&transparent=false&crs=EPSG:3857&bbox=-13286590.0,4050551.0,-13277000,4060000&width=512&height=512"
-          curl -s -m 40 -o out/relief.png "https://gis.ngdc.noaa.gov/arcgis/rest/services/DEM_mosaics/DEM_global_mosaic_hillshade/ImageServer/exportImage?$BB&bboxSR=3857&imageSR=3857&size=512,512&format=png&f=image"
-          curl -s -m 40 "https://gis.ngdc.noaa.gov/arcgis/rest/services/DEM_mosaics/DEM_global_mosaic_hillshade/ImageServer?f=json" | python3 -c "import json,sys; d=json.load(sys.stdin); print({k: d.get(k) for k in ['copyrightText','description','minScale','maxScale','pixelSizeX','serviceDataType']})"
-          curl -s -m 40 "https://gis.ngdc.noaa.gov/arcgis/rest/services/DEM_mosaics/?f=json" | head -c 1500; echo
-          ls -la out
-      - env:
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-        run: |
-          cd out && git init -q -b probe-samples && git config user.name bot && git config user.email bot@example.com && git add -A && git commit -qm samples && git push -q -f "https://x-access-token:${TOKEN}@github.com/${REPO}.git" probe-samples
+          for L in 24 4; do curl -s -m 40 "https://carto.nationalmap.gov/arcgis/rest/services/govunits/MapServer/$L?f=json" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('name'), d.get('geometryType'), [f['name'] for f in d.get('fields') or []], d.get('maxRecordCount'), d.get('supportsQueryWithResultOffset') if False else d.get('advancedQueryCapabilities',{}).get('supportsPagination'))"; done
+          curl -s -m 60 "https://carto.nationalmap.gov/arcgis/rest/services/govunits/MapServer/24/query?where=1%3D1&geometry=-119.5,34.0,-119.0,34.5&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=*&returnGeometry=false&returnCentroid=true&outSR=4326&f=json" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('error')); [print(f['attributes'], f.get('centroid')) for f in d.get('features',[])[:6]]"
