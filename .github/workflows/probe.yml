@@ -1,0 +1,16 @@
+# Temporary: times Open-Meteo combined requests. Remove after use.
+name: Service probe
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - run: |
+          for i in 1 2; do
+          echo "== marine 40"; curl -s -o /dev/null -w "%{http_code} %{time_total}s %{size_download}B\n" "https://marine-api.open-meteo.com/v1/marine?latitude=34.373,34.364,34.356,34.348,34.331,34.317,34.319,34.320,34.311,34.285,34.282,34.281,34.275,34.274,34.268,34.245,34.234,34.227,34.210,34.199,34.166,34.157,34.144,34.085,34.051&longitude=-119.477,-119.447,-119.439,-119.426,-119.403,-119.390,-119.383,-119.378,-119.362,-119.326,-119.318,-119.315,-119.301,-119.291,-119.278,-119.269,-119.264,-119.260,-119.253,-119.249,-119.235,-119.225,-119.205,-119.060,-118.964&hourly=swell_wave_height,swell_wave_period,swell_wave_direction,wave_height,wave_period,wave_direction,sea_level_height_msl&cell_selection=sea&forecast_days=6&timezone=GMT"
+          echo "== weather 40"; curl -s -o /dev/null -w "%{http_code} %{time_total}s %{size_download}B\n" "https://api.open-meteo.com/v1/forecast?latitude=34.373,34.364,34.356,34.348,34.331,34.317,34.319,34.320,34.311,34.285,34.282,34.281,34.275,34.274,34.268,34.245,34.234,34.227,34.210,34.199,34.166,34.157,34.144,34.085,34.051&longitude=-119.477,-119.447,-119.439,-119.426,-119.403,-119.390,-119.383,-119.378,-119.362,-119.326,-119.318,-119.315,-119.301,-119.291,-119.278,-119.269,-119.264,-119.260,-119.253,-119.249,-119.235,-119.225,-119.205,-119.060,-118.964&hourly=wind_speed_10m,wind_direction_10m&wind_speed_unit=ms&forecast_days=6&timezone=GMT"
+          done
