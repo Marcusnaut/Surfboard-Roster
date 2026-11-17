@@ -543,19 +543,21 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 14.7 (Map title removed from the header)';
+const BUILD = 'Build 14.8 (Imagery: no empty tiles over water)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
 const DEFAULT_VIEW = { center: [34.27, -119.30], zoom: 11 };
 /* USGS The National Map base maps: US public domain, no key and no account needed.
    Drawn through each service's WMS endpoint (layer "0"), which supports web mercator. */
+const EOX_URL = 'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2023_3857/default/GoogleMapsCompatible/{z}/{y}/{x}.jpg';
+const EOX_CREDIT = '<a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless</a> by EOX (Copernicus Sentinel data 2023)';
 const USGS_WMS = 'https://basemap.nationalmap.gov/arcgis/services/{name}/MapServer/WMSServer';
 const BASEMAPS = {
   map: { label: 'Hydro', name: 'USGSHydroCached', maxNativeZoom: 16, names: true },
   topo: { label: 'Topo', name: 'USGSTopo', maxNativeZoom: 16 },
   /* USGS retired its imagery-with-labels service (USGSImageryTopo) in 2026; plain imagery plus the app's town names. */
-  imagery: { label: 'Imagery', name: 'USGSImageryOnly', maxNativeZoom: 16, dark: true, names: true, plainNames: true },
+  imagery: { label: 'Imagery', name: 'USGSImageryOnly', maxNativeZoom: 16, dark: true, names: true, plainNames: true, under: 'eox' },
   /* NOAA NCEI shaded relief of land and seafloor, from its high-resolution coastal elevation models. */
   relief: { label: 'Relief', arc: 'https://gis.ngdc.noaa.gov/arcgis/rest/services/DEM_mosaics/DEM_global_mosaic_hillshade/ImageServer/exportImage', maxNativeZoom: 17, names: true, plainNames: true,
     credit: '<a href="https://www.ncei.noaa.gov/products/coastal-elevation-models" target="_blank" rel="noopener">NOAA NCEI</a> relief' }
@@ -1072,9 +1074,12 @@ function baseLayer(key) {
   const b = BASEMAPS[key];
   if (b.arc) return new ArcImageLayer(b.arc, { maxZoom: 19, maxNativeZoom: b.maxNativeZoom, attribution: b.credit });
   const base = L.tileLayer.wms(USGS_WMS.replace('{name}', b.name), {
-    layers: '0', styles: '', format: 'image/png', transparent: false, version: '1.3.0',
-    maxZoom: 19, maxNativeZoom: b.maxNativeZoom, attribution: USGS_CREDIT
+    layers: '0', styles: '', format: 'image/png', transparent: !!b.under, version: '1.3.0',
+    maxZoom: 19, maxNativeZoom: b.maxNativeZoom, attribution: USGS_CREDIT, ...(b.under ? { pane: 'baseover' } : {})
   });
+  /* USGS imagery has no pictures over open water (empty tiles), so it sits on a seamless 10 m satellite mosaic:
+     EOX Sentinel-2 cloudless (CC BY-NC-SA 4.0, non-commercial use). USGS's sharper photos cover land and the shore. */
+  if (b.under) return L.featureGroup([L.tileLayer(EOX_URL, { maxZoom: 19, maxNativeZoom: 15, attribution: EOX_CREDIT }), base]);
   return base;
 }
 function makeMap(el, opts = {}) {
@@ -1116,6 +1121,7 @@ function makeMap(el, opts = {}) {
   }
   /* Spot dots draw on a canvas with a wide tap tolerance so they're easy to hit with a finger. */
   map.spotRenderer = L.canvas({ tolerance: 14, padding: 0.5 });
+  if (!map.getPane('baseover')) map.createPane('baseover').style.zIndex = 210;
   const bases = Object.fromEntries(Object.keys(BASEMAPS).map(k => [k, baseLayer(k)]));
   const cur = st.base && bases[st.base] ? st.base : bases[prefs.baseMap] ? prefs.baseMap : 'map';
   map.baseKey = cur;
@@ -4135,6 +4141,7 @@ function viewSettings() {
         · Water temperature map: <a href="https://earthdata.nasa.gov/gibs" target="_blank" rel="noopener">NASA GIBS</a>, JPL MUR analysis (US government data).<br>
         · Swell, tide and weather: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>, licensed <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.<br>
         · Buoys: <a href="https://www.ndbc.noaa.gov/" target="_blank" rel="noopener">NOAA National Data Buoy Center</a> (US public data), updated about every 30 minutes.<br>
+        · Imagery: USGS The National Map orthoimagery over <a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless 2023</a> by EOX IT Services (contains modified Copernicus Sentinel data, CC BY-NC-SA 4.0, non-commercial use).<br>
         · Relief base map: <a href="https://www.ncei.noaa.gov/" target="_blank" rel="noopener">NOAA NCEI</a> elevation models. Town names: USGS The National Map (incorporated places). All US public data.<br>
         · Base maps and imagery: <a href="https://www.usgs.gov/programs/national-geospatial-program/national-map" target="_blank" rel="noopener">USGS The National Map</a> (US public domain).</span></div></div>`);
 }
