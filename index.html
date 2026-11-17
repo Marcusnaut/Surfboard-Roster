@@ -539,7 +539,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 14.2 (water temperature map layer and at spots; swell pulse setting)';
+const BUILD = 'Build 14.3 (city and town names on the Hydro map; reworded rating caveat)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -548,7 +548,7 @@ const DEFAULT_VIEW = { center: [34.27, -119.30], zoom: 11 };
    Drawn through each service's WMS endpoint (layer "0"), which supports web mercator. */
 const USGS_WMS = 'https://basemap.nationalmap.gov/arcgis/services/{name}/MapServer/WMSServer';
 const BASEMAPS = {
-  map: { label: 'Hydro', name: 'USGSHydroCached', maxNativeZoom: 16 },
+  map: { label: 'Hydro', name: 'USGSHydroCached', maxNativeZoom: 16, names: true },
   topo: { label: 'Topo', name: 'USGSTopo', maxNativeZoom: 16 },
   imagery: { label: 'Imagery', name: 'USGSImageryTopo', maxNativeZoom: 16, dark: true }
 };
@@ -1054,10 +1054,27 @@ function refit(delay = 150) {
 }
 function baseLayer(key) {
   const b = BASEMAPS[key];
-  return L.tileLayer.wms(USGS_WMS.replace('{name}', b.name), {
+  const base = L.tileLayer.wms(USGS_WMS.replace('{name}', b.name), {
     layers: '0', styles: '', format: 'image/png', transparent: false, version: '1.3.0',
     maxZoom: 19, maxNativeZoom: b.maxNativeZoom, attribution: USGS_CREDIT
   });
+  /* Hydro has no town names, so it gets The National Map's city and town labels on top. */
+  return b.names ? L.featureGroup([base, placeNames()]) : base;
+}
+/* City and town labels (incorporated places) from The National Map's boundaries service, drawn by its
+   ArcGIS export at double resolution so the text stays sharp. Its own pane, above the ocean layers. */
+const NAMES_URL = 'https://carto.nationalmap.gov/arcgis/rest/services/govunits/MapServer/export';
+const PlaceNames = L.TileLayer.extend({
+  getTileUrl(c) {
+    const size = this.getTileSize(), nw = c.scaleBy(size), se = nw.add(size);
+    const crs = this._map.options.crs, a = crs.project(this._map.unproject(nw, c.z)), b = crs.project(this._map.unproject(se, c.z));
+    const q = new URLSearchParams({ bbox: [a.x, b.y, b.x, a.y].map(v => v.toFixed(1)).join(','), bboxSR: 3857, imageSR: 3857, size: '512,512', dpi: 192,
+      format: 'png32', transparent: true, layers: 'show:4', f: 'image' });
+    return `${NAMES_URL}?${q}`;
+  }
+});
+function placeNames() {
+  return new PlaceNames('', { pane: 'names', minZoom: 7, maxZoom: 19, attribution: 'Place names: USGS The National Map' });
 }
 function makeMap(el, opts = {}) {
   if (typeof L === 'undefined') { el.innerHTML = '<div class="empty">Map unavailable.</div>'; return null; }
@@ -1098,6 +1115,7 @@ function makeMap(el, opts = {}) {
   }
   /* Spot dots draw on a canvas with a wide tap tolerance so they're easy to hit with a finger. */
   map.spotRenderer = L.canvas({ tolerance: 14, padding: 0.5 });
+  if (!map.getPane('names')) { const p = map.createPane('names'); p.style.zIndex = 360; p.style.pointerEvents = 'none'; }
   const bases = Object.fromEntries(Object.keys(BASEMAPS).map(k => [k, baseLayer(k)]));
   const cur = st.base && bases[st.base] ? st.base : bases[prefs.baseMap] ? prefs.baseMap : 'map';
   map.baseKey = cur;
@@ -2243,7 +2261,7 @@ function ratingScaleHTML() {
 function ratingGuideHTML(full) {
   if (!full) return `<div class="rguide"><div class="rhead"><span class="sub">Surf rating · rough guess</span><button type="button" class="rinfo" data-act="ratingHelp" aria-label="How the rating is calculated">ⓘ How it's calculated</button></div>${ratingScaleHTML()}</div>`;
   return `<div class="rguide">${ratingScaleHTML()}
-    <div class="rexplain"><p class="caveat"><strong>Approximate.</strong> A rough guess from forecast models; it can't see sandbars or how a spot really breaks, so it's often off. Check the surf before you go.</p>
+    <div class="rexplain"><p class="caveat"><strong>Approximate.</strong> A rough guess from forecast models; it is not fine-tuned for spots and uses simple calculations based only on readily available data.</p>
     <h4>How the rating is calculated</h4>
     <p>Each hour gets a score from 0 to 5, shown as a word: poor, poor+, fair, good or great. Hover over a rating (or tap it on a phone) to see the score. It multiplies five things, so one poor factor pulls the whole score down:</p>
     <ul>
