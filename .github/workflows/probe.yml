@@ -1,36 +1,18 @@
-# Temporary: imagery tile samples. Remove after use.
+# Temporary: checks USGS imagery transparency over water. Remove after use.
 name: Service probe
 on:
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 5
     steps:
       - run: |
-          mkdir out
-          while read z x y; do
-            curl -s -m 30 -o out/usgs_${z}_${x}_${y}.jpg "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/$z/$y/$x"
-            curl -s -m 30 -o out/wms_${z}_${x}_${y}.png "https://basemap.nationalmap.gov/arcgis/services/USGSImageryOnly/MapServer/WMSServer?service=WMS&request=GetMap&version=1.3.0&layers=0&styles=&format=image/png&crs=EPSG:3857&width=256&height=256&bbox=$(python3 -c "
-          import math; z,x,y=$z,$x,$y; R=6378137; o=math.pi*R; r=2*o/(256*2**z); print(f'{x*256*r-o},{o-(y+1)*256*r},{(x+1)*256*r-o},{o-y*256*r}')")"
-            curl -s -m 30 -o out/eox_${z}_${x}_${y}.jpg "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2023_3857/default/GoogleMapsCompatible/$z/$y/$x.jpg"
-          done <<'T'
-          10 172 408
-          12 690 1632
-          13 1381 3264
-          14 2762 6529
-          16 11050 26119
-          10 172 408
-          12 691 1633
-          13 1382 3266
-          14 2764 6533
-          16 11059 26135
-          T
-          ls -la out
-      - env:
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-        run: |
-          cd out && git init -q -b probe-samples && git config user.name bot && git config user.email bot@example.com && git add -A && git commit -qm samples && git push -q -f "https://x-access-token:${TOKEN}@github.com/${REPO}.git" probe-samples
+          pip install -q pillow >/dev/null 2>&1
+          curl -s -m 40 -o t.png "https://basemap.nationalmap.gov/arcgis/services/USGSImageryOnly/MapServer/WMSServer?service=WMS&request=GetMap&version=1.3.0&layers=0&styles=&format=image/png&transparent=true&crs=EPSG:3857&width=256&height=256&bbox=-13306157.9,4031474.5,-13267022.1,4070118.9"
+          python3 -c "
+          from PIL import Image; im=Image.open('t.png'); print('T mode', im.mode)
+          im=im.convert('RGBA'); px=list(im.getdata()); n=len(px)
+          print('T transparent share', sum(1 for p in px if p[3]==0)/n, 'white share', sum(1 for p in px if p[:3]==(255,255,255) and p[3]>0)/n)"
