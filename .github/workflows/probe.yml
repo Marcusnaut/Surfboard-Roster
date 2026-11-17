@@ -11,16 +11,12 @@ jobs:
     steps:
       - run: |
           set +e
-          curl -s "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/1.0.0/WMTSCapabilities.xml" -o caps.xml; ls -la caps.xml
-          python3 - <<'PY'
+          curl -s "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/1.0.0/WMTSCapabilities.xml" -o caps.xml
+          python3 -c "
           import re
           s=open('caps.xml').read()
-          for m in re.finditer(r'<Layer>(.*?)</Layer>', s, re.S):
-              b=m.group(1); i=re.search(r'<ows:Identifier>([^<]+)</ows:Identifier>', b).group(1)
-              if 'SST' in i.upper() or 'Sea_Surface_Temp' in i:
-                  tms=re.findall(r'<TileMatrixSet>([^<]+)</TileMatrixSet>', b); fmt=re.findall(r'<Format>([^<]+)</Format>', b)
-                  dflt=re.search(r'<Default>([^<]+)</Default>', b); leg=re.findall(r'xlink:href="([^"]*(?:legend|colormap)[^"]*)"', b)
-                  print(i, tms, fmt, dflt.group(1) if dflt else None, leg[:3])
-          PY
-          echo "== tile"; curl -s -o t.png -w "%{http_code} %{content_type} %{size_download}\n" "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GHRSST_L4_MUR_Sea_Surface_Temperature/default/default/GoogleMapsCompatible_Level7/6/12/10.png"
-          echo "== om sst"; curl -s "https://marine-api.open-meteo.com/v1/marine?latitude=34.27&longitude=-119.30&hourly=sea_surface_temperature&forecast_days=1&timezone=GMT&cell_selection=sea" | head -c 600; echo
+          i=s.index('<ows:Identifier>GHRSST_L4_MUR_Sea_Surface_Temperature</ows:Identifier>')
+          a=s.rfind('<Layer>',0,i); b=s.index('</Layer>',i)
+          print(s[a:b][:3000])
+          "
+          for u in https://gibs.earthdata.nasa.gov/colormaps/v1.3/GHRSST_Sea_Surface_Temperature.xml https://gibs.earthdata.nasa.gov/legends/GHRSST_Sea_Surface_Temperature_H.png https://gibs.earthdata.nasa.gov/legends/GHRSST_Sea_Surface_Temperature_H.svg; do echo "== $u"; curl -s -o /tmp/x -w "%{http_code} %{content_type} %{size_download}\n" "$u"; head -c 1500 /tmp/x | strings | head -25; done
