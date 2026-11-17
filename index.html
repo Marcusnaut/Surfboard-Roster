@@ -396,6 +396,8 @@ body.mapfs .leaflet-bottom { bottom: env(safe-area-inset-bottom); }
 .spotlbl { position: absolute; left: 0; top: 0; transform-origin: 0 0; height: 18px; line-height: 18px; padding: 0 4px; font-size: 12px; font-weight: 600; white-space: nowrap; color: #14272e; text-align: center;
   text-shadow: 0 0 2px #fff, 0 0 3px #fff, 0 0 4px #fff; }
 .spotlbl.surfed { font-weight: 750; }
+/* On the shaded relief a halo blurs; plain white text reads better there. */
+.plain .placelbl { color: #fff; text-shadow: none; font-weight: 600; }
 .placelbl { position: absolute; left: 0; top: 0; height: 14px; line-height: 14px; font-size: 11px; font-weight: 500; letter-spacing: .02em; color: #77858b; white-space: nowrap; text-align: center; text-shadow: 0 0 2px #fff, 0 0 3px #fff, 0 0 4px rgba(255,255,255,.9); }
 .installhelp { margin-top: 18px; text-align: left; padding: 14px 16px; }
 .installhelp p { margin: 6px 0 10px; }
@@ -540,7 +542,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 14.4 (Chart and Relief base maps; lighter town names that avoid the spots)';
+const BUILD = 'Build 14.5 (Chart base map removed; plain white town names on Relief; spot names from zoom 11)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -552,11 +554,8 @@ const BASEMAPS = {
   map: { label: 'Hydro', name: 'USGSHydroCached', maxNativeZoom: 16, names: true },
   topo: { label: 'Topo', name: 'USGSTopo', maxNativeZoom: 16 },
   imagery: { label: 'Imagery', name: 'USGSImageryTopo', maxNativeZoom: 16, dark: true },
-  /* NOAA's electronic nautical charts: depth soundings, contours, reefs, kelp, aids to navigation. */
-  chart: { label: 'Chart', wms: 'https://gis.charttools.noaa.gov/arcgis/rest/services/MCS/NOAAChartDisplay/MapServer/exts/MaritimeChartService/WMSServer', layers: '0,1,2,3,4,5,6,7', maxNativeZoom: 18,
-    credit: '<a href="https://nauticalcharts.noaa.gov/" target="_blank" rel="noopener">NOAA charts</a> (not for navigation)' },
   /* NOAA NCEI shaded relief of land and seafloor, from its high-resolution coastal elevation models. */
-  relief: { label: 'Relief', arc: 'https://gis.ngdc.noaa.gov/arcgis/rest/services/DEM_mosaics/DEM_global_mosaic_hillshade/ImageServer/exportImage', maxNativeZoom: 17, names: true,
+  relief: { label: 'Relief', arc: 'https://gis.ngdc.noaa.gov/arcgis/rest/services/DEM_mosaics/DEM_global_mosaic_hillshade/ImageServer/exportImage', maxNativeZoom: 17, names: true, plainNames: true,
     credit: '<a href="https://www.ncei.noaa.gov/products/coastal-elevation-models" target="_blank" rel="noopener">NOAA NCEI</a> relief' }
 };
 const USGS_CREDIT = '<a href="https://www.usgs.gov/programs/national-geospatial-program/national-map" target="_blank" rel="noopener">USGS The National Map</a>';
@@ -1070,7 +1069,6 @@ const ArcImageLayer = L.TileLayer.extend({
 function baseLayer(key) {
   const b = BASEMAPS[key];
   if (b.arc) return new ArcImageLayer(b.arc, { maxZoom: 19, maxNativeZoom: b.maxNativeZoom, attribution: b.credit });
-  if (b.wms) return L.tileLayer.wms(b.wms, { layers: b.layers, styles: '', format: 'image/png', transparent: false, version: '1.3.0', maxZoom: 19, maxNativeZoom: b.maxNativeZoom, attribution: b.credit });
   const base = L.tileLayer.wms(USGS_WMS.replace('{name}', b.name), {
     layers: '0', styles: '', format: 'image/png', transparent: false, version: '1.3.0',
     maxZoom: 19, maxNativeZoom: b.maxNativeZoom, attribution: USGS_CREDIT
@@ -3550,9 +3548,9 @@ function spotsMap(el, sessions, { small, showAll, mode, state } = {}) {
   else if (pts.length) map.fitBounds(pts, { padding: [40, 40], maxZoom: 13, animate: false });
   return map;
 }
-/* Spot names when zoomed in (zoom 12+). Placed greedily, most-surfed first, trying right, left, above
+/* Spot names when zoomed in (zoom 11+). Placed greedily, most-surfed first, trying right, left, above
    and below each dot, and skipped when they'd overlap another label, dot, buoy or control. */
-const LABEL_ZOOM = 12;
+const LABEL_ZOOM = 11;
 let labelCtx = null;
 function textWidth(t) {
   if (!labelCtx) { labelCtx = document.createElement('canvas').getContext('2d'); labelCtx.font = '600 12px ' + getComputedStyle(document.body).fontFamily; }
@@ -3578,6 +3576,7 @@ function placeLabels(map) {
     if (!map._loaded || !map._container || !map._container.isConnected) return;
     pane.innerHTML = '';
     pane.style.display = '';
+    pane.classList.toggle('plain', !!(BASEMAPS[map.baseKey] || {}).plainNames);
     const z = map.getZoom(), min = (PLACE_MIN_POP.find(([zz]) => z <= zz) || [0, 0])[1];
     if (!placesData || !BASEMAPS[map.baseKey] || !BASEMAPS[map.baseKey].names || z < 8) return;
     const size = map.getSize(), box = map.getContainer().getBoundingClientRect(), blocked = [];
@@ -4069,7 +4068,7 @@ function viewHelp() {
     ${sec('The map', `<ul>
       <li>Colored dots are spots you've surfed (size = sessions, color = average fun). Small white dots are spots you haven't surfed; turn them on or off with <strong>All spots</strong> in the header.</li>
       <li>Tap a spot for its sessions and a 5-day forecast (CDIP swell in California, Open-Meteo elsewhere) with swell, wind and tide charts. Tap or drag on a chart to read the swell, wind and tide for that hour, plus the next high or low tide. Tap a buoy for the latest readings (primary, secondary and tertiary swells split from its wave spectrum, each with height, period and direction), a 24-hour chart and a forecast; directions show the compass point and degrees, the way the swell comes from; blue buoys are CDIP buoys and include CDIP's own plots.</li>
-      <li>Buttons on the right: zoom, <strong>full screen</strong>, <strong>find my location</strong> and the <strong>layers</strong> list (Hydro, Topo, Imagery, Chart or Relief base maps; buoys; CDIP wave height or peak period).</li>
+      <li>Buttons on the right: zoom, <strong>full screen</strong>, <strong>find my location</strong> and the <strong>layers</strong> list (Hydro, Topo, Imagery or Relief base maps; buoys; CDIP wave height or peak period).</li>
       <li>With a CDIP layer on, the panel at the bottom steps from Now through the forecast hours.</li>
       <li>Tap the <strong>magnifier</strong> (top left) to search: matching surf spots show first as you type, then press Search for towns and addresses.</li>
       <li>Turn on <strong>Surf rating (spots)</strong> in the layers list to color the spots by a 0–5 rating from swell size and period, swell direction, wind (offshore or onshore) and, once you've rated a few sessions there, the tide. It follows the hour on the CDIP time panel. It's a rough guess from forecast models, often off, so take it with a grain of salt.</li>
@@ -4134,7 +4133,7 @@ function viewSettings() {
         · Water temperature map: <a href="https://earthdata.nasa.gov/gibs" target="_blank" rel="noopener">NASA GIBS</a>, JPL MUR analysis (US government data).<br>
         · Swell, tide and weather: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>, licensed <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.<br>
         · Buoys: <a href="https://www.ndbc.noaa.gov/" target="_blank" rel="noopener">NOAA National Data Buoy Center</a> (US public data), updated about every 30 minutes.<br>
-        · Chart base map: <a href="https://nauticalcharts.noaa.gov/" target="_blank" rel="noopener">NOAA electronic nautical charts</a> (not for navigation). Relief base map: <a href="https://www.ncei.noaa.gov/" target="_blank" rel="noopener">NOAA NCEI</a> elevation models. Town names: USGS The National Map (incorporated places). All US public data.<br>
+        · Relief base map: <a href="https://www.ncei.noaa.gov/" target="_blank" rel="noopener">NOAA NCEI</a> elevation models. Town names: USGS The National Map (incorporated places). All US public data.<br>
         · Base maps and imagery: <a href="https://www.usgs.gov/programs/national-geospatial-program/national-map" target="_blank" rel="noopener">USGS The National Map</a> (US public domain).</span></div></div>`);
 }
 function viewList(key) {
