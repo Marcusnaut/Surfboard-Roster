@@ -271,16 +271,7 @@ table.list a { color: inherit; text-decoration: none; display: block; }
 .noph svg { width: 40%; height: 40%; stroke: currentColor; fill: none; stroke-width: 1.2; opacity: .6; }
 
 /* full-page pager */
-.pager { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; height: var(--avail); scrollbar-width: none; overscroll-behavior-x: contain; }
-.pager::-webkit-scrollbar { display: none; }
-.page { flex: 0 0 100%; scroll-snap-align: start; scroll-snap-stop: always; height: 100%; display: flex; flex-direction: column; overflow-y: auto; }
-.page .ph { flex: 0 0 58%; background: var(--tag); position: relative; }
-.page .ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.page .body { padding: 14px 18px 18px; max-width: 720px; width: 100%; margin: 0 auto; }
-.page .name { font-size: 22px; font-weight: 700; margin: 0; }
 .pager-dots { position: absolute; top: 10px; right: 12px; background: rgba(0,0,0,.55); color: #fff; font-size: 12px; padding: 3px 9px; border-radius: 999px; }
-.pagewrap { position: relative; }
-.pager-hint { position: absolute; bottom: 8px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--muted); pointer-events: none; }
 
 /* chips + specs */
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
@@ -294,6 +285,14 @@ dl.specs dd { margin: 0; }
 .hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .title-block h2 { margin: 0; font-size: 24px; }
 .title-block .sub { font-size: 15px; }
+.cbars { padding: 6px 14px; }
+.cbar { display: grid; grid-template-columns: minmax(90px, 38%) 1fr auto; align-items: center; gap: 2px 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.cbar:last-child { border-bottom: 0; }
+.cbar .cl { font-size: 14px; overflow-wrap: anywhere; }
+.cbar .ct { height: 8px; border-radius: 4px; background: var(--tag); overflow: hidden; }
+.cbar .cf { display: block; height: 100%; border-radius: 4px; background: var(--accent); }
+.cbar .cn { font-weight: 650; min-width: 20px; text-align: right; }
+.cbar .cs { grid-column: 1 / -1; font-size: 12px; color: var(--muted); }
 .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
 .stat .v { font-size: 18px; font-weight: 650; overflow-wrap: anywhere; }
@@ -535,7 +534,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 13.9 (home area: Ventura by default, or your first spot surfed)';
+const BUILD = 'Build 14 (Stats view for boards and fins replaces Full page)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -701,7 +700,7 @@ async function seed() {
 
 /* ---------- in-memory state ---------- */
 const S = { options: [], boards: [], sessions: [], spots: [], photos: new Map(), meta: {}, fins: [], finLinks: [] };
-const PREF_DEFAULTS = { boardsView: 'tiles', boardSort: 'model', filterType: '', filterShaper: '', showRetired: false, pagerIndex: 0, units: 'ft', sessionSort: 'newest', finsView: 'table', finPagerIndex: 0, finSort: 'name', filterFinSetup: '', showRetiredFins: false, showAllSpots: true, statsSpot: '', disabledLists: [], baseMap: 'map', showBuoys: true, showWaves: false, showPeriod: false, showRating: false, showPulse: false, showHazard: false, windUnits: 'kt' };
+const PREF_DEFAULTS = { boardsView: 'tiles', boardSort: 'model', filterType: '', filterShaper: '', showRetired: false, units: 'ft', sessionSort: 'newest', finsView: 'table', finSort: 'name', filterFinSetup: '', showRetiredFins: false, showAllSpots: true, statsSpot: '', disabledLists: [], baseMap: 'map', showBuoys: true, showWaves: false, showPeriod: false, showRating: false, showPulse: false, showHazard: false, windUnits: 'kt' };
 let prefs = { ...PREF_DEFAULTS };
 async function loadAll() {
   const [options, boards, sessions, spots, photos, meta, fins, finLinks] = await Promise.all(STORES.map(getAll));
@@ -2572,27 +2571,12 @@ function photoBox(b, thumb) {
   return u ? `<img src="${u}" alt="" loading="lazy">` : `<div class="noph">${BOARD_ICON}</div>`;
 }
 /* Full-page views: swipe sideways between items; remembers where you were. */
-function bindPager(prefKey, n) {
-  measure();
-  const pager = $('#pager');
-  const idx = Math.min(prefs[prefKey] || 0, n - 1);
-  requestAnimationFrame(() => { pager.scrollLeft = idx * pager.clientWidth; });
-  let t;
-  pager.addEventListener('scroll', () => {
-    clearTimeout(t);
-    t = setTimeout(() => {
-      const i = Math.round(pager.scrollLeft / pager.clientWidth);
-      if (i !== prefs[prefKey]) savePrefs({ [prefKey]: i });
-      const hint = $('#pagerHint'); if (hint) hint.remove();
-    }, 120);
-  }, { passive: true });
-}
 function viewBoards() {
-  const v = prefs.boardsView;
+  const v = prefs.boardsView === 'pages' ? 'stats' : prefs.boardsView;
   /* The view switch sits in the header so it stays put while you scroll, in every view. */
   setTop('Boards', null, `<a class="hact plus" href="#/boards/new" aria-label="Add board">+</a>${S.boards.length ? `
     <div class="seg hseg" role="group" aria-label="View">
-      ${['table', 'tiles', 'pages'].map(k => `<button data-act="view" data-v="${k}" aria-pressed="${v === k}">${{ table: 'Table', tiles: 'Tiles', pages: 'Full page' }[k]}</button>`).join('')}
+      ${['table', 'tiles', 'stats'].map(k => `<button data-act="view" data-v="${k}" aria-pressed="${v === k}">${{ table: 'Table', tiles: 'Tiles', stats: 'Stats' }[k]}</button>`).join('')}
     </div>` : ''}`);
   if (S.boards.length) $('#top').classList.add('seghdr');
   if (!S.boards.length) {
@@ -2604,7 +2588,7 @@ function viewBoards() {
   const usedTypes = optionsFor('type').filter(o => S.boards.some(b => b.type === o.id));
   const controls = `
     <div class="filters">
-      <select data-pref="boardSort" aria-label="Sort">
+      <select data-pref="boardSort" aria-label="Sort" ${v === 'stats' ? 'hidden' : ''}>
         ${[['model', 'Sort: Model'], ['shaper', 'Sort: Shaper'], ['length', 'Sort: Length'], ['sessions', 'Sort: Most surfed'], ['recent', 'Sort: Recently surfed'], ['fun', 'Sort: Most fun'], ['added', 'Sort: Newest added']].map(([k, l]) => `<option value="${k}" ${prefs.boardSort === k ? 'selected' : ''}>${l}</option>`).join('')}
       </select>
       ${listOn('type') ? '' : '<!--'}<select data-pref="filterType" aria-label="Filter by type">
@@ -2633,24 +2617,82 @@ function viewBoards() {
         <div class="sub">${esc([fmtLen(b.length), listOn('type') ? optLabel(b.type) : ''].filter(Boolean).join(' · ')) || '&nbsp;'}</div></div>
       </a>`).join('')}</div>`;
   }
-  if (v === 'pages' && list.length) {
-    setMain(`<div class="pagewrap"><div class="pager" id="pager">${list.map((b, i) => {
-      const s = st.get(b.id);
-      return `<section class="page" aria-label="${esc(boardName(b))}">
-        <div class="ph">${photoBox(b, false)}<span class="pager-dots">${i + 1} / ${list.length}</span></div>
-        <div class="body">
-          <p class="name">${esc(boardName(b))}</p>
-          <div class="sub">${esc(b.shaper || '')}</div>
-          <div class="chips">${specChips(b)}</div>
-          <div class="sub">${plural(s.count, 'session')}${s.avgFun != null ? ` · avg fun ${fmtAvg(s.avgFun)}` : ''}${s.last ? ` · last surfed ${esc(fmtDate(s.last))}` : ''}</div>
-          <div class="actions-row"><a class="btn primary" href="#/board/${esc(b.id)}">Details</a><a class="btn" href="#/sessions/new?board=${esc(b.id)}">Log session</a></div>
-        </div></section>`;
-    }).join('')}</div>${list.length > 1 ? '<div class="pager-hint" id="pagerHint">Swipe for the next board</div>' : ''}</div>
-    <div style="padding:12px 16px calc(env(safe-area-inset-bottom) + 80px)">${controls}</div>`, true);
-    bindPager('pagerIndex', list.length);
-    return;
-  }
+  if (v === 'stats' && list.length) body = boardStatsHTML(list, st);
   setMain(controls + body);
+}
+/* ---------- Boards and Fins stats views ---------- */
+/* Horizontal count bars for one breakdown; empty breakdowns are left out. */
+function countBars(title, rows, note = '') {
+  rows = rows.filter(r => r.n > 0);
+  if (!rows.length) return '';
+  const max = Math.max(...rows.map(r => r.n));
+  return `<h2 class="sec">${esc(title)}</h2><div class="card cbars">${rows.map(r => `<div class="cbar"><span class="cl">${esc(r.label)}</span><span class="ct"><span class="cf" style="width:${Math.max(4, r.n / max * 100)}%"></span></span><span class="cn">${r.n}</span>${r.sub ? `<span class="cs">${esc(r.sub)}</span>` : ''}</div>`).join('')}</div>${note ? `<p class="note">${note}</p>` : ''}`;
+}
+/* Counts by a list field, in the list's own order, plus "Not set". */
+function byList(items, key) {
+  if (!listOn(key)) return [];
+  const rows = optionsFor(key).map(o => ({ label: o.value, n: items.filter(x => x[key] === o.id).length }));
+  const none = items.filter(x => !x[key]).length;
+  return none && none < items.length ? [...rows, { label: 'Not set', n: none }] : rows;
+}
+/* "5'6"–9'7"" from a list of values, or one value when they're all the same. */
+const span = (vals, f) => !vals.length ? '–' : Math.min(...vals) === Math.max(...vals) ? f(vals[0]) : `${f(Math.min(...vals))}–${f(Math.max(...vals))}`;
+const byRanges = (items, get, ranges) => ranges.map(([label, lo, hi]) => ({ label, n: items.filter(x => { const v = get(x); return v != null && v >= lo && v < hi; }).length }));
+function boardStatsHTML(list, st) {
+  const active = list.filter(b => !b.retired), sess = list.flatMap(b => sessionsFor('boardId', b.id));
+  const spent = list.reduce((a, b) => a + (b.purchasePrice || 0), 0), hasPrice = list.some(b => b.purchasePrice != null);
+  const lens = list.map(b => b.length).filter(Boolean), vols = list.map(b => b.volume).filter(Boolean);
+  const idle = active.filter(b => { const l = st.get(b.id).last; return !l || Date.now() - Date.parse(l) > 90 * 86400000; });
+  const sizes = optionsFor('waveSize').map(o => {
+    const g = sess.filter(x => x.waveSize === o.id);
+    const top = topBy(g, 'boardId', id => boardName(boardById(id)));
+    return { label: shortSize(o.id), n: g.length, sub: top ? `mostly ${top.label}` : '' };
+  });
+  return `<div class="stats">
+      <div class="stat"><div class="v">${active.length}</div><div class="k">Boards in the quiver</div></div>
+      <div class="stat"><div class="v">${S.boards.filter(b => b.retired).length}</div><div class="k">Retired${prefs.showRetired ? '' : ' · not in the counts below'}</div></div>
+      <div class="stat"><div class="v">${esc(span(lens, fmtLen))}</div><div class="k">Length range</div></div>
+      <div class="stat"><div class="v">${esc(span(vols, v => `${v} L`))}</div><div class="k">Volume range</div></div>
+      <div class="stat"><div class="v">${sess.length}</div><div class="k">Sessions on these boards</div></div>
+      <div class="stat"><div class="v">${hasPrice ? esc(money(spent)) : '–'}</div><div class="k">Spent on these boards</div></div>
+    </div>
+    ${countBars('By type', byList(list, 'type'))}
+    ${countBars('By length', byRanges(list, b => b.length, [['Under 6\'0"', 0, 72], ['6\'0"–6\'5"', 72, 78], ['6\'6"–6\'11"', 78, 84], ['7\'0"–7\'11"', 84, 96], ['8\'0"–8\'11"', 96, 108], ['9\'0" and up', 108, 999]]))}
+    ${countBars('By volume', byRanges(list, b => b.volume, [['Under 30 L', 0, 30], ['30–39 L', 30, 40], ['40–49 L', 40, 50], ['50–59 L', 50, 60], ['60 L and up', 60, 1e9]]))}
+    ${countBars('By fin configuration', byList(list, 'finConfig'))}
+    ${countBars('By fin system', byList(list, 'finSystem'))}
+    ${countBars('By construction', byList(list, 'construction'))}
+    ${countBars('By tail', byList(list, 'tail'))}
+    ${countBars('By rails', byList(list, 'rails'))}
+    ${countBars('By rocker', byList(list, 'rocker'))}
+    ${countBars('By shaper', Object.entries(list.reduce((m, b) => { const k = b.shaper || 'Not set'; m[k] = (m[k] || 0) + 1; return m; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([label, n]) => ({ label, n })))}
+    ${countBars('Wave sizes surfed', sizes, 'Sessions at each wave size, and the board you ride most in it. Gaps show where the quiver gets little use.')}
+    ${idle.length ? `<h2 class="sec">Not surfed in 90 days</h2><div class="card">${idle.map(b => `<a class="row" href="#/board/${esc(b.id)}"><span class="grow"><span class="label">${esc(boardName(b))}</span><br><span class="sub">${st.get(b.id).last ? `last surfed ${esc(fmtDate(st.get(b.id).last))}` : 'never surfed'}</span></span><span class="chev">&#8250;</span></a>`).join('')}</div>` : ''}
+    <p class="note">Counts follow the filters below the header (type, shaper, show retired).</p>`;
+}
+function finStatsHTML(list, st) {
+  const active = list.filter(f => !f.retired);
+  const boards = S.boards.filter(b => !b.retired);
+  const noFins = boards.filter(b => b.finSystem && b.finConfig !== 'finConfig:finless' && !list.some(f => !f.retired && f.finSystem === b.finSystem));
+  const used = list.map(f => ({ f, n: st.get(f.id).count, fun: st.get(f.id).avgFun })).filter(x => x.n).sort((a, b) => b.n - a.n).slice(0, 8);
+  return `<div class="stats">
+      <div class="stat"><div class="v">${active.length}</div><div class="k">Fin sets in use</div></div>
+      <div class="stat"><div class="v">${S.fins.filter(f => f.retired).length}</div><div class="k">Retired${prefs.showRetiredFins ? '' : ' · not in the counts below'}</div></div>
+      <div class="stat"><div class="v">${new Set(S.finLinks.filter(l => list.some(f => f.id === l.finId)).map(l => l.boardId)).size}</div><div class="k">Boards with fins paired</div></div>
+      <div class="stat"><div class="v">${list.filter(f => !boardsForFin(f.id).length).length}</div><div class="k">Sets not paired to a board</div></div>
+    </div>
+    ${countBars('By configuration', byList(list, 'finSetup'))}
+    ${countBars('By fin system', byList(list, 'finSystem'))}
+    ${countBars('By brand', byList(list, 'finBrand'))}
+    ${countBars('By size', byList(list, 'finSize'))}
+    ${countBars('By shape', byList(list, 'finShape'))}
+    ${countBars('By material', byList(list, 'finMaterial'))}
+    ${countBars('By flex', byList(list, 'finFlex'))}
+    ${countBars('By foil', byList(list, 'finFoil'))}
+    ${countBars('By condition', byList(list, 'finCondition'))}
+    ${countBars('Most ridden', used.map(x => ({ label: finName(x.f), n: x.n, sub: x.fun != null ? `avg fun ${fmtAvg(x.fun)}` : '' })))}
+    ${noFins.length ? `<h2 class="sec">Boards with no fins for their system</h2><div class="card">${noFins.map(b => `<a class="row" href="#/board/${esc(b.id)}"><span class="grow"><span class="label">${esc(boardName(b))}</span><br><span class="sub">${esc(optLabel(b.finSystem))}</span></span><span class="chev">&#8250;</span></a>`).join('')}</div>` : ''}
+    <p class="note">Counts follow the filters below the header (configuration, show retired).</p>`;
 }
 function specChips(b) {
   return [fmtLen(b.length), b.width ? fmtFrac(b.width) + ' wide' : '', b.thickness ? fmtFrac(b.thickness) + ' thick' : '', b.volume ? `${b.volume} L` : '',
@@ -2873,10 +2915,10 @@ function filteredFins() {
   return { list: list.sort(by), st };
 }
 function viewFins() {
-  const v = prefs.finsView;
+  const v = prefs.finsView === 'pages' ? 'stats' : prefs.finsView;
   setTop('Fins', null, `<a class="hact plus" href="#/fins/new" aria-label="Add fins">+</a>${S.fins.length ? `
     <div class="seg hseg" role="group" aria-label="View">
-      ${['table', 'tiles', 'pages'].map(k => `<button data-act="finView" data-v="${k}" aria-pressed="${v === k}">${{ table: 'Table', tiles: 'Tiles', pages: 'Full page' }[k]}</button>`).join('')}
+      ${['table', 'tiles', 'stats'].map(k => `<button data-act="finView" data-v="${k}" aria-pressed="${v === k}">${{ table: 'Table', tiles: 'Tiles', stats: 'Stats' }[k]}</button>`).join('')}
     </div>` : ''}`);
   if (S.fins.length) $('#top').classList.add('seghdr');
   if (!S.fins.length) {
@@ -2887,7 +2929,7 @@ function viewFins() {
   const usedSetups = optionsFor('finSetup').filter(o => S.fins.some(f => f.finSetup === o.id));
   const controls = `
     <div class="filters">
-      <select data-pref="finSort" aria-label="Sort">${[['name', 'Sort: Name'], ['brand', 'Sort: Brand'], ['boards', 'Sort: Most boards'], ['sessions', 'Sort: Most ridden'], ['fun', 'Sort: Most fun']].map(([k, l]) => `<option value="${k}" ${prefs.finSort === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <select data-pref="finSort" aria-label="Sort" ${v === 'stats' ? 'hidden' : ''}>${[['name', 'Sort: Name'], ['brand', 'Sort: Brand'], ['boards', 'Sort: Most boards'], ['sessions', 'Sort: Most ridden'], ['fun', 'Sort: Most fun']].map(([k, l]) => `<option value="${k}" ${prefs.finSort === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
       ${listOn('finSetup') ? `<select data-pref="filterFinSetup" aria-label="Filter by configuration"><option value="">All configurations</option>${usedSetups.map(o => `<option value="${esc(o.id)}" ${prefs.filterFinSetup === o.id ? 'selected' : ''}>${esc(o.value)}</option>`).join('')}</select>` : '<span></span>'}
       <label class="check"><input type="checkbox" data-pref="showRetiredFins" ${prefs.showRetiredFins ? 'checked' : ''}> Show retired</label>
     </div>`;
@@ -2902,23 +2944,7 @@ function viewFins() {
       <td><a href="#/fin/${encodeURIComponent(f.id)}"><strong>${esc(finName(f))}</strong><br><span class="sub">${esc(finSub(f))}</span></a></td>
       <td class="num">${boardsForFin(f.id).length}</td><td class="num">${st.get(f.id).count}</td></tr>`).join('')}
     </tbody></table></div>`;
-  if (v === 'pages' && list.length) {
-    setMain(`<div class="pagewrap"><div class="pager" id="pager">${list.map((f, i) => {
-      const s = st.get(f.id), nb = boardsForFin(f.id).length;
-      const chips = finListsOn().map(k => optLabel(f[k])).filter(Boolean).map(x => `<span class="chip">${esc(x)}</span>`).join('');
-      return `<section class="page" aria-label="${esc(finName(f))}">
-        <div class="ph">${finPhoto(f, false)}<span class="pager-dots">${i + 1} / ${list.length}</span></div>
-        <div class="body">
-          <p class="name">${esc(finName(f))}${f.retired ? ' <span class="tag">Retired</span>' : ''}</p>
-          ${chips ? `<div class="chips">${chips}</div>` : ''}
-          <div class="sub">${plural(nb, 'board')} paired · ${plural(s.count, 'session')}${s.avgFun != null ? ` · avg fun ${fmtAvg(s.avgFun)}` : ''}</div>
-          <div class="actions-row"><a class="btn primary" href="#/fin/${encodeURIComponent(f.id)}">Details</a><a class="btn" href="#/fin/${encodeURIComponent(f.id)}/edit">Edit</a></div>
-        </div></section>`;
-    }).join('')}</div>${list.length > 1 ? '<div class="pager-hint" id="pagerHint">Swipe for the next fins</div>' : ''}</div>
-    <div style="padding:12px 16px calc(env(safe-area-inset-bottom) + 80px)">${controls}</div>`, true);
-    bindPager('finPagerIndex', list.length);
-    return;
-  }
+  if (v === 'stats' && list.length) body = finStatsHTML(list, st);
   setMain(controls + body);
 }
 function viewFin(id) {
@@ -3870,11 +3896,11 @@ function viewHelp() {
       <li>If the app looks out of date, use Settings → <strong>Refresh app</strong>. A bar also appears when a new version is ready.</li></ul>`, true)}
     ${sec('Boards', `<ul>
       <li>Tap <strong>+</strong> on the Boards page to add a board: model, shaper, size, construction, fins, rocker, rails, tail, purchase price, notes and up to 12 photos (the first is the cover; tap another to make it the cover).</li>
-      <li>Switch between table, tiles and full-page views at the top; swipe through boards in full-page view. Sort and filter by type or shaper.</li>
+      <li>Switch between table, tiles and stats at the top. Stats counts your quiver by type, length, volume, fin configuration and system, construction, tail, rails, rocker and shaper, shows which board you ride most at each wave size, and lists boards not surfed in 90 days. Tap a board for its full page. Sort and filter by type or shaper (the filters also apply to stats).</li>
       <li>Open a board to see its sessions, stats and paired fins. Edit it from there.</li>
       <li>When a board leaves the quiver, <strong>Retire</strong> it with a reason (sold, broken, eroded to dust, given away, other) and the sale price if sold. Retired boards hide unless you tick Show retired.</li></ul>`)}
     ${sec('Fins', `<ul>
-      <li>Add fin sets on the Fins page: setup, shape, brand, size, material, flex, foil, condition and photos. View them as a table, tiles or full page.</li>
+      <li>Add fin sets on the Fins page: setup, shape, brand, size, material, flex, foil, condition and photos. View them as a table or tiles, or switch to Stats for counts by configuration, system, brand, size and more, the most ridden sets, and boards with no fins for their system.</li>
       <li><strong>Pair</strong> fins with the boards they fit (a set can go with many boards, and a board with many sets). Paired fins show up when you log a session on that board.</li></ul>`)}
     ${sec('Logging and editing sessions', `<ul>
       <li>Log a session from the Sessions page or a board's page: board, spot, date, start time, length, wave size, wave description, fins used, a fun rating (1–5 stars) and notes.</li>
@@ -4316,7 +4342,7 @@ document.addEventListener('change', async e => {
         map.fire('spotschange');
       } else route();
     } else if (el.dataset.pref) {
-      await savePrefs({ [el.dataset.pref]: el.type === 'checkbox' ? el.checked : el.value, ...(el.dataset.pref.startsWith('filter') || el.dataset.pref === 'boardSort' || el.dataset.pref === 'finSort' ? { pagerIndex: 0, finPagerIndex: 0 } : {}) });
+      await savePrefs({ [el.dataset.pref]: el.type === 'checkbox' ? el.checked : el.value });
       route();
     } else if (el.dataset.listtoggle) {
       const k = el.dataset.listtoggle, off = new Set(prefs.disabledLists || []);
