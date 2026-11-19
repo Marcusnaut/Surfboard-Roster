@@ -430,6 +430,9 @@ details.install li { margin: 3px 0; }
 .wave-ctl .wrow button { min-width: 40px; min-height: 36px; border: 0; border-radius: 10px; background: var(--chip, rgba(0,0,0,.06)); color: inherit; font-size: 22px; line-height: 1; }
 .wave-ctl .wrow button:disabled { opacity: .35; }
 .wave-ctl .wt { font-weight: 600; text-align: center; flex: 1; }
+.wave-ctl .wrow button.wfold { min-width: 32px; font-size: 14px; background: none; color: var(--muted); }
+.wave-ctl.folded > :not(.wrow) { display: none !important; }
+.wave-ctl.folded { padding-bottom: 6px; width: auto; min-width: 200px; }
 .wave-ctl .wleg { display: block; width: 100%; height: 12px; margin-top: 6px; border-radius: 3px; }
 .wave-ctl .wticks { display: flex; justify-content: space-between; font-size: 11px; }
 .wave-ctl .sub { font-size: 11px; margin-top: 2px; }
@@ -544,7 +547,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 15 (wind forecast layers: HRRR, GFS, ECMWF)';
+const BUILD = 'Build 15.1 (map key panels fold down)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -1388,7 +1391,7 @@ function waveLayer(map, startTime, key = 'waves') {
         idx = Math.max(0, Math.min(steps.length - 1, idx + (b.dataset.w === 'next' ? 1 : -1)));
         show();
       });
-      return d;
+      return foldable(d);
     }
   });
   const inView = () => { if (ctl) ctl.getContainer().classList.toggle('offmap', !map.getBounds().intersects(WAVE_BOUNDS)); };
@@ -1430,7 +1433,7 @@ function sstLayer(map) {
         <div class="wleg sstleg" style="background:linear-gradient(90deg, ${SST_COLORS.join(', ')})"></div><div class="wticks">${ticks.map(t => `<span>${t}</span>`).join('')}</div>
         <div class="sub">Satellite, daily, 1–2 days old · <a href="https://podaac.jpl.nasa.gov/MEaSUREs-MUR" target="_blank" rel="noopener">JPL MUR</a> via NASA</div>`;
       L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d);
-      return d;
+      return foldable(d);
     }
   });
   layer.on('add', () => { if (!ctl) ctl = new Ctl().addTo(map); });
@@ -1578,10 +1581,27 @@ function windLayer(map) {
         idx = Math.max(0, Math.min(data.T.length - 1, idx + (b.dataset.w === 'next' ? 1 : -1)));
         layer.redraw();
       });
-      return d;
+      return foldable(d);
     }
   });
   return layer;
+}
+/* Map key panels (wave, water temperature, wind) fold down to their title row with the chevron; the choice
+   is remembered for all of them. */
+function foldable(d) {
+  const row = d.querySelector('.wrow');
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'wfold';
+  const set = on => { d.classList.toggle('folded', on); b.innerHTML = on ? '&#9652;' : '&#9662;'; b.setAttribute('aria-label', on ? 'Show the color key' : 'Hide the color key'); b.setAttribute('aria-expanded', String(!on)); };
+  set(!!prefs.keysFolded);
+  b.addEventListener('click', e => {
+    e.stopPropagation();
+    const on = !d.classList.contains('folded');
+    savePrefs({ keysFolded: on });
+    document.querySelectorAll('.wave-ctl').forEach(x => { x.classList.toggle('folded', on); const y = x.querySelector('.wfold'); if (y) { y.innerHTML = on ? '&#9652;' : '&#9662;'; y.setAttribute('aria-expanded', String(!on)); } });
+  });
+  row.appendChild(b);
+  return d;
 }
 function funColor(a) { return a == null ? '#8a9a9f' : a < 2.5 ? '#c8553d' : a < 3.75 ? '#e0a526' : '#1f9d8f'; }
 function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
