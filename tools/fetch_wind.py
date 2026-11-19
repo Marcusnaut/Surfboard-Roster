@@ -3,11 +3,10 @@
 
 Models (each written to wind/<key>.json on the data branch):
   hrrr  NOAA HRRR, 3 km, hourly to 48 h (00/06/12/18 z runs)      NOMADS grib filter
-  nam   NOAA NAM CONUS nest, 3 km, hourly to 60 h                    NOMADS grib filter
   gfs   NOAA GFS 0.25 deg, 3-hourly to 120 h                         NOMADS grib filter
   ecmwf ECMWF IFS 0.25 deg via Open-Meteo (CC BY 4.0), 3-hourly    Open-Meteo
-NOAA data are US public domain. HRRR and NAM give winds relative to their Lambert grid; they are rotated to
-north/east before resampling. Every model is resampled (nearest point) to one regular latitude/longitude grid
+NOAA data are US public domain. HRRR gives winds relative to their Lambert grid; they are rotated to
+north/east before resampling. (NOAA retired the NAM model from NOMADS in 2026.) Every model is resampled (nearest point) to one regular latitude/longitude grid
 so the app can draw them the same way.
 
 Packing: u and v (m/s, east and north) for every time, as signed bytes in units of 0.5 m/s, base64. Index
@@ -36,13 +35,11 @@ SOUTH, NORTH, WEST, EAST = 33.55, 34.75, -120.75, -118.45
 STEP = 0.04
 LATS = np.round(np.arange(NORTH, SOUTH - 1e-9, -STEP), 4)
 LONS = np.round(np.arange(WEST, EAST + 1e-9, STEP), 4)
-REFRESH_HOURS = 2.5
+REFRESH_HOURS = 2.5  # ECMWF: 6 hours (new runs every 6 hours, and it counts against Open-Meteo's daily limit)
 NOMADS = "https://nomads.ncep.noaa.gov/cgi-bin/"
 MODELS = {
     "hrrr": {"name": "HRRR", "filter": "filter_hrrr_2d.pl", "runs": [0, 6, 12, 18], "hours": list(range(0, 49)), "lag": 2,
              "file": "hrrr.t{hh}z.wrfsfcf{f:02d}.grib2", "dir": "/hrrr.{ymd}/conus"},
-    "nam": {"name": "NAM 3 km", "filter": "filter_nam_conusnest.pl", "runs": [0, 6, 12, 18], "hours": list(range(0, 61)), "lag": 2,
-            "file": "nam.t{hh}z.conusnest.hiresf{f:02d}.tm00.grib2", "dir": "/nam.{ymd}"},
     "gfs": {"name": "GFS", "filter": "filter_gfs_0p25.pl", "runs": [0, 6, 12, 18], "hours": list(range(0, 121, 3)), "lag": 4,
             "file": "gfs.t{hh}z.pgrb2.0p25.f{f:03d}", "dir": "/gfs.{ymd}/{hh}/atmos"},
 }
@@ -186,13 +183,13 @@ def main():
     prev_dir = sys.argv[2] if len(sys.argv) > 2 else ""
     os.makedirs(os.path.join(out_dir, "wind"), exist_ok=True)
     now = datetime.now(timezone.utc)
-    for key in ["hrrr", "nam", "gfs", "ecmwf"]:
+    for key in ["hrrr", "gfs", "ecmwf"]:
         path = os.path.join(out_dir, "wind", f"{key}.json")
         prev = os.path.join(prev_dir, "wind", f"{key}.json") if prev_dir else ""
         if prev and os.path.exists(prev):
             try:
                 p = json.load(open(prev))
-                if now - datetime.strptime(p["updated"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc) < timedelta(hours=REFRESH_HOURS):
+                if now - datetime.strptime(p["updated"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc) < timedelta(hours=6 if key == "ecmwf" else REFRESH_HOURS):
                     json.dump(p, open(path, "w"), separators=(",", ":"))
                     print(f"{key}: kept file from {p['updated']}")
                     continue

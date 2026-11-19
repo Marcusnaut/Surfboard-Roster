@@ -375,7 +375,8 @@ header.top.maphdr h1 { position: absolute; width: 1px; height: 1px; overflow: hi
 .map-legend .check { min-height: 30px; color: inherit; }
 .map-legend .check input { accent-color: #fff; }
 .map-legend .sub { color: inherit; opacity: .8; }
-.sstleg { height: 14px; border-radius: 3px; }
+.sstleg, .windleg { height: 14px; border-radius: 3px; }
+.wind-canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
 .map-legend .lbt { opacity: .8; font-size: .9em; }
 .buoy .blbl.timed { background: rgba(255,255,255,.95); color: #0b3a4a; border: 1.5px dashed #0b3a4a; }
 .buoy.cdip .blbl.timed { color: #1c54a0; border-color: #1c54a0; background: rgba(255,255,255,.95); }
@@ -543,7 +544,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 14.8 (Imagery: no empty tiles over water)';
+const BUILD = 'Build 15 (wind forecast layers: HRRR, GFS, ECMWF)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -1142,6 +1143,10 @@ function makeMap(el, opts = {}) {
     }
     const want = Object.keys(GRID_LAYERS).find(k => st.overlays ? st.overlays.has(k) : prefs[GRID_LAYERS[k].pref]);
     if (want) map.waveLayers[want].addTo(map);
+    /* Wind forecast layer: one model at a time, drawn as shaded speed and/or arrows. */
+    map.windLayer = windLayer(map);
+    const wm = st.wind !== undefined ? st.wind : prefs.windModel;
+    if (wm && WIND_MODELS[wm]) { map.windLayer.setModel(wm); map.windLayer.addTo(map); }
     /* Not a real layer: switching it on colors the spot dots by surf rating (see setupRating). */
     map.ratingLayer = L.layerGroup();
     overlays[RATING_NAME] = map.ratingLayer;
@@ -1176,6 +1181,8 @@ function makeMap(el, opts = {}) {
             <label class="lyr-row"><span>Base map</span><select data-lyr="base">${Object.keys(BASEMAPS).map(k => `<option value="${k}">${esc(BASEMAPS[k].label)}</option>`).join('')}</select></label>
             ${map.waveLayers ? `<label class="lyr-row"><span>Ocean layer</span><select data-lyr="grid"><option value="off">Off</option>${Object.entries(GRID_LAYERS).map(([k, c]) => `<option value="${k}">${esc(c.title)}</option>`).join('')}</select></label>` : ''}
             ${map.ratingLayer ? `<label class="lyr-row"><span>Spot style</span><select data-lyr="style"><option value="sessions">My sessions</option><option value="rating">Surf rating</option>${pulseOn() ? '<option value="pulse">Swell pulse</option><option value="both">Rating + pulse</option>' : ''}${hazardOn() ? '<option value="hazard">Shore hazard</option>' : ''}</select></label>` : ''}
+            ${map.windLayer ? `<label class="lyr-row"><span>Wind <small>forecast model</small></span><select data-lyr="wind"><option value="">Off</option>${Object.entries(WIND_MODELS).map(([k, w]) => `<option value="${k}">${esc(w.label)}</option>`).join('')}</select></label>
+            <label class="lyr-row"><span>Wind style</span><select data-lyr="windStyle"><option value="both">Shaded + arrows</option><option value="shade">Shaded speed</option><option value="arrows">Arrows</option></select></label>` : ''}
             ${overlays['Buoys'] ? '<label class="lyr-row lyr-sw"><span>Buoys</span><input type="checkbox" role="switch" data-lyr="buoys"></label>' : ''}
           </div>`;
         L.DomEvent.disableClickPropagation(d);
@@ -1186,6 +1193,7 @@ function makeMap(el, opts = {}) {
           if (q('grid')) q('grid').value = gridOf();
           if (q('style')) q('style').value = styleOf();
           if (q('buoys')) q('buoys').checked = map.hasLayer(overlays['Buoys']);
+          if (q('wind')) { q('wind').value = map.hasLayer(map.windLayer) ? map.windLayer.model : ''; q('windStyle').value = prefs.windStyle || 'both'; }
         };
         const open = on => { d.classList.toggle('leaflet-control-layers-expanded', on); if (on) sync(); };
         d.querySelector('.leaflet-control-layers-toggle').addEventListener('click', e => { e.preventDefault(); open(!d.classList.contains('leaflet-control-layers-expanded')); });
@@ -1209,6 +1217,13 @@ function makeMap(el, opts = {}) {
           setOv(map.ratingLayer, RATING_NAME, v === 'rating' || v === 'both');
           setOv(map.pulseLayer, PULSE_NAME, v === 'pulse' || v === 'both');
         });
+        if (q('wind')) q('wind').addEventListener('change', e => {
+          const k = e.target.value;
+          if (k) { map.windLayer.setModel(k); if (!map.hasLayer(map.windLayer)) map.windLayer.addTo(map); } else map.removeLayer(map.windLayer);
+          savePrefs({ windModel: k });
+          map.fire('windchange');
+        });
+        if (q('windStyle')) q('windStyle').addEventListener('change', e => { savePrefs({ windStyle: e.target.value }); map.windLayer.redraw(); map.fire('windchange'); });
         if (q('buoys')) q('buoys').addEventListener('change', e => setOv(overlays['Buoys'], 'Buoys', e.target.checked));
         map.on('overlayadd overlayremove baselayerchange', () => { if (d.classList.contains('leaflet-control-layers-expanded')) sync(); });
         this.expand = () => open(true); this.collapse = () => open(false);
@@ -1422,6 +1437,150 @@ function sstLayer(map) {
   layer.on('remove', () => { if (ctl) { ctl.remove(); ctl = null; } });
   layer.stepTime = () => null;
   layer.carryTime = () => {};
+  return layer;
+}
+/* ---------- Wind forecast layer ----------
+   Grids from the data job (tools/fetch_wind.py): u/v every model step over the home area, packed as bytes.
+   Drawn on one canvas: shaded speed (smoothed), arrows, or both. Its own panel steps through the model's
+   hours; with a CDIP wave layer on, it follows that panel's hour instead. */
+const WIND_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/wind/';
+const WIND_MODELS = { hrrr: { label: 'HRRR (3 km, 2 days)' }, gfs: { label: 'GFS (25 km, 5 days)' }, ecmwf: { label: 'ECMWF (25 km, 6 days)' } };
+/* Speed colors in knots, the usual blue-green-yellow-red wind scale. */
+const WIND_STOPS = [[0, [58, 111, 216]], [5, [47, 179, 168]], [10, [124, 200, 74]], [15, [242, 212, 58]], [20, [240, 160, 58]], [25, [226, 85, 58]], [35, [163, 41, 122]]];
+function windColor(kt) {
+  for (let i = 1; i < WIND_STOPS.length; i++) if (kt <= WIND_STOPS[i][0]) {
+    const [a, ca] = WIND_STOPS[i - 1], [b, cb] = WIND_STOPS[i], f = (kt - a) / (b - a);
+    return ca.map((c, k) => Math.round(c + (cb[k] - c) * f));
+  }
+  return WIND_STOPS[WIND_STOPS.length - 1][1];
+}
+const windCache = new Map();
+async function loadWindModel(key) {
+  const hit = windCache.get(key);
+  if (hit && Date.now() - hit.at < 30 * 60 * 1000) return hit.d;
+  const r = await fetch(`${WIND_URL}${key}.json?t=${Math.floor(Date.now() / 600000)}`);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const d = await r.json();
+  const dec = b64 => { const bin = atob(b64), a = new Int8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i) << 24 >> 24; return a; };
+  d.U = dec(d.u); d.V = dec(d.v); d.T = d.times.map(t => Date.parse(t.length === 17 ? t.replace('Z', ':00Z') : t));
+  windCache.set(key, { at: Date.now(), d });
+  return d;
+}
+function windLayer(map) {
+  if (!map.getPane('wind')) { const p = map.createPane('wind'); p.style.zIndex = 355; p.style.pointerEvents = 'none'; }
+  let canvas = null, data = null, idx = 0, ctl = null, token = 0;
+  const L2 = L.Layer.extend({
+    onAdd() {
+      canvas = L.DomUtil.create('canvas', 'wind-canvas', map.getPane('wind'));
+      map.on('moveend zoomend resize', this.redraw, this);
+      map.on('zoomstart', hide);
+      map.on('wavestep overlayadd overlayremove', follow);
+      if (!ctl) ctl = new Ctl().addTo(map);
+      this.load();
+    },
+    onRemove() {
+      map.off('moveend zoomend resize', this.redraw, this);
+      map.off('zoomstart', hide);
+      map.off('wavestep overlayadd overlayremove', follow);
+      if (canvas) canvas.remove(); canvas = null;
+      if (ctl) { ctl.remove(); ctl = null; }
+    },
+    setModel(k) { this.model = k; if (canvas) this.load(); },
+    async load() {
+      const my = ++token;
+      label('Loading the wind forecast…');
+      try { const d = await loadWindModel(this.model); if (my !== token) return; data = d; }
+      catch (e) { data = null; label("Couldn't load this wind forecast."); return; }
+      const t = mapTime(map) ?? Date.now();
+      idx = nearestIdx(t);
+      this.redraw();
+    },
+    redraw() {
+      if (!canvas || !data) { show(); return; }
+      const size = map.getSize(), dpr = Math.min(2, window.devicePixelRatio || 1);
+      canvas.width = size.x * dpr; canvas.height = size.y * dpr;
+      canvas.style.width = size.x + 'px'; canvas.style.height = size.y + 'px'; canvas.style.opacity = 1;
+      L.DomUtil.setPosition(canvas, map.containerPointToLayerPoint([0, 0]));
+      const c = canvas.getContext('2d'), style = prefs.windStyle || 'both', n = data.nx * data.ny, base = idx * n;
+      const at = (lat, lon) => {
+        const fy = (data.north - lat) / data.step, fx = (lon - data.west) / data.step;
+        if (fy < 0 || fx < 0 || fy > data.ny - 1 || fx > data.nx - 1) return null;
+        const y0 = Math.floor(fy), x0 = Math.floor(fx), y1 = Math.min(y0 + 1, data.ny - 1), x1 = Math.min(x0 + 1, data.nx - 1), wy = fy - y0, wx = fx - x0;
+        const g = (A, y, x) => A[base + y * data.nx + x] * data.scale;
+        const bl = A => (g(A, y0, x0) * (1 - wx) + g(A, y0, x1) * wx) * (1 - wy) + (g(A, y1, x0) * (1 - wx) + g(A, y1, x1) * wx) * wy;
+        return [bl(data.U), bl(data.V)];
+      };
+      if (style !== 'arrows') {
+        /* Shaded: sample every 6 px, then let the browser smooth it up to full size. */
+        const cell = 6, w = Math.ceil(size.x / cell), h = Math.ceil(size.y / cell), img = new ImageData(w, h);
+        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+          const ll = map.containerPointToLatLng([x * cell + cell / 2, y * cell + cell / 2]), v = at(ll.lat, ll.lng);
+          if (!v) continue;
+          const kt = Math.hypot(v[0], v[1]) * 1.944, col = windColor(kt), o = (y * w + x) * 4;
+          img.data[o] = col[0]; img.data[o + 1] = col[1]; img.data[o + 2] = col[2]; img.data[o + 3] = 150;
+        }
+        const tmp = document.createElement('canvas'); tmp.width = w; tmp.height = h; tmp.getContext('2d').putImageData(img, 0, 0);
+        c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
+        c.drawImage(tmp, 0, 0, w * cell * dpr, h * cell * dpr);
+      }
+      if (style !== 'shade') {
+        /* Arrows every 46 px, pointing downwind, longer and heavier when stronger. */
+        c.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const gap = 46, dark = !!BASEMAPS[map.baseKey].dark;
+        for (let y = gap / 2; y < size.y; y += gap) for (let x = gap / 2; x < size.x; x += gap) {
+          const ll = map.containerPointToLatLng([x, y]), v = at(ll.lat, ll.lng);
+          if (!v) continue;
+          const sp = Math.hypot(v[0], v[1]), kt = sp * 1.944;
+          if (kt < 1) continue;
+          const len = 8 + Math.min(22, kt * 0.9), a = Math.atan2(-v[1], v[0]);
+          c.save(); c.translate(x, y); c.rotate(a);
+          c.lineWidth = kt > 15 ? 2.6 : 1.8; c.lineCap = 'round'; c.lineJoin = 'round';
+          c.strokeStyle = dark ? 'rgba(255,255,255,.95)' : 'rgba(11,40,52,.9)';
+          c.beginPath(); c.moveTo(-len / 2, 0); c.lineTo(len / 2, 0); c.moveTo(len / 2 - 6, -4); c.lineTo(len / 2, 0); c.lineTo(len / 2 - 6, 4); c.stroke();
+          c.restore();
+        }
+        c.setTransform(1, 0, 0, 1, 0, 0);
+      }
+      show();
+    }
+  });
+  const layer = new L2();
+  layer.model = 'hrrr';
+  const nearestIdx = t => { let b = 0; data.T.forEach((x, i) => { if (Math.abs(x - t) < Math.abs(data.T[b] - t)) b = i; }); return b; };
+  function follow() { if (!data) return; const t = mapTime(map); idx = nearestIdx(t ?? Date.now()); layer.redraw(); }
+  function hide() { if (canvas) canvas.style.opacity = 0; }
+  function label(txt) { if (ctl) ctl.getContainer().querySelector('.wt').textContent = txt; }
+  function show() {
+    if (!ctl) return;
+    const el = ctl.getContainer();
+    if (!data) return;
+    /* With a CDIP wave layer on, its panel sets the hour and this one just shows it. */
+    const t = data.T[idx], waveOn = Object.entries(map.waveLayers || {}).some(([k, g]) => map.hasLayer(g) && !GRID_LAYERS[k].sst);
+    el.querySelector('.wt').innerHTML = `${esc(new Date(t).toLocaleString([], { weekday: 'short', hour: 'numeric' }))} <span class="sub">${esc(data.model)}</span>`;
+    el.querySelector('[data-w="prev"]').hidden = el.querySelector('[data-w="next"]').hidden = !!waveOn;
+    el.querySelector('[data-w="prev"]').disabled = idx <= 0;
+    el.querySelector('[data-w="next"]').disabled = idx >= data.T.length - 1;
+    el.querySelector('.wfoot').innerHTML = `${waveOn ? 'Following the wave panel\'s hour. ' : ''}Model run ${esc(new Date(Date.parse(data.run.replace('Z', ':00Z'))).toLocaleString([], { weekday: 'short', hour: 'numeric' }))} · ${esc(data.source)}`;
+  }
+  const Ctl = L.Control.extend({
+    options: { position: 'bottomleft' },
+    onAdd() {
+      const d = L.DomUtil.create('div', 'wave-ctl wind-ctl');
+      const f = windU()[0] / 1.944, u = windU()[1];
+      const ticks = [0, 10, 20, 30].map(kt => `${Math.round(kt * f)}`);
+      d.innerHTML = `<div class="wrow"><button type="button" data-w="prev" aria-label="Earlier">&lsaquo;</button><span class="wt">Wind</span><button type="button" data-w="next" aria-label="Later">&rsaquo;</button></div>
+        <div class="wleg windleg" style="background:linear-gradient(90deg, ${WIND_STOPS.filter(([k]) => k <= 30).map(([k, c]) => `rgb(${c}) ${(k / 30 * 100).toFixed(0)}%`).join(', ')})"></div>
+        <div class="wticks">${ticks.map((t, i) => `<span>${t}${i === ticks.length - 1 ? '+ ' + esc(u) : ''}</span>`).join('')}</div>
+        <div class="sub wfoot"></div>`;
+      L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d);
+      d.addEventListener('click', e => {
+        const b = e.target.closest('[data-w]'); if (!b || !data) return;
+        idx = Math.max(0, Math.min(data.T.length - 1, idx + (b.dataset.w === 'next' ? 1 : -1)));
+        layer.redraw();
+      });
+      return d;
+    }
+  });
   return layer;
 }
 function funColor(a) { return a == null ? '#8a9a9f' : a < 2.5 ? '#c8553d' : a < 3.75 ? '#e0a526' : '#1f9d8f'; }
@@ -3590,6 +3749,7 @@ function placeLabels(map) {
     const size = map.getSize(), box = map.getContainer().getBoundingClientRect(), blocked = [];
     /* Stay clear of controls, buoys and their labels, spot labels and the spot dots themselves. */
     map.getContainer().querySelectorAll('.leaflet-control, .buoy .bdot, .buoy .blbl, .spotlbl').forEach(e => {
+      if (e.classList.contains('leaflet-control-layers-expanded')) return;  /* the open layers panel is only there for a moment */
       const r = e.getBoundingClientRect();
       if (r.width && r.height) blocked.push({ x: r.left - box.left - 2, y: r.top - box.top - 2, w: r.width + 4, h: r.height + 4 });
     });
@@ -3706,6 +3866,7 @@ function mapStateFrom(q) {
   const b = (q.get('b') || '').toLowerCase();
   st.base = Object.keys(BASEMAPS).find(k => BASEMAPS[k].label.toLowerCase() === b || k === b);
   if (q.has('l')) st.overlays = new Set(q.get('l').toLowerCase().split(',').filter(Boolean));
+  if (q.has('wind') || q.has('l')) st.wind = WIND_MODELS[q.get('wind')] ? q.get('wind') : '';
   if (q.has('spots')) st.spotsMode = ['all', 'primary', 'surfed'].includes(q.get('spots')) ? q.get('spots') : 'all';
   if (q.get('t') && !isNaN(Date.parse(q.get('t')))) st.waveTime = new Date(q.get('t')).toISOString();
   return st;
@@ -3721,6 +3882,7 @@ function mapLink(map) {
   if (map.pulseLayer && map.hasLayer(map.pulseLayer)) on.push('pulse');
   if (map.hazardLayer && map.hasLayer(map.hazardLayer)) on.push('hazard');
   p.push(`l=${on.join(',') || 'none'}`, `spots=${map.spotsMode || 'all'}`);
+  if (map.windLayer && map.hasLayer(map.windLayer)) p.push(`wind=${map.windLayer.model}`);
   const t = grid && grid.stepTime();
   if (t) p.push(`t=${t.replace('.000Z', 'Z')}`);
   return '#/map?' + p.join('&');
@@ -4082,6 +4244,7 @@ function viewHelp() {
       <li>Turn on <strong>Surf rating (spots)</strong> in the layers list to color the spots by a 0–5 rating from swell size and period, swell direction, wind (offshore or onshore) and, once you've rated a few sessions there, the tide. It follows the hour on the CDIP time panel. It's a rough guess from forecast models, often off, so take it with a grain of salt.</li>
       <li>The <strong>layers</strong> button opens menus for the base map, the CDIP wave model (wave height or peak period) and the spot style (my sessions, surf rating, swell pulse, rating + pulse or shore hazard), plus a switch for buoys.</li>
       <li><strong>Ocean layer</strong> (layers button): CDIP wave height or peak period with a time panel, or <strong>water temperature</strong> from satellites (latest day, usually 1–2 days old). Spot forecasts show the current water temperature in the Now box.</li>
+      <li><strong>Wind</strong> (layers button): pick a forecast model, HRRR (3 km, next 2 days), GFS (5 days) or ECMWF (6 days), and a style: shaded speed, arrows pointing downwind, or both. Its panel steps through the model's hours; with the CDIP wave layer on, it follows the wave panel's hour. Covers the home area coast (Point Conception to Malibu and the islands).</li>
       <li><strong>Home area</strong> (Settings): the map opens on it, and surf ratings, shore hazard and swell pulse load its spots first. Outside it, only primary spots (plus favorites and spots you've surfed) get data; the rest stay gray. It's set automatically from the first spot you surfed (Ventura until then), and you can change it.</li>
       <li><strong>Buoys and time</strong>: at Now, buoy labels show each buoy's latest reading. Step the CDIP time panel forward and the labels switch to that hour's forecast for each buoy (white with a dashed border, marked "forecast"); the header says which. A buoy's popup always lists the latest reading, with a note at the top for the hour on the panel.</li>
       <li><strong>Shore hazard</strong> colors spots by how far up the beach the water may reach: tide plus wave runup (Stockdon 2006 formula). It takes big surf and a high tide together to rate high. Spot forecasts show it per day and per hour; tap Shore ⓘ for details. Turn it off in Settings → Forecasts if you don't want it; it's then neither calculated nor shown.</li>
@@ -4142,6 +4305,7 @@ function viewSettings() {
         · Swell, tide and weather: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>, licensed <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.<br>
         · Buoys: <a href="https://www.ndbc.noaa.gov/" target="_blank" rel="noopener">NOAA National Data Buoy Center</a> (US public data), updated about every 30 minutes.<br>
         · Imagery: USGS The National Map orthoimagery over <a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless 2023</a> by EOX IT Services (contains modified Copernicus Sentinel data, CC BY-NC-SA 4.0, non-commercial use).<br>
+        · Wind layers: NOAA HRRR and GFS from NOMADS (US public domain); ECMWF via Open-Meteo.com (CC BY 4.0).<br>
         · Relief base map: <a href="https://www.ncei.noaa.gov/" target="_blank" rel="noopener">NOAA NCEI</a> elevation models. Town names: USGS The National Map (incorporated places). All US public data.<br>
         · Base maps and imagery: <a href="https://www.usgs.gov/programs/national-geospatial-program/national-map" target="_blank" rel="noopener">USGS The National Map</a> (US public domain).</span></div></div>`);
 }

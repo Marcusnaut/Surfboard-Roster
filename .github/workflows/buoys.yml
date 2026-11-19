@@ -2,7 +2,8 @@
 # CDIP 5-day forecasts for California buoys and spots (refreshed every ~6 hours), and publishes
 # them as buoys.json and forecasts.json on the `data` branch, which the app reads, plus
 # wavegrid.json: the hours available in CDIP's California wave-height map layer, and
-# spotseries.json: model swell, wind and tide for every spot (Open-Meteo), for the map's ratings.
+# spotseries.json: model swell, wind and tide for every spot (Open-Meteo), for the map's ratings, and
+# wind/*.json: wind forecast grids for the map's wind layers (HRRR, GFS from NOAA; ECMWF via Open-Meteo).
 # GitHub may run scheduled jobs a few minutes late, and pauses them if the repository
 # has no activity for 60 days (re-enable under Actions if that happens).
 name: Update buoy data
@@ -27,7 +28,7 @@ concurrency:
 jobs:
   fetch:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
@@ -55,6 +56,14 @@ jobs:
         run: |
           curl -fsSL "https://raw.githubusercontent.com/${REPO}/data/spotseries.json" -o prev_spotseries.json || true
           python3 tools/fetch_spot_series.py spots.json out/spotseries.json prev_spotseries.json || cp prev_spotseries.json out/spotseries.json || true
+      - name: Wind forecast grids (HRRR, GFS, ECMWF over the home area; refreshed every ~2.5 hours)
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          pip install -q pygrib numpy || true
+          mkdir -p prev_wind/wind
+          for m in hrrr gfs ecmwf; do curl -fsSL "https://raw.githubusercontent.com/${REPO}/data/wind/$m.json" -o prev_wind/wind/$m.json || rm -f prev_wind/wind/$m.json; done
+          python3 tools/fetch_wind.py out prev_wind || cp -r prev_wind/wind out/ || true
       - name: Publish to the data branch
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
