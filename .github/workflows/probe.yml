@@ -11,7 +11,7 @@ jobs:
     steps:
       - run: |
           set +e
-          echo "== nam prod"; curl -s -m 40 https://nomads.ncep.noaa.gov/pub/data/nccf/com/nam/prod/ | grep -o 'href="[^"]*"' | tail -5
+          echo "== nam prod"; curl -s -m 40 -w "code %{http_code}\n" https://nomads.ncep.noaa.gov/pub/data/nccf/com/nam/prod/ | tail -c 600; curl -s -m 40 https://nomads.ncep.noaa.gov/pub/data/nccf/com/ | grep -o 'href="[^"]*"' | head -60; true || grep -o 'href="[^"]*"' | tail -5
           D=$(date -u +%Y%m%d)
           echo "== nam today"; curl -s -m 40 https://nomads.ncep.noaa.gov/pub/data/nccf/com/nam/prod/nam.$D/ | grep -o 'conusnest[^"<]*' | sort -u | tail -5
           echo "== rrfs"; curl -s -m 40 https://nomads.ncep.noaa.gov/pub/data/nccf/com/rrfs/ | grep -o 'href="[^"]*"' | head; curl -s -m 40 https://nomads.ncep.noaa.gov/pub/data/nccf/com/rrfs/prod/ | grep -o 'href="[^"]*"' | tail -3
