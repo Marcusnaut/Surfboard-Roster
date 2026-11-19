@@ -3,7 +3,7 @@ name: Service probe
 on:
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
   probe:
     runs-on: ubuntu-latest
@@ -11,12 +11,8 @@ jobs:
     steps:
       - run: |
           set +e
-          mkdir out
-          for u in "https://nowcoast.noaa.gov/geoserver/ndfd_wind/wms?service=WMS&request=GetCapabilities&version=1.3.0" "https://nowcoast.noaa.gov/geoserver/wms?service=WMS&request=GetCapabilities&version=1.3.0" "https://mapservices.weather.noaa.gov/raster/rest/services/NDFD/NDFD_wind/MapServer?f=json" "https://mapservices.weather.noaa.gov/raster/rest/services?f=json"; do
-            echo "== $u"; curl -s -m 60 -o c.txt -w "%{http_code} %{size_download}\n" "$u"
-            python3 -c "
-          import re; s=open('c.txt', errors='replace').read()
-          names=re.findall(r'<Name>([^<]+)</Name>', s); print('NAMES', [n for n in names if 'wind' in n.lower() or 'gust' in n.lower()][:40] or names[:30])
-          print('TIME', re.findall(r'<Dimension name=\"time\"[^>]*>([^<]{0,200})', s)[:2])
-          print('JSON', s[:1200] if s.startswith('{') else '')"
-          done
+          curl -s -m 60 "https://mapservices.weather.noaa.gov/raster/rest/services/NDFD?f=json" | head -c 2000; echo
+          curl -s -m 60 "https://nowcoast.noaa.gov/geoserver/wms?service=WMS&request=GetCapabilities&version=1.3.0" -o c.xml
+          python3 -c "
+          import re; s=open('c.xml', errors='replace').read()
+          names=re.findall(r'<Name>([^<]+)</Name>', s); print('ALL', [n for n in names if ':' in n][:120])"
