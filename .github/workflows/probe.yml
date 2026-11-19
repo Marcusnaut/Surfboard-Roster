@@ -1,19 +1,18 @@
-# Temporary: trial run of the wind data job. Remove after use.
+# Temporary: is NAM still published? Remove after use.
 name: Service probe
 on:
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - run: pip install -q pygrib numpy
-      - run: mkdir out && time python3 tools/fetch_wind.py out
-      - env:
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-        run: |
-          cd out && ls -la wind && git init -q -b probe-samples && git config user.name bot && git config user.email bot@example.com && git add -A && git commit -qm wind && git push -q -f "https://x-access-token:${TOKEN}@github.com/${REPO}.git" probe-samples
+      - run: |
+          set +e
+          echo "== nam prod"; curl -s -m 40 https://nomads.ncep.noaa.gov/pub/data/nccf/com/nam/prod/ | grep -o 'href="[^"]*"' | tail -5
+          D=$(date -u +%Y%m%d)
+          echo "== nam today"; curl -s -m 40 https://nomads.ncep.noaa.gov/pub/data/nccf/com/nam/prod/nam.$D/ | grep -o 'conusnest[^"<]*' | sort -u | tail -5
+          echo "== rrfs"; curl -s -m 40 https://nomads.ncep.noaa.gov/pub/data/nccf/com/rrfs/ | grep -o 'href="[^"]*"' | head; curl -s -m 40 https://nomads.ncep.noaa.gov/pub/data/nccf/com/rrfs/prod/ | grep -o 'href="[^"]*"' | tail -3
+          echo "== filters"; curl -s -m 40 https://nomads.ncep.noaa.gov/ | grep -io 'filter_[a-z0-9_]*\.pl' | sort -u | grep -i 'nam\|rrfs\|hrrr'
