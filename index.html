@@ -436,6 +436,32 @@ details.install li { margin: 3px 0; }
 .wave-ctl .wt { font-weight: 600; text-align: center; flex: 1; }
 .wave-ctl .wrow button.wfold { min-width: 32px; font-size: 14px; background: none; color: var(--muted); }
 .wave-ctl.folded > :not(.wrow) { display: none !important; }
+/* Key panels stack like the layers they describe: storms on top, then wind, then the ocean layer. */
+.leaflet-bottom.leaflet-left { display: flex; flex-direction: column; align-items: flex-start; }
+.leaflet-bottom.leaflet-left > .leaflet-control { order: 5; }
+.leaflet-bottom.leaflet-left > .wave-ctl { order: 3; margin-bottom: 8px !important; }
+.leaflet-bottom.leaflet-left:has(> .wave-ctl) { padding-bottom: calc(var(--attrh, 16px) + 6px); }
+.leaflet-bottom.leaflet-left > .storm-ctl { width: 252px; }
+.leaflet-bottom.leaflet-left > .wind-ctl { order: 2; }
+.leaflet-bottom.leaflet-left > .storm-ctl { order: 1; }
+.linkish { background: none; border: 0; padding: 0; min-height: 0; min-width: 0; font: inherit; color: var(--brand, #1f7fb8); text-decoration: underline; cursor: pointer; }
+.skey { display: flex; justify-content: space-between; gap: 2px; margin-top: 4px; font-size: 11px; }
+/* With more than one key showing, drop the credit lines (the map's credit line keeps them) so the stack stays short. */
+.leaflet-bottom.leaflet-left:has(> .wave-ctl ~ .wave-ctl) .wave-ctl .sub:not(.keep) { display: none; }
+.skey span { display: inline-flex; align-items: center; gap: 1px; white-space: nowrap; }
+.slist { list-style: none; margin: 4px 0 0; padding: 0; font-size: 12px; }
+.slist li + li { border-top: 1px solid var(--line, rgba(0,0,0,.08)); }
+.slist button { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 5px 0; font: inherit; color: inherit; min-height: 32px; }
+.slist .none { color: var(--muted); padding: 4px 0; }
+.stormpop .stm { font-size: 14px; margin-bottom: 6px; }
+.stormpop p { margin: 4px 0; font-size: 13px; }
+.lyr-hint { font-size: 12px; color: var(--muted); margin: -2px 0 2px; }
+.lyr-windy { width: 100%; min-height: 40px; margin-top: 8px; border: 1px solid var(--line, #ccd); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-size: 15px; }
+.windy-tabs { display: flex; gap: 6px; padding: 8px 12px; background: var(--surface); }
+.windy-tabs button { flex: 1; min-height: 38px; border-radius: 10px; border: 1px solid var(--line, #ccd); background: var(--surface); color: var(--ink); font: inherit; font-size: 15px; }
+.windy-tabs button[aria-selected="true"] { background: var(--brand); color: var(--brand-ink); border-color: transparent; }
+.windy-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.windy-note { font-size: 12px; color: var(--muted); padding: 6px 12px calc(env(safe-area-inset-bottom) + 8px); }
 .wave-ctl.folded { padding-bottom: 6px; width: auto; min-width: 200px; }
 .wave-ctl .wleg { display: block; width: 100%; height: 12px; margin-top: 6px; border-radius: 3px; }
 .wave-ctl .wticks { display: flex; justify-content: space-between; font-size: 11px; }
@@ -551,7 +577,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 15.3 (smaller, blue italic wind arrow numbers)';
+const BUILD = 'Build 16 (global wave layers, storm tracking, Windy map, one shaded layer at a time)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -1095,7 +1121,9 @@ function makeMap(el, opts = {}) {
   const { buoys, layersControl, state, fullscreen, ...mapOpts } = opts;
   const st = state || {};
   const map = L.map(el, { attributionControl: false, ...mapOpts, zoomControl: false });
-  L.control.attribution({ prefix: false, position: 'bottomright' }).addTo(map);
+  const attrCtl = L.control.attribution({ prefix: false, position: 'bottomright' }).addTo(map);
+  /* Key panels sit just above the credit line, which wraps to more lines as layers add their credits. */
+  if (window.ResizeObserver) new ResizeObserver(() => el.style.setProperty('--attrh', attrCtl.getContainer().offsetHeight + 'px')).observe(attrCtl.getContainer());
   const zoomClass = () => el.classList.toggle('far', map.getZoom() < 8);
   map.on('zoomend', zoomClass);
   if (opts.zoomControl !== false) L.control.zoom({ position: 'topright' }).addTo(map);
@@ -1144,7 +1172,7 @@ function makeMap(el, opts = {}) {
     /* CDIP grids: wave height or peak period, one at a time (they would hide each other). */
     map.waveLayers = {};
     for (const [key, cfg] of Object.entries(GRID_LAYERS)) {
-      const g = cfg.sst ? sstLayer(map) : waveLayer(map, st.waveTime, key);
+      const g = cfg.sst ? sstLayer(map) : cfg.global ? globalLayer(map, st.waveTime, key) : waveLayer(map, st.waveTime, key);
       overlays[cfg.name] = g;
       map.waveLayers[key] = g;
     }
@@ -1154,6 +1182,9 @@ function makeMap(el, opts = {}) {
     map.windLayer = windLayer(map);
     const wm = st.wind !== undefined ? st.wind : prefs.windModel;
     if (wm && WIND_MODELS[wm]) { map.windLayer.setModel(wm); map.windLayer.addTo(map); }
+    /* Storm tracking over the Pacific (lines and arrows, so it can sit over any ocean layer). */
+    map.stormLayer = stormLayer(map);
+    if (st.overlays ? st.overlays.has('storms') : prefs.showStorms) map.stormLayer.addTo(map);
     /* Not a real layer: switching it on colors the spot dots by surf rating (see setupRating). */
     map.ratingLayer = L.layerGroup();
     overlays[RATING_NAME] = map.ratingLayer;
@@ -1170,6 +1201,16 @@ function makeMap(el, opts = {}) {
         for (const [k, g] of Object.entries(map.waveLayers)) if (k !== key && map.hasLayer(g)) { e.layer.carryTime(g.stepTime()); map.removeLayer(g); }
       }, 0);
     });
+    /* One shaded layer at a time: an ocean layer and shaded wind would hide each other. Wind arrows, storms,
+       buoys and spots can sit over an ocean layer. */
+    map.oceanOn = () => Object.values(map.waveLayers).some(g => map.hasLayer(g));
+    map.windShaded = () => map.hasLayer(map.windLayer) && (prefs.windStyle || 'both') !== 'arrows';
+    map.windToArrows = quiet => {
+      savePrefs({ windStyle: 'arrows' }); map.windLayer.redraw(); map.fire('windchange');
+      if (!quiet) toast('Wind shows as arrows while an ocean layer is on: one shaded layer at a time.');
+    };
+    if (map.oceanOn() && map.windShaded()) map.windToArrows(true);
+    map.on('overlayadd', e => { if (Object.values(map.waveLayers).includes(e.layer) && map.windShaded()) map.windToArrows(); });
   }
   if (layersControl !== false) {
     /* Map layers panel: choices are menus (base map, wave model, spot style), on/off layers are switches.
@@ -1185,12 +1226,15 @@ function makeMap(el, opts = {}) {
         d.innerHTML = `<a class="leaflet-control-layers-toggle" href="#" role="button" title="Map layers" aria-label="Map layers"></a>
           <div class="lyr-panel">
             <div class="lc-head"><span>Map layers</span><button type="button" class="lc-close" aria-label="Close layer list">&times;</button></div>
-            <label class="lyr-row"><span>Base map</span><select data-lyr="base">${Object.keys(BASEMAPS).map(k => `<option value="${k}">${esc(BASEMAPS[k].label)}</option>`).join('')}</select></label>
-            ${map.waveLayers ? `<label class="lyr-row"><span>Ocean layer</span><select data-lyr="grid"><option value="off">Off</option>${Object.entries(GRID_LAYERS).map(([k, c]) => `<option value="${k}">${esc(c.title)}</option>`).join('')}</select></label>` : ''}
+            <div class="lyr-hint">Listed in drawing order: top of the list draws on top.</div>
+            ${overlays['Buoys'] ? '<label class="lyr-row lyr-sw"><span>Buoys</span><input type="checkbox" role="switch" data-lyr="buoys"></label>' : ''}
             ${map.ratingLayer ? `<label class="lyr-row"><span>Spot style</span><select data-lyr="style"><option value="sessions">My sessions</option><option value="rating">Surf rating</option>${pulseOn() ? '<option value="pulse">Swell pulse</option><option value="both">Rating + pulse</option>' : ''}${hazardOn() ? '<option value="hazard">Shore hazard</option>' : ''}</select></label>` : ''}
+            ${map.stormLayer ? '<label class="lyr-row lyr-sw"><span>Storms <small>Pacific, 7 days</small></span><input type="checkbox" role="switch" data-lyr="storms"></label>' : ''}
             ${map.windLayer ? `<label class="lyr-row"><span>Wind <small>forecast model</small></span><select data-lyr="wind"><option value="">Off</option>${Object.entries(WIND_MODELS).map(([k, w]) => `<option value="${k}">${esc(w.label)}</option>`).join('')}</select></label>
             <label class="lyr-row"><span>Wind style</span><select data-lyr="windStyle"><option value="both">Shaded + arrows</option><option value="shade">Shaded speed</option><option value="arrows">Arrows</option></select></label>` : ''}
-            ${overlays['Buoys'] ? '<label class="lyr-row lyr-sw"><span>Buoys</span><input type="checkbox" role="switch" data-lyr="buoys"></label>' : ''}
+            ${map.waveLayers ? `<label class="lyr-row"><span>Ocean layer <small>one at a time</small></span><select data-lyr="grid"><option value="off">Off</option>${[...new Set(Object.values(GRID_LAYERS).map(c => c.group))].map(gr => `<optgroup label="${esc(gr)}">${Object.entries(GRID_LAYERS).filter(([, c]) => c.group === gr).map(([k, c]) => `<option value="${k}">${esc(c.menu)}</option>`).join('')}</optgroup>`).join('')}</select></label>` : ''}
+            <label class="lyr-row"><span>Base map</span><select data-lyr="base">${Object.keys(BASEMAPS).map(k => `<option value="${k}">${esc(BASEMAPS[k].label)}</option>`).join('')}</select></label>
+            <button type="button" class="lyr-windy" data-lyr="windy">Windy map of this view</button>
           </div>`;
         L.DomEvent.disableClickPropagation(d);
         L.DomEvent.disableScrollPropagation(d);
@@ -1200,6 +1244,7 @@ function makeMap(el, opts = {}) {
           if (q('grid')) q('grid').value = gridOf();
           if (q('style')) q('style').value = styleOf();
           if (q('buoys')) q('buoys').checked = map.hasLayer(overlays['Buoys']);
+          if (q('storms')) q('storms').checked = map.hasLayer(map.stormLayer);
           if (q('wind')) { q('wind').value = map.hasLayer(map.windLayer) ? map.windLayer.model : ''; q('windStyle').value = prefs.windStyle || 'both'; }
         };
         const open = on => { d.classList.toggle('leaflet-control-layers-expanded', on); if (on) sync(); };
@@ -1228,9 +1273,20 @@ function makeMap(el, opts = {}) {
           const k = e.target.value;
           if (k) { map.windLayer.setModel(k); if (!map.hasLayer(map.windLayer)) map.windLayer.addTo(map); } else map.removeLayer(map.windLayer);
           savePrefs({ windModel: k });
-          map.fire('windchange');
+          if (map.oceanOn && map.oceanOn() && map.windShaded()) map.windToArrows(); else map.fire('windchange');
+          sync();
         });
-        if (q('windStyle')) q('windStyle').addEventListener('change', e => { savePrefs({ windStyle: e.target.value }); map.windLayer.redraw(); map.fire('windchange'); });
+        if (q('windStyle')) q('windStyle').addEventListener('change', e => {
+          savePrefs({ windStyle: e.target.value }); map.windLayer.redraw(); map.fire('windchange');
+          /* Shaded wind replaces the ocean layer (one shaded layer at a time). */
+          if (map.windShaded && map.windShaded() && map.oceanOn()) {
+            const k = gridOf(); setOv(map.waveLayers[k], GRID_LAYERS[k].name, false);
+            toast(`${GRID_LAYERS[k].menu} turned off: one shaded layer at a time.`);
+          }
+          sync();
+        });
+        if (q('storms')) q('storms').addEventListener('change', e => { setOv(map.stormLayer, 'Storms', e.target.checked); savePrefs({ showStorms: e.target.checked }); });
+        q('windy').addEventListener('click', () => { const c = map.getCenter(); open(false); openWindy(c.lat, c.lng, Math.max(3, Math.min(11, map.getZoom())), 'Windy: this map view'); });
         if (q('buoys')) q('buoys').addEventListener('change', e => setOv(overlays['Buoys'], 'Buoys', e.target.checked));
         map.on('overlayadd overlayremove baselayerchange', () => { if (d.classList.contains('leaflet-control-layers-expanded')) sync(); });
         this.expand = () => open(true); this.collapse = () => open(false);
@@ -1263,9 +1319,12 @@ function makeMap(el, opts = {}) {
 const WAVE_NAME = 'Wave height (CDIP, Calif.)';
 /* CDIP California grid layers drawn by CDIP's WMS. Period uses CDIP's 2-second color bands like their own map. */
 const GRID_LAYERS = {
-  waves: { name: WAVE_NAME, title: 'Wave height', param: 'waveHs', lo: 0, hi: WAVE_MAX_M, bands: 250, pref: 'showWaves', ticks: () => waveLegendTicks() },
-  period: { name: 'Peak period (CDIP, Calif.)', title: 'Peak period', param: 'waveTp', lo: 5, hi: 25, bands: 10, pref: 'showPeriod', ticks: () => ['5', '10', '15', '20', '25 s'] },
-  sst: { name: 'Water temperature (satellite)', title: 'Water temp', pref: 'showSST', sst: true }
+  waves: { name: WAVE_NAME, title: 'Wave height', menu: 'Wave height', group: 'California (CDIP, detailed)', param: 'waveHs', lo: 0, hi: WAVE_MAX_M, bands: 250, pref: 'showWaves', ticks: () => waveLegendTicks() },
+  period: { name: 'Peak period (CDIP, Calif.)', title: 'Peak period', menu: 'Peak period', group: 'California (CDIP, detailed)', param: 'waveTp', lo: 5, hi: 25, bands: 10, pref: 'showPeriod', ticks: () => ['5', '10', '15', '20', '25 s'] },
+  gwaves: { name: 'Wave height (global)', title: 'Wave height', menu: 'Wave height', group: 'Global (WaveWatch III)', global: true, param: 'Thgt', lo: 0, hi: 9.144, bands: 60, pref: 'showGWaves',
+    ticks: () => prefs.units === 'm' ? ['0', '2.3', '4.6', '6.9', '9.1 m'] : ['0', '7.5', '15', '22.5', '30 ft'] },
+  gperiod: { name: 'Peak period (global)', title: 'Peak period', menu: 'Peak period', group: 'Global (WaveWatch III)', global: true, param: 'Tper', lo: 5, hi: 25, bands: 20, pref: 'showGPeriod', ticks: () => ['5', '10', '15', '20', '25 s'] },
+  sst: { name: 'Water temperature (satellite)', title: 'Water temp', menu: 'Water temperature', group: 'Satellite', pref: 'showSST', sst: true }
 };
 let gridFetch = null;
 async function loadWaveGrid() {
@@ -1411,6 +1470,109 @@ function waveLayer(map, startTime, key = 'waves') {
       const want = cur && !cur.now ? cur.time : startTime;
       startTime = null;
       /* A shared link may name an hour that has since passed: use the first step at or after it. */
+      idx = want ? Math.max(0, steps.findIndex(s => !s.now && Date.parse(s.time) >= Date.parse(want) - 60000)) : 0;
+      show();
+    });
+  });
+  layer.on('remove', () => { if (ctl) { ctl.remove(); ctl = null; } });
+  return layer;
+}
+/* ---------- Global wave layers ----------
+   PacIOOS's WaveWatch III global model (University of Hawaii with NOAA NCEP; 0.5 degree, hourly, about 6 days
+   ahead), drawn by their WMS. Free public data, credited. Steps every 6 hours (00/06/12/18 UTC, the same hours
+   as the storm grids) out to the model's last hour. */
+const GLOBAL_WMS = 'https://pae-paha.pacioos.hawaii.edu/thredds/wms/ww3_global/WaveWatch_III_Global_Wave_Model_best.ncd';
+const GLOBAL_CREDIT = '<a href="https://www.pacioos.hawaii.edu/waves/model-global/" target="_blank" rel="noopener">PacIOOS WW3</a>';
+/* The view that shows the whole Pacific, where the swell for the West Coast is made. */
+const PACIFIC_BOUNDS = [[-50, -215], [60, -105]];
+let globalTimes = null, globalFetch = null;
+async function loadGlobalTimes() {
+  if (globalTimes && Date.now() - globalTimes.at < 30 * 60 * 1000) return globalTimes;
+  if (!globalFetch) globalFetch = (async () => {
+    const get = async q => {
+      const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 9000);
+      try { const r = await fetch(`${GLOBAL_WMS}?request=GetMetadata&${q}`, { signal: ctl.signal }); if (!r.ok) throw new Error('HTTP ' + r.status); return await r.json(); }
+      finally { clearTimeout(timer); }
+    };
+    try {
+      /* The model's last day comes from its calendar of dates with data (months count from 0), then that day's hours. */
+      const ld = await get('item=layerDetails&layerName=Thgt');
+      const dw = ld.datesWithData || {}, y = Math.max(...Object.keys(dw).map(Number)), m = Math.max(...Object.keys(dw[y]).map(Number)), d = Math.max(...dw[y][m]);
+      const day = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const ts = await get(`item=timesteps&layerName=Thgt&day=${day}`);
+      const last = Date.parse(`${day}T${ts.timesteps[ts.timesteps.length - 1]}`);
+      if (!Number.isFinite(last)) throw new Error('no times');
+      globalTimes = { at: Date.now(), last };
+    } catch (e) {
+      /* Usually about 5 days ahead; try again in 5 minutes. */
+      globalTimes = globalTimes || { at: Date.now() - 25 * 60 * 1000, last: Date.now() + 5 * 86400000, guessed: true };
+    }
+    globalFetch = null;
+    return globalTimes;
+  })();
+  return globalFetch;
+}
+function globalSteps(g) {
+  const H = 3600000, steps = [{ time: null, now: true }];
+  const last = g ? g.last : Date.now() + 5 * 86400000;
+  for (let t = Math.floor(Date.now() / (6 * H)) * 6 * H + 6 * H; t <= last; t += 6 * H) steps.push({ time: new Date(t).toISOString() });
+  return steps;
+}
+function globalLayer(map, startTime, key) {
+  const cfg = GRID_LAYERS[key];
+  if (!map.getPane('waves')) { const p = map.createPane('waves'); p.style.zIndex = 350; p.style.pointerEvents = 'none'; }
+  const layer = L.tileLayer.wms(GLOBAL_WMS, {
+    layers: cfg.param, styles: 'boxfill/rainbow', format: 'image/png', transparent: true, version: '1.3.0',
+    colorscalerange: `${cfg.lo},${cfg.hi}`, numcolorbands: cfg.bands, abovemaxcolor: 'extend', belowmincolor: 'extend',
+    opacity: 0.7, pane: 'waves', maxNativeZoom: 7, maxZoom: 19, attribution: GLOBAL_CREDIT
+  });
+  let steps = globalSteps(null), idx = 0, ctl = null;
+  const show = () => {
+    const st = steps[idx] || steps[0];
+    /* Now: no time, so the server gives its current hour. */
+    if (st.time) layer.wmsParams.time = st.time; else delete layer.wmsParams.time;
+    layer.redraw();
+    if (ctl) {
+      const c = ctl.getContainer();
+      c.querySelector('.wt').innerHTML = st.now ? 'Now' : esc(new Date(st.time).toLocaleString([], { weekday: 'short', hour: 'numeric' }));
+      c.querySelector('[data-w="prev"]').disabled = idx <= 0;
+      c.querySelector('[data-w="next"]').disabled = idx >= steps.length - 1;
+    }
+    map.fire('wavestep');
+  };
+  layer.stepTime = () => { const st = steps[idx]; return st && !st.now ? st.time : null; };
+  layer.carryTime = t => {
+    const i = t ? steps.findIndex(x => !x.now && Date.parse(x.time) >= Date.parse(t) - 60000) : 0;
+    if (i >= 0) { idx = i; if (layer._map) show(); } else { startTime = t; idx = 0; }
+  };
+  const Ctl = L.Control.extend({
+    options: { position: 'bottomleft' },
+    onAdd() {
+      const d = L.DomUtil.create('div', 'wave-ctl global-ctl');
+      const leg = `${GLOBAL_WMS}?REQUEST=GetLegendGraphic&LAYER=${cfg.param}&PALETTE=rainbow&COLORSCALERANGE=${cfg.lo},${cfg.hi}&NUMCOLORBANDS=${cfg.bands}&COLORBARONLY=true&VERTICAL=false&WIDTH=220&HEIGHT=14`;
+      d.innerHTML = `<div class="wrow"><button type="button" data-w="prev" aria-label="Earlier">&lsaquo;</button><span class="wt">Now</span><button type="button" data-w="next" aria-label="Later">&rsaquo;</button></div>
+        <img class="wleg" alt="" src="${leg}"><div class="wticks">${cfg.ticks().map(t => `<span>${t}</span>`).join('')}</div>
+        <div class="sub">${cfg.title} · global, 50 km grid · <button type="button" class="linkish" data-pacific>See the Pacific</button> · ${GLOBAL_CREDIT}</div>`;
+      L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d);
+      d.addEventListener('click', e => {
+        if (e.target.closest('[data-pacific]')) { map.flyToBounds(PACIFIC_BOUNDS, { duration: 0.8 }); return; }
+        const b = e.target.closest('[data-w]'); if (!b) return;
+        idx = Math.max(0, Math.min(steps.length - 1, idx + (b.dataset.w === 'next' ? 1 : -1)));
+        show();
+      });
+      return foldable(d);
+    }
+  });
+  layer.on('add', () => {
+    if (!ctl) ctl = new Ctl().addTo(map);
+    if (startTime) layer.carryTime(startTime);
+    show();
+    loadGlobalTimes().then(g => {
+      if (!layer._map) return;
+      const cur = steps[idx];
+      steps = globalSteps(g);
+      const want = cur && !cur.now ? cur.time : startTime;
+      startTime = null;
       idx = want ? Math.max(0, steps.findIndex(s => !s.now && Date.parse(s.time) >= Date.parse(want) - 60000)) : 0;
       show();
     });
@@ -1598,6 +1760,373 @@ function windLayer(map) {
     }
   });
   return layer;
+}
+/* ---------- Storms layer ----------
+   Storm tracking for swell: NOAA GFS sea-level pressure and 10 m wind over the Pacific every 6 hours for 7 days
+   (grids from the data job, tools/fetch_storms.py), plus the National Hurricane Center's current tropical
+   cyclone tracks and outlook areas. Drawn as lines and arrows (not shading), so it can sit over any ocean layer:
+   isobars every 4 hPa, H and L centers, an outline around gale-force wind over the ocean, and arrows where the
+   wind is 34 kt or more, bold where it blows toward the home area, which is what sends swell there. */
+const STORM_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/storms/';
+const NHC_URL = 'https://mapservices.weather.noaa.gov/tropical/rest/services/tropical/NHC_tropical_weather/MapServer';
+const NHC_CREDIT = '<a href="https://www.nhc.noaa.gov/" target="_blank" rel="noopener">NOAA NHC</a>';
+/* Wind categories in knots (NOAA marine warnings). */
+const STORM_CATS = [[64, '#8e2a8e', 'Hurricane force'], [48, '#d63a2f', 'Storm force'], [34, '#e67e00', 'Gale']];
+const stormCat = kt => STORM_CATS.find(c => kt >= c[0]);
+/* Wind aimed within this many degrees of the home area counts as sending swell there. */
+const AIM_DEG = 30;
+let stormIndex = null;
+const stormSteps = new Map();
+async function loadStormIndex() {
+  if (stormIndex && Date.now() - stormIndex.at < 30 * 60 * 1000) return stormIndex.d;
+  const r = await fetch(`${STORM_URL}index.json?t=${Math.floor(Date.now() / 600000)}`);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const d = await r.json();
+  d.T = d.times.map(t => Date.parse(t.length === 17 ? t.replace('Z', ':00Z') : t));
+  const n = d.nx * d.ny;
+  d.land = (() => { const a = new Uint8Array(n); if (!d.land) return a; const bin = atob(d.land); for (let i = 0; i < n; i++) a[i] = (bin.charCodeAt(i >> 3) >> (7 - (i & 7))) & 1; return a; })();
+  stormIndex = { at: Date.now(), d };
+  return d;
+}
+function loadStormStep(d, i) {
+  const key = d.run + '/' + d.files[i];
+  if (!stormSteps.has(key)) {
+    const p = fetch(`${STORM_URL}${d.files[i]}?run=${encodeURIComponent(d.run)}`).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(j => {
+      const bytes = (b, signed) => { const bin = atob(b), a = signed ? new Int8Array(bin.length) : new Uint8Array(bin.length); for (let k = 0; k < bin.length; k++) a[k] = signed ? bin.charCodeAt(k) << 24 >> 24 : bin.charCodeAt(k); return a; };
+      return { U: bytes(j.u, true), V: bytes(j.v, true), P: bytes(j.p, false) };
+    });
+    p.catch(() => stormSteps.delete(key));
+    stormSteps.set(key, p);
+    if (stormSteps.size > 12) stormSteps.delete(stormSteps.keys().next().value);
+  }
+  return stormSteps.get(key);
+}
+/* Home point for aiming: the middle of the home area's spots. */
+function homePoint() {
+  const b = typeof homeBounds === 'function' ? homeBounds() : null;
+  const c = b ? b.getCenter() : { lat: 34.27, lng: -119.29 };
+  return { lat: c.lat, lon: c.lng, name: homeRegion() };
+}
+const RAD = Math.PI / 180;
+function gcDistKm(la1, lo1, la2, lo2) {
+  const a = Math.sin((la2 - la1) * RAD / 2) ** 2 + Math.cos(la1 * RAD) * Math.cos(la2 * RAD) * Math.sin((lo2 - lo1) * RAD / 2) ** 2;
+  return 12742 * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+/* Initial great-circle bearing from point 1 to point 2, degrees clockwise from north. */
+function gcBearing(la1, lo1, la2, lo2) {
+  const p1 = la1 * RAD, p2 = la2 * RAD, dl = (lo2 - lo1) * RAD;
+  return (Math.atan2(Math.sin(dl) * Math.cos(p2), Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl)) / RAD + 360) % 360;
+}
+/* Deep-water swell travels at its group speed, about 0.78 m/s per second of period. A 13–18 s swell from a
+   storm covers 900–1,200 km a day. */
+function swellEta(km, t0) {
+  const hrs = T => km * 1000 / (0.78 * T) / 3600;
+  return [t0 + hrs(18) * 3600000, t0 + hrs(13) * 3600000];
+}
+/* Everything the map and the panel need for one forecast hour: wind speed, which strong-wind cells are aimed at
+   home, clusters of them (each a swell source), and the pressure highs and lows. */
+function stormAnalysis(d, s, home) {
+  if (s.an && s.an.home === home.lat + ',' + home.lon) return s.an;
+  const { nx, ny } = d, n = nx * ny, kt = new Float32Array(n), aim = new Uint8Array(n), hp = new Float32Array(n);
+  for (let y = 0; y < ny; y++) for (let x = 0; x < nx; x++) {
+    const i = y * nx + x, u = s.U[i] * d.scale, v = s.V[i] * d.scale, lat = d.north - y * d.step, lon = d.west + x * d.step;
+    hp[i] = d.p0 + s.P[i] / 2;
+    const k = Math.hypot(u, v) * 1.944; kt[i] = k;
+    if (k < 34 || d.land[i]) continue;
+    const toward = (Math.atan2(u, v) / RAD + 360) % 360, b = gcBearing(lat, lon, home.lat, home.lon);
+    const diff = Math.abs(((toward - b + 540) % 360) - 180);
+    if (diff <= AIM_DEG && gcDistKm(lat, lon, home.lat, home.lon) > 300) aim[i] = 1;
+  }
+  /* Clusters of aimed cells (touching, diagonals included). */
+  const seen = new Uint8Array(n), clusters = [];
+  for (let i = 0; i < n; i++) {
+    if (!aim[i] || seen[i]) continue;
+    const st = [i]; seen[i] = 1; let cells = 0, max = 0, wx = 0, wy = 0, w = 0, top = i;
+    while (st.length) {
+      const j = st.pop(), x = j % nx, y = (j - x) / nx; cells++;
+      if (kt[j] > max) { max = kt[j]; top = j; }
+      wx += x * kt[j]; wy += y * kt[j]; w += kt[j];
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= nx || yy >= ny) continue;
+        const k = yy * nx + xx; if (aim[k] && !seen[k]) { seen[k] = 1; st.push(k); }
+      }
+    }
+    if (cells < 2) continue;
+    const lat = d.north - (wy / w) * d.step, lon = d.west + (wx / w) * d.step, km = gcDistKm(home.lat, home.lon, lat, lon);
+    clusters.push({ lat, lon, cells, max, top, km, from: gcBearing(home.lat, home.lon, lat, lon) });
+  }
+  clusters.sort((a, b) => b.max * Math.sqrt(b.cells) - a.max * Math.sqrt(a.cells));
+  /* Pressure centers: lowest (or highest) within 4 cells. */
+  const centers = [], R = 4;
+  for (let y = R; y < ny - R; y++) for (let x = R; x < nx - R; x++) {
+    const i = y * nx + x, p = hp[i];
+    const low = p <= 1008, high = p >= 1024;
+    if (!low && !high) continue;
+    let ok = true;
+    for (let dy = -R; dy <= R && ok; dy++) for (let dx = -R; dx <= R; dx++) {
+      if (!dx && !dy) continue;
+      const q = hp[i + dy * nx + dx];
+      if (low ? (q < p || (q === p && dy * nx + dx < 0)) : (q > p || (q === p && dy * nx + dx < 0))) { ok = false; break; }
+    }
+    if (ok) centers.push({ lat: d.north - y * d.step, lon: d.west + x * d.step, p, low });
+  }
+  s.an = { home: home.lat + ',' + home.lon, kt, aim, hp, clusters, centers };
+  return s.an;
+}
+const stormDistText = km => prefs.units === 'm' ? `${(Math.round(km / 10) * 10).toLocaleString()} km` : `${(Math.round(km * 0.6214 / 10) * 10).toLocaleString()} mi`;
+const stormDay = t => new Date(t).toLocaleString([], { weekday: 'short', hour: 'numeric' });
+const ktText = kt => `${Math.round(kt * windU()[0] / 1.944)} ${windU()[1]}`;
+/* NHC tropical cyclone tracks, cones and outlook areas, as transparent images from NOAA's map service. */
+const NhcLayer = L.TileLayer.extend({
+  getTileUrl(c) {
+    const size = this.getTileSize(), nw = c.scaleBy(size), se = nw.add(size), crs = this._map.options.crs;
+    const a = crs.project(this._map.unproject(nw, c.z)), b = crs.project(this._map.unproject(se, c.z));
+    return `${this._url}/export?${new URLSearchParams({ bbox: [a.x, b.y, b.x, a.y].map(v => v.toFixed(1)).join(','), bboxSR: 3857, imageSR: 3857, size: `${size.x},${size.y}`, format: 'png32', transparent: 'true', layers: 'show:' + this.options.ids, f: 'image' })}`;
+  }
+});
+let nhcIds = null;
+async function loadNhcIds() {
+  if (nhcIds) return nhcIds;
+  try {
+    const r = await fetch(`${NHC_URL}?f=json`); if (!r.ok) throw new Error('HTTP ' + r.status);
+    const want = /^(AT|EP|CP)\d (Forecast (Points|Track|Cone)|Past Track)$|^Seven-Day: (Current Location|Potential Development Region)$/;
+    nhcIds = (await r.json()).layers.filter(l => want.test(l.name)).map(l => l.id).join(',');
+  } catch (e) { nhcIds = ''; }
+  return nhcIds;
+}
+function stormLayer(map) {
+  for (const [name, z] of [['stormimg', 356], ['storms', 358]]) if (!map.getPane(name)) { const p = map.createPane(name); p.style.zIndex = z; p.style.pointerEvents = 'none'; }
+  let canvas = null, data = null, step = null, idx = 0, ctl = null, token = 0, nhc = null;
+  const L2 = L.Layer.extend({
+    onAdd() {
+      canvas = L.DomUtil.create('canvas', 'storm-canvas', map.getPane('storms'));
+      map.on('moveend zoomend resize', this.redraw, this);
+      map.on('zoomstart', hide);
+      map.on('wavestep overlayadd overlayremove', follow);
+      map.on('click', tap);
+      if (!ctl) ctl = new Ctl().addTo(map);
+      loadNhcIds().then(ids => { if (!ids || !canvas || nhc) return; nhc = new NhcLayer(NHC_URL, { ids, pane: 'stormimg', maxNativeZoom: 8, maxZoom: 19, opacity: 0.9, attribution: NHC_CREDIT }).addTo(map); });
+      this.load();
+    },
+    onRemove() {
+      map.off('moveend zoomend resize', this.redraw, this);
+      map.off('zoomstart', hide);
+      map.off('wavestep overlayadd overlayremove', follow);
+      map.off('click', tap);
+      if (nhc) { nhc.remove(); nhc = null; }
+      if (canvas) canvas.remove(); canvas = null;
+      if (ctl) { ctl.remove(); ctl = null; }
+    },
+    async load() {
+      const my = ++token;
+      label('Loading storms…');
+      try { const d = await loadStormIndex(); if (my !== token) return; data = d; }
+      catch (e) { data = null; label("Couldn't load the storm forecast."); return; }
+      idx = nearestIdx(mapTime(map) ?? Date.now());
+      await this.loadStep();
+    },
+    async loadStep() {
+      const my = ++token, i = idx;
+      try { const s = await loadStormStep(data, i); if (my !== token) return; step = s; }
+      catch (e) { step = null; label("Couldn't load this hour."); return; }
+      this.redraw();
+      /* Fetch the next hour ahead so stepping is quick. */
+      if (i + 1 < data.files.length) loadStormStep(data, i + 1).catch(() => {});
+    },
+    redraw() {
+      if (!canvas || !data || !step) { show(); return; }
+      const size = map.getSize(), dpr = Math.min(2, window.devicePixelRatio || 1);
+      canvas.width = size.x * dpr; canvas.height = size.y * dpr;
+      canvas.style.width = size.x + 'px'; canvas.style.height = size.y + 'px'; canvas.style.opacity = 1;
+      L.DomUtil.setPosition(canvas, map.containerPointToLayerPoint([0, 0]));
+      const c = canvas.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const home = homePoint(), an = stormAnalysis(data, step, home), { nx, ny } = data, n = nx * ny;
+      const dark = !!BASEMAPS[map.baseKey].dark;
+      /* The grid runs 110 E to 60 W; shift it a whole turn to sit by the map's center. */
+      const shift = 360 * Math.round((map.getCenter().lng - (data.west + (nx - 1) * data.step / 2)) / 360);
+      const X = new Float32Array(n), Y = new Float32Array(n);
+      for (let y = 0; y < ny; y++) for (let x = 0; x < nx; x++) {
+        const pt = map.latLngToContainerPoint([data.north - y * data.step, data.west + x * data.step + shift]);
+        X[y * nx + x] = pt.x; Y[y * nx + x] = pt.y;
+      }
+      const M = 30, onScr = i => X[i] > -M && Y[i] > -M && X[i] < size.x + M && Y[i] < size.y + M;
+      /* Marching squares: line pieces where field F crosses level lv, cell by cell. */
+      const contour = (F, levels) => {
+        c.beginPath();
+        for (let y = 0; y < ny - 1; y++) for (let x = 0; x < nx - 1; x++) {
+          const a = y * nx + x, b = a + 1, cc = a + nx + 1, dd = a + nx;
+          if (!onScr(a) && !onScr(b) && !onScr(cc) && !onScr(dd)) continue;
+          const fa = F[a], fb = F[b], fc = F[cc], fd = F[dd], lo = Math.min(fa, fb, fc, fd), hi = Math.max(fa, fb, fc, fd);
+          for (const lv of levels) {
+            if (lv <= lo || lv > hi) continue;
+            const pts = [];
+            const edge = (i, j, fi, fj) => { if ((fi < lv) !== (fj < lv)) { const t = (lv - fi) / (fj - fi); pts.push(X[i] + (X[j] - X[i]) * t, Y[i] + (Y[j] - Y[i]) * t); } };
+            edge(a, b, fa, fb); edge(b, cc, fb, fc); edge(cc, dd, fc, fd); edge(dd, a, fd, fa);
+            for (let k = 0; k + 3 < pts.length; k += 4) { c.moveTo(pts[k], pts[k + 1]); c.lineTo(pts[k + 2], pts[k + 3]); }
+          }
+        }
+        c.stroke();
+      };
+      /* Isobars every 4 hPa. */
+      const levels = []; for (let p = 940; p <= 1052; p += 4) levels.push(p);
+      c.lineWidth = 1; c.strokeStyle = dark ? 'rgba(255,255,255,.55)' : 'rgba(28,38,64,.45)';
+      contour(an.hp, levels);
+      /* Gale-force wind over the ocean: an outline at 34 kt. */
+      const sea = new Float32Array(n); for (let i = 0; i < n; i++) sea[i] = data.land[i] ? 0 : an.kt[i];
+      c.lineWidth = 1.4; c.strokeStyle = 'rgba(230,126,0,.85)';
+      contour(sea, [34]);
+      /* Arrows, one per 22 px block (the strongest; aimed ones first). */
+      const gap = 22, best = new Map();
+      for (let i = 0; i < n; i++) {
+        if (sea[i] < 34 || !onScr(i)) continue;
+        const k = Math.floor(X[i] / gap) + ',' + Math.floor(Y[i] / gap), score = sea[i] + (an.aim[i] ? 1000 : 0), o = best.get(k);
+        if (!o || score > o.score) best.set(k, { i, score });
+      }
+      for (const { i } of best.values()) {
+        const kt = an.kt[i], cat = stormCat(kt), aimed = an.aim[i], u = step.U[i], v = step.V[i];
+        const len = 10 + Math.min(14, (kt - 34) * 0.45), a = Math.atan2(-v, u);
+        c.save(); c.translate(X[i], Y[i]); c.rotate(a);
+        c.globalAlpha = aimed ? 1 : 0.55; c.lineWidth = aimed ? 2.8 : 1.5; c.lineCap = 'round'; c.lineJoin = 'round';
+        if (aimed) { c.strokeStyle = dark ? 'rgba(0,0,0,.6)' : 'rgba(255,255,255,.9)'; c.lineWidth = 5; c.beginPath(); c.moveTo(-len / 2, 0); c.lineTo(len / 2, 0); c.moveTo(len / 2 - 6, -4); c.lineTo(len / 2, 0); c.lineTo(len / 2 - 6, 4); c.stroke(); c.lineWidth = 2.8; }
+        c.strokeStyle = cat[1];
+        c.beginPath(); c.moveTo(-len / 2, 0); c.lineTo(len / 2, 0); c.moveTo(len / 2 - 6, -4); c.lineTo(len / 2, 0); c.lineTo(len / 2 - 6, 4); c.stroke();
+        c.restore();
+      }
+      c.globalAlpha = 1;
+      const font = getComputedStyle(document.body).fontFamily;
+      const text = (str, x, y, size, color, weight = 700) => {
+        c.font = `${weight} ${size}px ${font}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.lineWidth = 3; c.strokeStyle = dark ? 'rgba(0,0,0,.65)' : 'rgba(255,255,255,.9)'; c.strokeText(str, x, y);
+        c.fillStyle = color; c.fillText(str, x, y);
+      };
+      /* Highs and lows. */
+      for (const ce of an.centers) {
+        const pt = map.latLngToContainerPoint([ce.lat, ce.lon + shift]);
+        if (pt.x < -20 || pt.y < -20 || pt.x > size.x + 20 || pt.y > size.y + 20) continue;
+        text(ce.low ? 'L' : 'H', pt.x, pt.y - 6, 18, ce.low ? (dark ? '#ff8a80' : '#c62828') : (dark ? '#8ab4ff' : '#1f4fbf'), 800);
+        text(String(Math.round(ce.p)), pt.x, pt.y + 9, 10, dark ? '#fff' : '#22303a', 600);
+      }
+      /* Swell sources aimed at home: wind and when the swell could arrive. */
+      for (const cl of an.clusters.slice(0, 4)) {
+        const pt = map.latLngToContainerPoint([cl.lat, cl.lon + shift]);
+        if (pt.x < 0 || pt.y < 0 || pt.x > size.x || pt.y > size.y) continue;
+        const [t1] = swellEta(cl.km, data.T[idx]);
+        text(`${ktText(cl.max)} → ${new Date(t1).toLocaleDateString([], { weekday: 'short' })}`, pt.x, pt.y - 16, 11, stormCat(cl.max)[1]);
+      }
+      show();
+    }
+  });
+  const layer = new L2();
+  const nearestIdx = t => { let b = 0; data.T.forEach((x, i) => { if (Math.abs(x - t) < Math.abs(data.T[b] - t)) b = i; }); return b; };
+  const following = () => Object.entries(map.waveLayers || {}).some(([k, g]) => map.hasLayer(g) && !GRID_LAYERS[k].sst);
+  function follow() { if (!data) return; const i = nearestIdx(mapTime(map) ?? Date.now()); if (i !== idx || !step) { idx = i; layer.loadStep(); } else show(); }
+  function hide() { if (canvas) canvas.style.opacity = 0; }
+  function label(txt) { if (ctl) ctl.getContainer().querySelector('.wt').textContent = txt; }
+  function show() {
+    if (!ctl || !data) return;
+    const el = ctl.getContainer(), fol = following(), home = homePoint();
+    el.querySelector('.wt').innerHTML = `${esc(stormDay(data.T[idx]))} <span class="sub">GFS</span>`;
+    el.querySelector('[data-w="prev"]').hidden = el.querySelector('[data-w="next"]').hidden = fol;
+    el.querySelector('[data-w="prev"]').disabled = idx <= 0;
+    el.querySelector('[data-w="next"]').disabled = idx >= data.T.length - 1;
+    const an = step ? stormAnalysis(data, step, home) : null;
+    el.querySelector('.slist').innerHTML = !an ? '' : an.clusters.length ? an.clusters.slice(0, 3).map((cl, i) => {
+      const [t1, t2] = swellEta(cl.km, data.T[idx]);
+      return `<li><button type="button" data-sc="${i}"><b style="color:${stormCat(cl.max)[1]}">${esc(stormCat(cl.max)[2].replace(' force', ''))} ${esc(ktText(cl.max))}</b> · ${esc(stormDistText(cl.km))} ${esc(compass(cl.from))} · swell ${esc(stormDay(t1))}–${esc(stormDay(t2))}</button></li>`;
+    }).join('') : `<li class="none">No gale-force wind aimed at ${esc(home.name)} at this hour.</li>`;
+    el.querySelector('.sfoot').innerHTML = `${fol ? 'Following the ocean layer\'s hour · ' : ''}GFS run ${esc(stormDay(Date.parse(data.run.replace('Z', ':00Z'))))} · NOAA · tropical storms: ${NHC_CREDIT}`;
+  }
+  /* Tap near strong wind or a pressure center for the details. */
+  function tap(e) {
+    if (!data || !step) return;
+    setTimeout(() => {
+      if (map._popup && map._popup.isOpen && map._popup.isOpen()) return;
+      const home = homePoint(), an = stormAnalysis(data, step, home), { nx, ny } = data;
+      let lon = ((e.latlng.lng - data.west) % 360 + 360) % 360 + data.west;
+      const fx = Math.round((lon - data.west) / data.step), fy = Math.round((data.north - e.latlng.lat) / data.step);
+      if (fx < 0 || fy < 0 || fx >= nx || fy >= ny) return;
+      const px = map.latLngToContainerPoint(e.latlng);
+      const shift = e.latlng.lng - lon;
+      let bi = -1, bk = 0;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+        const x = fx + dx, y = fy + dy; if (x < 0 || y < 0 || x >= nx || y >= ny) continue;
+        const i = y * nx + x; if (data.land[i] || an.kt[i] < 34) continue;
+        const pt = map.latLngToContainerPoint([data.north - y * data.step, data.west + x * data.step + shift]);
+        if (pt.distanceTo(px) > 26) continue;
+        if (an.kt[i] + (an.aim[i] ? 1000 : 0) > bk) { bk = an.kt[i] + (an.aim[i] ? 1000 : 0); bi = i; }
+      }
+      const ce = an.centers.find(cc => map.latLngToContainerPoint([cc.lat, cc.lon + shift]).distanceTo(px) < 24);
+      if (bi < 0 && !ce) return;
+      let html = '';
+      if (ce) html += `<div class="stm"><b>${ce.low ? 'Low' : 'High'} ${Math.round(ce.p)} hPa</b> · ${esc(stormDay(data.T[idx]))}</div>`;
+      if (bi >= 0) {
+        const x = bi % nx, y = (bi - x) / nx, lat = data.north - y * data.step, glon = data.west + x * data.step;
+        const u = step.U[bi] * data.scale, v = step.V[bi] * data.scale, kt = an.kt[bi], cat = stormCat(kt);
+        const from = (Math.atan2(-u, -v) / RAD + 360) % 360, km = gcDistKm(home.lat, home.lon, lat, glon), at = gcBearing(home.lat, home.lon, lat, glon);
+        html += `<div class="stm"><b style="color:${cat[1]}">${esc(cat[2])} · ${esc(ktText(kt))}</b> from the ${esc(compass(from))} · ${Math.round(an.hp[bi])} hPa · ${esc(stormDay(data.T[idx]))}</div>`;
+        if (an.aim[bi]) {
+          const [t1, t2] = swellEta(km, data.T[idx]);
+          html += `<p>Blowing toward ${esc(home.name)}, ${esc(stormDistText(km))} away. Swell from here would come from the ${esc(dirDeg(at))} and could reach ${esc(home.name)} about <b>${esc(stormDay(t1))} – ${esc(stormDay(t2))}</b> (13–18 s swell).</p>`;
+        } else html += `<p>Not aimed at ${esc(home.name)} (${esc(stormDistText(km))} away): this wind sends its swell elsewhere.</p>`;
+      }
+      html += `<p class="sub">Rough guide from the GFS model. It doesn't count islands or coastline in the way, or swell fading over distance.</p>`;
+      L.popup({ maxWidth: 300 }).setLatLng(e.latlng).setContent(`<div class="stormpop">${html}</div>`).openOn(map);
+    }, 0);
+  }
+  const Ctl = L.Control.extend({
+    options: { position: 'bottomleft' },
+    onAdd() {
+      const d = L.DomUtil.create('div', 'wave-ctl storm-ctl');
+      const arrow = col => `<svg width="22" height="10" viewBox="-11 -5 22 10" aria-hidden="true"><path d="M-8 0 H8 M2 -4 L8 0 L2 4" fill="none" stroke="${col}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      d.innerHTML = `<div class="wrow"><button type="button" data-w="prev" aria-label="Earlier">&lsaquo;</button><span class="wt">Storms</span><button type="button" data-w="next" aria-label="Later">&rsaquo;</button></div>
+        <div class="skey">${[...STORM_CATS].reverse().map(([kt, col, nm], i) => `<span>${arrow(col)}${esc(['Gale', 'Storm', 'Hurr.'][i])} ${Math.round(kt * windU()[0] / 1.944)}+${i === 2 ? ' ' + esc(windU()[1]) : ''}</span>`).join('')}</div>
+        <div class="sub keep">Bold arrows blow toward ${esc(homeRegion())} · isobars every 4 hPa · <button type="button" class="linkish" data-pacific>See the Pacific</button></div>
+        <ol class="slist"></ol>
+        <div class="sub sfoot"></div>`;
+      L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d);
+      d.addEventListener('click', e => {
+        if (e.target.closest('[data-pacific]')) { map.flyToBounds(PACIFIC_BOUNDS, { duration: 0.8 }); return; }
+        const sc = e.target.closest('[data-sc]');
+        if (sc && step) {
+          const cl = stormAnalysis(data, step, homePoint()).clusters[+sc.dataset.sc]; if (!cl) return;
+          const lng = cl.lon + 360 * Math.round((map.getCenter().lng - cl.lon) / 360);
+          map.flyTo([cl.lat, lng], Math.min(Math.max(map.getZoom(), 3), 5), { duration: 0.8 });
+          return;
+        }
+        const b = e.target.closest('[data-w]'); if (!b || !data) return;
+        idx = Math.max(0, Math.min(data.T.length - 1, idx + (b.dataset.w === 'next' ? 1 : -1)));
+        show(); layer.loadStep();
+      });
+      return foldable(d);
+    }
+  });
+  return layer;
+}
+/* ---------- Windy ----------
+   Windy.com's free embed (allowed on non-commercial websites, with the Windy logo visible; Windy's own map,
+   models and data). Opened in a full-screen sheet with a few layer choices. */
+const WINDY_LAYERS = [['swell1', 'Swell'], ['waves', 'Waves'], ['wind', 'Wind'], ['pressure', 'Pressure']];
+function windyUrl(lat, lon, zoom, overlay, marker) {
+  const q = new URLSearchParams({
+    lat: lat.toFixed(3), lon: lon.toFixed(3), detailLat: lat.toFixed(3), detailLon: lon.toFixed(3), zoom: String(zoom), level: 'surface',
+    overlay, product: ['swell1', 'waves'].includes(overlay) ? 'ecmwfWaves' : 'ecmwf', menu: '', message: 'true', marker: marker ? 'true' : '',
+    calendar: 'now', pressure: 'true', type: 'map', location: 'coordinates', detail: '',
+    metricWind: { kt: 'kt', mph: 'mph', kmh: 'km/h', ms: 'm/s' }[prefs.windUnits] || 'kt', metricTemp: prefs.units === 'm' ? '°C' : '°F', radarRange: '-1'
+  });
+  return 'https://embed.windy.com/embed2.html?' + q;
+}
+function openWindy(lat, lon, zoom, title, marker) {
+  let layer = 'swell1';
+  const d = openDialog(`<div class="dhead"><h3>${esc(title)}</h3><button type="button" data-act="close" aria-label="Close" style="font-size:28px;min-width:44px;min-height:44px">&times;</button></div>
+    <div class="windy-tabs" role="tablist">${WINDY_LAYERS.map(([k, t]) => `<button type="button" role="tab" data-wl="${k}" aria-selected="${k === layer}">${t}</button>`).join('')}</div>
+    <div class="dbody"><iframe class="windy-frame" title="Windy.com map" src="${windyUrl(lat, lon, zoom, layer, marker)}" allowfullscreen></iframe></div>
+    <div class="windy-note">Map, models and data by <a href="https://www.windy.com/" target="_blank" rel="noopener">Windy.com</a>, free embed for personal, non-commercial use.</div>`, true);
+  d.querySelector('.windy-tabs').addEventListener('click', e => {
+    const b = e.target.closest('[data-wl]'); if (!b || b.dataset.wl === layer) return;
+    layer = b.dataset.wl;
+    d.querySelectorAll('[data-wl]').forEach(x => x.setAttribute('aria-selected', String(x.dataset.wl === layer)));
+    d.querySelector('.windy-frame').src = windyUrl(lat, lon, zoom, layer, marker);
+  });
 }
 /* Map key panels (wave, water temperature, wind) fold down to their title row with the chevron; the choice
    is remembered for all of them. */
@@ -3914,6 +4443,7 @@ function mapLink(map) {
   if (map.ratingLayer && map.hasLayer(map.ratingLayer)) on.push('rating');
   if (map.pulseLayer && map.hasLayer(map.pulseLayer)) on.push('pulse');
   if (map.hazardLayer && map.hasLayer(map.hazardLayer)) on.push('hazard');
+  if (map.stormLayer && map.hasLayer(map.stormLayer)) on.push('storms');
   p.push(`l=${on.join(',') || 'none'}`, `spots=${map.spotsMode || 'all'}`);
   if (map.windLayer && map.hasLayer(map.windLayer)) p.push(`wind=${map.windLayer.model}`);
   const t = grid && grid.stepTime();
@@ -3951,7 +4481,7 @@ function viewMap(q = new URLSearchParams()) {
       if (tab) tab.setAttribute('href', h);
     }, 250);
   };
-  map.on('moveend baselayerchange overlayadd overlayremove wavestep spotschange', sync);
+  map.on('moveend baselayerchange overlayadd overlayremove wavestep spotschange windchange', sync);
   sync();
 }
 
@@ -4186,7 +4716,7 @@ function viewSpotPage(id) {
   setTop(sp.name, '#/spots', `<button type="button" class="hact favhdr" data-act="fav" data-id="${esc(id)}" aria-label="${sp.fav ? 'Remove from favorites' : 'Add to favorites'}" aria-pressed="${!!sp.fav}">${STAR(sp.fav)}</button>`);
   setMain(`
     <div class="sub" style="margin-bottom:10px">${esc(sp.region || 'Your spot')}</div>
-    <div class="actions-row" style="margin-top:0"><a class="btn primary" href="#/sessions/new?spot=${encodeURIComponent(id)}">Log a session here</a><a class="btn" href="#/map?c=${sp.lat.toFixed(4)},${sp.lon.toFixed(4)}&z=14">Map</a></div>
+    <div class="actions-row" style="margin-top:0"><a class="btn primary" href="#/sessions/new?spot=${encodeURIComponent(id)}">Log a session here</a><a class="btn" href="#/map?c=${sp.lat.toFixed(4)},${sp.lon.toFixed(4)}&z=14">Map</a><button type="button" class="btn" data-act="windy" data-lat="${sp.lat}" data-lon="${sp.lon}" data-name="${esc(sp.name)}">Windy</button></div>
     <h2 class="sec">Board pick for right now</h2>
     ${ratedCond.length >= MIN_PICK && boardsWithRated >= 2 ? '<div class="card pick"><div id="pickBody"><span class="sub">Checking the swell, tide and wind…</span></div></div>'
       : lockedCard('Board pick for right now', 'rated sessions with swell data', ratedCond.length, MIN_PICK)}
@@ -4276,7 +4806,10 @@ function viewHelp() {
       <li>Tap the <strong>magnifier</strong> (top left) to search: matching surf spots show first as you type, then press Search for towns and addresses.</li>
       <li>Turn on <strong>Surf rating (spots)</strong> in the layers list to color the spots by a 0–5 rating from swell size and period, swell direction, wind (offshore or onshore) and, once you've rated a few sessions there, the tide. It follows the hour on the CDIP time panel. It's a rough guess from forecast models, often off, so take it with a grain of salt.</li>
       <li>The <strong>layers</strong> button opens menus for the base map, the CDIP wave model (wave height or peak period) and the spot style (my sessions, surf rating, swell pulse, rating + pulse or shore hazard), plus a switch for buoys.</li>
-      <li><strong>Ocean layer</strong> (layers button): CDIP wave height or peak period with a time panel, or <strong>water temperature</strong> from satellites (latest day, usually 1–2 days old). Spot forecasts show the current water temperature in the Now box.</li>
+      <li><strong>Layers panel</strong>: listed in drawing order, top of the list on top (buoys, spots, storms, wind, ocean layer, base map). The color keys at the bottom left stack the same way. Only one shaded layer shows at a time: turning on an ocean layer switches wind to arrows, and choosing shaded wind turns the ocean layer off.</li>
+      <li><strong>Ocean layer</strong> (layers button): CDIP wave height or peak period for California (detailed), <strong>global</strong> wave height or peak period from the WaveWatch III model (every 6 hours, about 6 days ahead; use See the Pacific to zoom out), or <strong>water temperature</strong> from satellites (latest day, usually 1–2 days old). Spot forecasts show the current water temperature in the Now box.</li>
+      <li><strong>Storms</strong> (layers button): the GFS model's pressure and wind over the Pacific every 6 hours for 7 days. Lines are isobars every 4 hPa with H and L centers; the orange outline and arrows mark gale-force wind (34 kt and up) over the ocean, colored gale, storm and hurricane force. <strong>Bold arrows blow toward your home area</strong>: that wind builds swell headed your way. The panel lists the biggest of these with distance, direction and a rough swell arrival window (13–18 s swell); tap one to fly there, or tap the map near strong wind for details. Hurricane tracks and cones come from the National Hurricane Center (latest advisory). It's a rough guide: it doesn't count islands or coastline in the way.</li>
+      <li><strong>Windy</strong>: Windy map of this view (bottom of the layers panel), or the Windy button on a spot page, opens Windy.com's free map with swell, waves, wind and pressure.</li>
       <li><strong>Wind</strong> (layers button): pick a forecast model, HRRR (3 km, next 2 days), GFS (5 days) or ECMWF (6 days), and a style: shaded speed, arrows pointing downwind, or both. Its panel steps through the model's hours; with the CDIP wave layer on, it follows the wave panel's hour. Covers the home area coast (Point Conception to Malibu and the islands).</li>
       <li><strong>Home area</strong> (Settings): the map opens on it, and surf ratings, shore hazard and swell pulse load its spots first. Outside it, only primary spots (plus favorites and spots you've surfed) get data; the rest stay gray. It's set automatically from the first spot you surfed (Ventura until then), and you can change it.</li>
       <li><strong>Buoys and time</strong>: at Now, buoy labels show each buoy's latest reading. Step the CDIP time panel forward and the labels switch to that hour's forecast for each buoy (white with a dashed border, marked "forecast"); the header says which. A buoy's popup always lists the latest reading, with a note at the top for the hour on the panel.</li>
@@ -4293,6 +4826,7 @@ function viewHelp() {
       <li>Water temperature map: NASA GIBS, JPL MUR sea surface temperature analysis (US government data). Spot water temperature: Open-Meteo.</li>
       <li>Swell, tide and weather: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0). Tide is modeled sea level, not a tide table.</li>
       <li>Buoys: NOAA National Data Buoy Center. Base maps: USGS The National Map. Place search: OpenStreetMap (Nominatim).</li>
+      <li>Global wave layers: WaveWatch III global model by the University of Hawaii with NOAA NCEP, served by PacIOOS. Storms: NOAA GFS model (NOMADS); tropical storms: NOAA National Hurricane Center. Windy map: Windy.com free embed.</li>
       <li>Forecasts and suggestions are model estimates. Check the beach.</li></ul>`)}
   </div>`);
 }
@@ -4338,6 +4872,9 @@ function viewSettings() {
         · Swell, tide and weather: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>, licensed <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.<br>
         · Buoys: <a href="https://www.ndbc.noaa.gov/" target="_blank" rel="noopener">NOAA National Data Buoy Center</a> (US public data), updated about every 30 minutes.<br>
         · Imagery: USGS The National Map orthoimagery over <a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless 2023</a> by EOX IT Services (contains modified Copernicus Sentinel data, CC BY-NC-SA 4.0, non-commercial use).<br>
+        · Global wave layers: <a href="https://www.pacioos.hawaii.edu/waves/model-global/" target="_blank" rel="noopener">WaveWatch III global model</a> (University of Hawaii with NOAA NCEP), distributed by PacIOOS. Free public data.<br>
+        · Storms: NOAA GFS sea-level pressure and wind from NOMADS (US public domain); tropical cyclone tracks from the <a href="https://www.nhc.noaa.gov/" target="_blank" rel="noopener">NOAA National Hurricane Center</a> (US public domain).<br>
+        · Windy map: <a href="https://www.windy.com/" target="_blank" rel="noopener">Windy.com</a> free embed (non-commercial website use, Windy logo shown).<br>
         · Wind layers: NOAA HRRR and GFS from NOMADS (US public domain); ECMWF via Open-Meteo.com (CC BY 4.0).<br>
         · Relief base map: <a href="https://www.ncei.noaa.gov/" target="_blank" rel="noopener">NOAA NCEI</a> elevation models. Town names: USGS The National Map (incorporated places). All US public data.<br>
         · Base maps and imagery: <a href="https://www.usgs.gov/programs/national-geospatial-program/national-map" target="_blank" rel="noopener">USGS The National Map</a> (US public domain).</span></div></div>`);
@@ -4630,6 +5167,7 @@ document.addEventListener('click', async e => {
       case 'close': closeDialog(); break;
       case 'openDay': e.preventDefault(); location.hash = `#/spot/${encodeURIComponent(id)}/day/${el.dataset.day}`; break;
       case 'ratingHelp': e.preventDefault(); openDialog(`<h3>Surf rating</h3>${ratingGuideHTML(true)}<div class="actions"><button data-act="close">Close</button></div>`); break;
+      case 'windy': e.preventDefault(); openWindy(+el.dataset.lat, +el.dataset.lon, 8, `Windy: ${el.dataset.name}`, true); break;
       case 'hazardHelp': e.preventDefault(); openDialog(`<h3>Shoreline hazard</h3>${hazardGuideHTML()}<div class="actions"><button data-act="close">Close</button></div>`); break;
       case 'favReorder': spotsReorder = !spotsReorder; route(); break;
       case 'favUp': case 'favDown': await moveFav(id, act === 'favUp' ? -1 : 1); route(); break;
