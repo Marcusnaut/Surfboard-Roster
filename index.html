@@ -551,7 +551,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 15.2 (wind arrows show speeds; arrow key when arrows only)';
+const BUILD = 'Build 15.3 (smaller, blue italic wind arrow numbers)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -1547,9 +1547,10 @@ function windLayer(map) {
           c.restore();
           /* Speed in the chosen wind units, tiny, just under the arrow. */
           const lbl = String(Math.round(sp * windU()[0]));
-          c.font = '600 9px ' + getComputedStyle(document.body).fontFamily; c.textAlign = 'center'; c.textBaseline = 'top';
-          c.lineWidth = 2.5; c.strokeStyle = dark ? 'rgba(0,0,0,.55)' : 'rgba(255,255,255,.85)'; c.strokeText(lbl, x, y + 7);
-          c.fillStyle = dark ? '#fff' : '#0b2834'; c.fillText(lbl, x, y + 7);
+          /* Own look so they don't read as spot or town names: small italic, blue (light blue on Imagery). */
+          c.font = 'italic 500 7.5px ' + getComputedStyle(document.body).fontFamily; c.textAlign = 'center'; c.textBaseline = 'top';
+          c.lineWidth = 1.5; c.strokeStyle = dark ? 'rgba(0,0,0,.5)' : 'rgba(255,255,255,.8)'; c.strokeText(lbl, x, y + 7);
+          c.fillStyle = dark ? '#a9dcff' : '#1d5f8a'; c.fillText(lbl, x, y + 7);
         }
         c.setTransform(1, 0, 0, 1, 0, 0);
       }
