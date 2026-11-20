@@ -376,6 +376,10 @@ header.top.maphdr h1 { position: absolute; width: 1px; height: 1px; overflow: hi
 .map-legend .check input { accent-color: #fff; }
 .map-legend .sub { color: inherit; opacity: .8; }
 .sstleg, .windleg { height: 14px; border-radius: 3px; }
+.warrkey { display: none; justify-content: space-between; margin-top: 6px; font-size: 11px; }
+.warrkey span { display: inline-flex; align-items: center; gap: 2px; }
+.wind-ctl.arrows-only .warrkey { display: flex; }
+.wind-ctl.arrows-only .windleg, .wind-ctl.arrows-only .wticks { display: none; }
 .wind-canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
 .map-legend .lbt { opacity: .8; font-size: .9em; }
 .buoy .blbl.timed { background: rgba(255,255,255,.95); color: #0b3a4a; border: 1.5px dashed #0b3a4a; }
@@ -547,7 +551,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 15.1 (map key panels fold down)';
+const BUILD = 'Build 15.2 (wind arrows show speeds; arrow key when arrows only)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -1541,6 +1545,11 @@ function windLayer(map) {
           c.strokeStyle = dark ? 'rgba(255,255,255,.95)' : 'rgba(11,40,52,.9)';
           c.beginPath(); c.moveTo(-len / 2, 0); c.lineTo(len / 2, 0); c.moveTo(len / 2 - 6, -4); c.lineTo(len / 2, 0); c.lineTo(len / 2 - 6, 4); c.stroke();
           c.restore();
+          /* Speed in the chosen wind units, tiny, just under the arrow. */
+          const lbl = String(Math.round(sp * windU()[0]));
+          c.font = '600 9px ' + getComputedStyle(document.body).fontFamily; c.textAlign = 'center'; c.textBaseline = 'top';
+          c.lineWidth = 2.5; c.strokeStyle = dark ? 'rgba(0,0,0,.55)' : 'rgba(255,255,255,.85)'; c.strokeText(lbl, x, y + 7);
+          c.fillStyle = dark ? '#fff' : '#0b2834'; c.fillText(lbl, x, y + 7);
         }
         c.setTransform(1, 0, 0, 1, 0, 0);
       }
@@ -1561,6 +1570,8 @@ function windLayer(map) {
     const t = data.T[idx], waveOn = Object.entries(map.waveLayers || {}).some(([k, g]) => map.hasLayer(g) && !GRID_LAYERS[k].sst);
     el.querySelector('.wt').innerHTML = `${esc(new Date(t).toLocaleString([], { weekday: 'short', hour: 'numeric' }))} <span class="sub">${esc(data.model)}</span>`;
     el.querySelector('[data-w="prev"]').hidden = el.querySelector('[data-w="next"]').hidden = !!waveOn;
+    /* Arrows only: the key shows arrow sizes; with shading: the color bar. */
+    el.classList.toggle('arrows-only', (prefs.windStyle || 'both') === 'arrows');
     el.querySelector('[data-w="prev"]').disabled = idx <= 0;
     el.querySelector('[data-w="next"]').disabled = idx >= data.T.length - 1;
     el.querySelector('.wfoot').innerHTML = `${waveOn ? 'Following the wave panel\'s hour. ' : ''}Model run ${esc(new Date(Date.parse(data.run.replace('Z', ':00Z'))).toLocaleString([], { weekday: 'short', hour: 'numeric' }))} · ${esc(data.source)}`;
@@ -1574,6 +1585,7 @@ function windLayer(map) {
       d.innerHTML = `<div class="wrow"><button type="button" data-w="prev" aria-label="Earlier">&lsaquo;</button><span class="wt">Wind</span><button type="button" data-w="next" aria-label="Later">&rsaquo;</button></div>
         <div class="wleg windleg" style="background:linear-gradient(90deg, ${WIND_STOPS.filter(([k]) => k <= 30).map(([k, c]) => `rgb(${c}) ${(k / 30 * 100).toFixed(0)}%`).join(', ')})"></div>
         <div class="wticks">${ticks.map((t, i) => `<span>${t}${i === ticks.length - 1 ? '+ ' + esc(u) : ''}</span>`).join('')}</div>
+        <div class="warrkey">${[5, 15, 25].map(kt => { const len = 8 + Math.min(22, kt * 0.9); return `<span><svg width="34" height="12" viewBox="-17 -6 34 12" aria-hidden="true"><path d="M${-len / 2} 0 H${len / 2} M${len / 2 - 6} -4 L${len / 2} 0 L${len / 2 - 6} 4" fill="none" stroke="currentColor" stroke-width="${kt > 15 ? 2.6 : 1.8}" stroke-linecap="round" stroke-linejoin="round"/></svg>${Math.round(kt * f)} ${esc(u)}</span>`; }).join('')}</div>
         <div class="sub wfoot"></div>`;
       L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d);
       d.addEventListener('click', e => {
