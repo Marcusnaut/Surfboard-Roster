@@ -437,29 +437,30 @@ details.install li { margin: 3px 0; }
 .wave-ctl .wrow button.wfold { min-width: 32px; font-size: 14px; background: none; color: var(--muted); }
 .wave-ctl.folded > :not(.wrow) { display: none !important; }
 /* Key dock: every key panel lives in one card (see keyDock). */
-.keydock { background: var(--surface); color: var(--ink); border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.18); width: 252px; padding: 4px 6px; margin-bottom: 8px !important; font-size: 13px; }
+.keydock { background: var(--surface); color: var(--ink); border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.18); width: min(340px, calc(100vw - 24px)); box-sizing: border-box; padding: 4px 6px; margin-bottom: 8px !important; font-size: 13px; }
 .keydock[hidden] { display: none; }
 .leaflet-bottom.leaflet-left:has(> .keydock:not([hidden])) { padding-bottom: calc(var(--attrh, 16px) + 6px); }
 .leaflet-container.popup-open .keydock { display: none; }
 .kd-row { display: flex; align-items: center; gap: 4px; }
 .kd-row button { min-width: 36px; min-height: 36px; border: 0; border-radius: 10px; background: var(--chip, rgba(0,0,0,.06)); color: inherit; font-size: 22px; line-height: 1; padding: 0; }
 .kd-row button[data-kd="play"] { font-size: 13px; letter-spacing: -2px; }
-.keydock.playing [data-kd="play"] { background: var(--brand); color: var(--brand-ink); }
+.keydock.playing [data-kd="play"] { background: var(--accent); color: var(--accent-ink); }
 .kd-row button[data-kd="open"] { min-width: 28px; background: none; color: var(--muted); font-size: 14px; }
 .kd-row button:disabled { opacity: .35; }
 .kd-row button[hidden] { display: none; }
 .kd-l { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; line-height: 1.15; }
-.kd-t { font-weight: 650; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.kd-t { font-weight: 650; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .kd-n { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .kd-bar { padding: 2px 4px 0; }
 .kd-bar[hidden] { display: none; }
-.kd-bar input { width: 100%; height: 18px; margin: 0; -webkit-appearance: none; appearance: none; background: transparent; touch-action: none; }
-.kd-bar input::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--brand, #1f7fb8) var(--pct, 0%), var(--line, rgba(0,0,0,.15)) var(--pct, 0%)); }
-.kd-bar input::-moz-range-track { height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--brand, #1f7fb8) var(--pct, 0%), var(--line, rgba(0,0,0,.15)) var(--pct, 0%)); }
-.kd-bar input::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; margin-top: -6px; border-radius: 50%; background: var(--brand, #1f7fb8); border: 2px solid var(--surface, #fff); box-shadow: 0 1px 3px rgba(0,0,0,.3); }
-.kd-bar input::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--brand, #1f7fb8); border: 2px solid var(--surface, #fff); }
-.keydock.loading .kd-bar input::-webkit-slider-thumb { opacity: .55; }
-.kd-ends { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--muted); margin-top: -1px; }
+.kd-bar input { width: 100%; height: 26px; margin: 0; -webkit-appearance: none; appearance: none; background: transparent; touch-action: none; }
+/* High contrast in light and dark: bright accent for the played part and knob, a mid-gray for the rest. */
+.kd-bar input::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--accent) var(--pct, 0%), rgba(128,142,148,.55) var(--pct, 0%)); }
+.kd-bar input::-moz-range-track { height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--accent) var(--pct, 0%), rgba(128,142,148,.55) var(--pct, 0%)); }
+.kd-bar input::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; margin-top: -8px; border-radius: 50%; background: var(--accent); border: 3px solid var(--ink); box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+.kd-bar input::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--accent); border: 3px solid var(--ink); }
+.keydock.loading .kd-bar input::-webkit-slider-thumb { opacity: .6; }
+.kd-ends { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); margin-top: -2px; }
 .kd-body { display: none; max-height: min(42vh, 340px); overflow-y: auto; overscroll-behavior: contain; }
 .keydock.open .kd-body { display: flex; flex-direction: column; }
 .kd-body > .wave-ctl { order: 3; width: auto; background: none; box-shadow: none; border-radius: 0; padding: 6px 2px; margin: 0 !important; border-top: 1px solid var(--line, rgba(0,0,0,.1)); }
@@ -601,7 +602,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 17.2 (spot style: plain points)';
+const BUILD = 'Build 17.3 (wider time dock, high-contrast timeline)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
