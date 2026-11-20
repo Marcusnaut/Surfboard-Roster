@@ -577,7 +577,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 16 (global wave layers, storm tracking, Windy map, one shaded layer at a time)';
+const BUILD = 'Build 16.1 (HRRR default wind model; GFS and ECMWF labeled longer range)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -1230,7 +1230,7 @@ function makeMap(el, opts = {}) {
             ${overlays['Buoys'] ? '<label class="lyr-row lyr-sw"><span>Buoys</span><input type="checkbox" role="switch" data-lyr="buoys"></label>' : ''}
             ${map.ratingLayer ? `<label class="lyr-row"><span>Spot style</span><select data-lyr="style"><option value="sessions">My sessions</option><option value="rating">Surf rating</option>${pulseOn() ? '<option value="pulse">Swell pulse</option><option value="both">Rating + pulse</option>' : ''}${hazardOn() ? '<option value="hazard">Shore hazard</option>' : ''}</select></label>` : ''}
             ${map.stormLayer ? '<label class="lyr-row lyr-sw"><span>Storms <small>Pacific, 7 days</small></span><input type="checkbox" role="switch" data-lyr="storms"></label>' : ''}
-            ${map.windLayer ? `<label class="lyr-row"><span>Wind <small>forecast model</small></span><select data-lyr="wind"><option value="">Off</option>${Object.entries(WIND_MODELS).map(([k, w]) => `<option value="${k}">${esc(w.label)}</option>`).join('')}</select></label>
+            ${map.windLayer ? `<label class="lyr-row"><span>Wind <small>forecast model</small></span><select data-lyr="wind"><option value="">Off</option>${[...new Set(Object.values(WIND_MODELS).map(w => w.group))].map(gr => `<optgroup label="${esc(gr)}">${Object.entries(WIND_MODELS).filter(([, w]) => w.group === gr).map(([k, w]) => `<option value="${k}">${esc(w.label)}</option>`).join('')}</optgroup>`).join('')}</select></label>
             <label class="lyr-row"><span>Wind style</span><select data-lyr="windStyle"><option value="both">Shaded + arrows</option><option value="shade">Shaded speed</option><option value="arrows">Arrows</option></select></label>` : ''}
             ${map.waveLayers ? `<label class="lyr-row"><span>Ocean layer <small>one at a time</small></span><select data-lyr="grid"><option value="off">Off</option>${[...new Set(Object.values(GRID_LAYERS).map(c => c.group))].map(gr => `<optgroup label="${esc(gr)}">${Object.entries(GRID_LAYERS).filter(([, c]) => c.group === gr).map(([k, c]) => `<option value="${k}">${esc(c.menu)}</option>`).join('')}</optgroup>`).join('')}</select></label>` : ''}
             <label class="lyr-row"><span>Base map</span><select data-lyr="base">${Object.keys(BASEMAPS).map(k => `<option value="${k}">${esc(BASEMAPS[k].label)}</option>`).join('')}</select></label>
@@ -1613,7 +1613,10 @@ function sstLayer(map) {
    Drawn on one canvas: shaded speed (smoothed), arrows, or both. Its own panel steps through the model's
    hours; with a CDIP wave layer on, it follows that panel's hour instead. */
 const WIND_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/wind/';
-const WIND_MODELS = { hrrr: { label: 'HRRR (3 km, 2 days)' }, gfs: { label: 'GFS (25 km, 5 days)' }, ecmwf: { label: 'ECMWF (25 km, 6 days)' } };
+/* HRRR is the default: the most detailed, and the one that matches the hourly time panels. GFS and ECMWF are
+   for looking further ahead. */
+const WIND_MODELS = { hrrr: { label: 'HRRR (default)', group: 'Next 2 days, 3 km' }, gfs: { label: 'GFS (5 days)', group: 'Longer range, 25 km' }, ecmwf: { label: 'ECMWF (6 days)', group: 'Longer range, 25 km' } };
+const WIND_DEFAULT = 'hrrr';
 /* Speed colors in knots, the usual blue-green-yellow-red wind scale. */
 const WIND_STOPS = [[0, [58, 111, 216]], [5, [47, 179, 168]], [10, [124, 200, 74]], [15, [242, 212, 58]], [20, [240, 160, 58]], [25, [226, 85, 58]], [35, [163, 41, 122]]];
 function windColor(kt) {
@@ -1720,7 +1723,7 @@ function windLayer(map) {
     }
   });
   const layer = new L2();
-  layer.model = 'hrrr';
+  layer.model = WIND_DEFAULT;
   const nearestIdx = t => { let b = 0; data.T.forEach((x, i) => { if (Math.abs(x - t) < Math.abs(data.T[b] - t)) b = i; }); return b; };
   function follow() { if (!data) return; const t = mapTime(map); idx = nearestIdx(t ?? Date.now()); layer.redraw(); }
   function hide() { if (canvas) canvas.style.opacity = 0; }
@@ -1737,7 +1740,9 @@ function windLayer(map) {
     el.classList.toggle('arrows-only', (prefs.windStyle || 'both') === 'arrows');
     el.querySelector('[data-w="prev"]').disabled = idx <= 0;
     el.querySelector('[data-w="next"]').disabled = idx >= data.T.length - 1;
-    el.querySelector('.wfoot').innerHTML = `${waveOn ? 'Following the wave panel\'s hour. ' : ''}Model run ${esc(new Date(Date.parse(data.run.replace('Z', ':00Z'))).toLocaleString([], { weekday: 'short', hour: 'numeric' }))} · ${esc(data.source)}`;
+    const mt = mapTime(map), past = mt != null && mt > data.T[data.T.length - 1] + 3600000;
+    el.querySelector('.wfoot').classList.toggle('keep', past);
+    el.querySelector('.wfoot').innerHTML = `${past ? `<b>Past ${esc(data.model)}'s last hour: pick GFS or ECMWF (longer range) in the layers panel.</b> ` : ''}${waveOn ? 'Following the wave panel\'s hour. ' : ''}Model run ${esc(new Date(Date.parse(data.run.replace('Z', ':00Z'))).toLocaleString([], { weekday: 'short', hour: 'numeric' }))} · ${esc(data.source)}`;
   }
   const Ctl = L.Control.extend({
     options: { position: 'bottomleft' },
@@ -4810,7 +4815,7 @@ function viewHelp() {
       <li><strong>Ocean layer</strong> (layers button): CDIP wave height or peak period for California (detailed), <strong>global</strong> wave height or peak period from the WaveWatch III model (every 6 hours, about 6 days ahead; use See the Pacific to zoom out), or <strong>water temperature</strong> from satellites (latest day, usually 1–2 days old). Spot forecasts show the current water temperature in the Now box.</li>
       <li><strong>Storms</strong> (layers button): the GFS model's pressure and wind over the Pacific every 6 hours for 7 days. Lines are isobars every 4 hPa with H and L centers; the orange outline and arrows mark gale-force wind (34 kt and up) over the ocean, colored gale, storm and hurricane force. <strong>Bold arrows blow toward your home area</strong>: that wind builds swell headed your way. The panel lists the biggest of these with distance, direction and a rough swell arrival window (13–18 s swell); tap one to fly there, or tap the map near strong wind for details. Hurricane tracks and cones come from the National Hurricane Center (latest advisory). It's a rough guide: it doesn't count islands or coastline in the way.</li>
       <li><strong>Windy</strong>: Windy map of this view (bottom of the layers panel), or the Windy button on a spot page, opens Windy.com's free map with swell, waves, wind and pressure.</li>
-      <li><strong>Wind</strong> (layers button): pick a forecast model, HRRR (3 km, next 2 days), GFS (5 days) or ECMWF (6 days), and a style: shaded speed, arrows pointing downwind, or both. Its panel steps through the model's hours; with the CDIP wave layer on, it follows the wave panel's hour. Covers the home area coast (Point Conception to Malibu and the islands).</li>
+      <li><strong>Wind</strong> (layers button): pick a forecast model: HRRR (the default; 3 km, next 2 days, best detail) or, for longer range, GFS (5 days) or ECMWF (6 days), and a style: shaded speed, arrows pointing downwind, or both. Its panel steps through the model's hours; with the CDIP wave layer on, it follows the wave panel's hour. Covers the home area coast (Point Conception to Malibu and the islands).</li>
       <li><strong>Home area</strong> (Settings): the map opens on it, and surf ratings, shore hazard and swell pulse load its spots first. Outside it, only primary spots (plus favorites and spots you've surfed) get data; the rest stay gray. It's set automatically from the first spot you surfed (Ventura until then), and you can change it.</li>
       <li><strong>Buoys and time</strong>: at Now, buoy labels show each buoy's latest reading. Step the CDIP time panel forward and the labels switch to that hour's forecast for each buoy (white with a dashed border, marked "forecast"); the header says which. A buoy's popup always lists the latest reading, with a note at the top for the hour on the panel.</li>
       <li><strong>Shore hazard</strong> colors spots by how far up the beach the water may reach: tide plus wave runup (Stockdon 2006 formula). It takes big surf and a high tide together to rate high. Spot forecasts show it per day and per hour; tap Shore ⓘ for details. Turn it off in Settings → Forecasts if you don't want it; it's then neither calculated nor shown.</li>
