@@ -436,18 +436,33 @@ details.install li { margin: 3px 0; }
 .wave-ctl .wt { font-weight: 600; text-align: center; flex: 1; }
 .wave-ctl .wrow button.wfold { min-width: 32px; font-size: 14px; background: none; color: var(--muted); }
 .wave-ctl.folded > :not(.wrow) { display: none !important; }
-/* Key panels stack like the layers they describe: storms on top, then wind, then the ocean layer. */
-.leaflet-bottom.leaflet-left { display: flex; flex-direction: column; align-items: flex-start; }
-.leaflet-bottom.leaflet-left > .leaflet-control { order: 5; }
-.leaflet-bottom.leaflet-left > .wave-ctl { order: 3; margin-bottom: 8px !important; }
-.leaflet-bottom.leaflet-left:has(> .wave-ctl) { padding-bottom: calc(var(--attrh, 16px) + 6px); }
-.leaflet-bottom.leaflet-left > .storm-ctl { width: 252px; }
-.leaflet-bottom.leaflet-left > .wind-ctl { order: 2; }
-.leaflet-bottom.leaflet-left > .storm-ctl { order: 1; }
+/* Key dock: every key panel lives in one card (see keyDock). */
+.keydock { background: var(--surface); color: var(--ink); border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.18); width: 252px; padding: 4px 6px; margin-bottom: 8px !important; font-size: 13px; }
+.keydock[hidden] { display: none; }
+.leaflet-bottom.leaflet-left:has(> .keydock:not([hidden])) { padding-bottom: calc(var(--attrh, 16px) + 6px); }
+.leaflet-container.popup-open .keydock { display: none; }
+.kd-row { display: flex; align-items: center; gap: 4px; }
+.kd-row button { min-width: 36px; min-height: 36px; border: 0; border-radius: 10px; background: var(--chip, rgba(0,0,0,.06)); color: inherit; font-size: 22px; line-height: 1; padding: 0; }
+.kd-row button[data-kd="play"] { font-size: 13px; letter-spacing: -2px; }
+.keydock.playing [data-kd="play"] { background: var(--brand); color: var(--brand-ink); }
+.kd-row button[data-kd="open"] { min-width: 28px; background: none; color: var(--muted); font-size: 14px; }
+.kd-row button:disabled { opacity: .35; }
+.kd-row button[hidden] { display: none; }
+.kd-l { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; line-height: 1.15; }
+.kd-t { font-weight: 650; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.kd-n { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.kd-body { display: none; max-height: min(42vh, 340px); overflow-y: auto; overscroll-behavior: contain; }
+.keydock.open .kd-body { display: flex; flex-direction: column; }
+.kd-body > .wave-ctl { order: 3; width: auto; background: none; box-shadow: none; border-radius: 0; padding: 6px 2px; margin: 0 !important; border-top: 1px solid var(--line, rgba(0,0,0,.1)); }
+.kd-body > .wind-ctl { order: 2; }
+.kd-body > .storm-ctl { order: 1; }
+.kd-body > .wave-ctl.offmap { display: block; }
+.kd-body .wave-ctl > .wrow { display: none; }
+.kd-body .wave-ctl::before { content: attr(data-title); display: block; font-weight: 600; font-size: 12px; margin-bottom: 2px; }
+.kd-body .wave-ctl .sub:not(.keep) { display: none; }
+.warrkey span { white-space: nowrap; }
 .linkish { background: none; border: 0; padding: 0; min-height: 0; min-width: 0; font: inherit; color: var(--brand, #1f7fb8); text-decoration: underline; cursor: pointer; }
 .skey { display: flex; justify-content: space-between; gap: 2px; margin-top: 4px; font-size: 11px; }
-/* With more than one key showing, drop the credit lines (the map's credit line keeps them) so the stack stays short. */
-.leaflet-bottom.leaflet-left:has(> .wave-ctl ~ .wave-ctl) .wave-ctl .sub:not(.keep) { display: none; }
 .skey span { display: inline-flex; align-items: center; gap: 1px; white-space: nowrap; }
 .slist { list-style: none; margin: 4px 0 0; padding: 0; font-size: 12px; }
 .slist li + li { border-top: 1px solid var(--line, rgba(0,0,0,.08)); }
@@ -577,7 +592,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 16.1 (HRRR default wind model; GFS and ECMWF labeled longer range)';
+const BUILD = 'Build 17 (one key dock with shared map time and play; Relief default base map)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -588,13 +603,13 @@ const EOX_URL = 'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2023_3857/defa
 const EOX_CREDIT = '<a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless</a> by EOX (Copernicus Sentinel data 2023)';
 const USGS_WMS = 'https://basemap.nationalmap.gov/arcgis/services/{name}/MapServer/WMSServer';
 const BASEMAPS = {
+  /* Default. NOAA NCEI shaded relief of land and seafloor, from its high-resolution coastal elevation models. */
+  relief: { label: 'Relief', arc: 'https://gis.ngdc.noaa.gov/arcgis/rest/services/DEM_mosaics/DEM_global_mosaic_hillshade/ImageServer/exportImage', maxNativeZoom: 17, names: true, plainNames: true,
+    credit: '<a href="https://www.ncei.noaa.gov/products/coastal-elevation-models" target="_blank" rel="noopener">NOAA NCEI</a> relief' },
   map: { label: 'Hydro', name: 'USGSHydroCached', maxNativeZoom: 16, names: true },
   topo: { label: 'Topo', name: 'USGSTopo', maxNativeZoom: 16 },
   /* USGS retired its imagery-with-labels service (USGSImageryTopo) in 2026; plain imagery plus the app's town names. */
   imagery: { label: 'Imagery', name: 'USGSImageryOnly', maxNativeZoom: 16, dark: true, names: true, plainNames: true, under: 'eox' },
-  /* NOAA NCEI shaded relief of land and seafloor, from its high-resolution coastal elevation models. */
-  relief: { label: 'Relief', arc: 'https://gis.ngdc.noaa.gov/arcgis/rest/services/DEM_mosaics/DEM_global_mosaic_hillshade/ImageServer/exportImage', maxNativeZoom: 17, names: true, plainNames: true,
-    credit: '<a href="https://www.ncei.noaa.gov/products/coastal-elevation-models" target="_blank" rel="noopener">NOAA NCEI</a> relief' }
 };
 const USGS_CREDIT = '<a href="https://www.usgs.gov/programs/national-geospatial-program/national-map" target="_blank" rel="noopener">USGS The National Map</a>';
 const BUOY_URL = 'https://raw.githubusercontent.com/Marcusnaut/Surfboard-Roster/data/buoys.json';
@@ -750,7 +765,7 @@ async function seed() {
 
 /* ---------- in-memory state ---------- */
 const S = { options: [], boards: [], sessions: [], spots: [], photos: new Map(), meta: {}, fins: [], finLinks: [] };
-const PREF_DEFAULTS = { boardsView: 'tiles', boardSort: 'model', filterType: '', filterShaper: '', showRetired: false, units: 'ft', sessionSort: 'newest', finsView: 'table', finSort: 'name', filterFinSetup: '', showRetiredFins: false, showAllSpots: true, statsSpot: '', disabledLists: [], baseMap: 'map', showBuoys: true, showWaves: false, showPeriod: false, showRating: false, showPulse: false, showHazard: false, windUnits: 'kt' };
+const PREF_DEFAULTS = { boardsView: 'tiles', boardSort: 'model', filterType: '', filterShaper: '', showRetired: false, units: 'ft', sessionSort: 'newest', finsView: 'table', finSort: 'name', filterFinSetup: '', showRetiredFins: false, showAllSpots: true, statsSpot: '', disabledLists: [], baseMap: 'relief', showBuoys: true, showWaves: false, showPeriod: false, showRating: false, showPulse: false, showHazard: false, windUnits: 'kt' };
 let prefs = { ...PREF_DEFAULTS };
 async function loadAll() {
   const [options, boards, sessions, spots, photos, meta, fins, finLinks] = await Promise.all(STORES.map(getAll));
@@ -1159,13 +1174,14 @@ function makeMap(el, opts = {}) {
   map.spotRenderer = L.canvas({ tolerance: 14, padding: 0.5 });
   if (!map.getPane('baseover')) map.createPane('baseover').style.zIndex = 210;
   const bases = Object.fromEntries(Object.keys(BASEMAPS).map(k => [k, baseLayer(k)]));
-  const cur = st.base && bases[st.base] ? st.base : bases[prefs.baseMap] ? prefs.baseMap : 'map';
+  const cur = st.base && bases[st.base] ? st.base : bases[prefs.baseMap] ? prefs.baseMap : 'relief';
   map.baseKey = cur;
   bases[cur].addTo(map);
   el.classList.toggle('imagery', !!BASEMAPS[cur].dark);
   const overlays = {};
   map.overlayLayers = overlays;
   if (buoys) {
+    keyDock(map);
     const layer = buoyLayer();
     overlays['Buoys'] = layer;
     if (st.overlays ? st.overlays.has('buoys') : prefs.showBuoys) layer.addTo(map);
@@ -1319,12 +1335,12 @@ function makeMap(el, opts = {}) {
 const WAVE_NAME = 'Wave height (CDIP, Calif.)';
 /* CDIP California grid layers drawn by CDIP's WMS. Period uses CDIP's 2-second color bands like their own map. */
 const GRID_LAYERS = {
-  waves: { name: WAVE_NAME, title: 'Wave height', menu: 'Wave height', group: 'California (CDIP, detailed)', param: 'waveHs', lo: 0, hi: WAVE_MAX_M, bands: 250, pref: 'showWaves', ticks: () => waveLegendTicks() },
-  period: { name: 'Peak period (CDIP, Calif.)', title: 'Peak period', menu: 'Peak period', group: 'California (CDIP, detailed)', param: 'waveTp', lo: 5, hi: 25, bands: 10, pref: 'showPeriod', ticks: () => ['5', '10', '15', '20', '25 s'] },
-  gwaves: { name: 'Wave height (global)', title: 'Wave height', menu: 'Wave height', group: 'Global (WaveWatch III)', global: true, param: 'Thgt', lo: 0, hi: 9.144, bands: 60, pref: 'showGWaves',
+  waves: { name: WAVE_NAME, title: 'Wave height', menu: 'Wave height', short: 'Waves', group: 'California (CDIP, detailed)', param: 'waveHs', lo: 0, hi: WAVE_MAX_M, bands: 250, pref: 'showWaves', ticks: () => waveLegendTicks() },
+  period: { name: 'Peak period (CDIP, Calif.)', title: 'Peak period', menu: 'Peak period', short: 'Period', group: 'California (CDIP, detailed)', param: 'waveTp', lo: 5, hi: 25, bands: 10, pref: 'showPeriod', ticks: () => ['5', '10', '15', '20', '25 s'] },
+  gwaves: { name: 'Wave height (global)', title: 'Wave height', menu: 'Wave height', short: 'Global waves', group: 'Global (WaveWatch III)', global: true, param: 'Thgt', lo: 0, hi: 9.144, bands: 60, pref: 'showGWaves',
     ticks: () => prefs.units === 'm' ? ['0', '2.3', '4.6', '6.9', '9.1 m'] : ['0', '7.5', '15', '22.5', '30 ft'] },
-  gperiod: { name: 'Peak period (global)', title: 'Peak period', menu: 'Peak period', group: 'Global (WaveWatch III)', global: true, param: 'Tper', lo: 5, hi: 25, bands: 20, pref: 'showGPeriod', ticks: () => ['5', '10', '15', '20', '25 s'] },
-  sst: { name: 'Water temperature (satellite)', title: 'Water temp', menu: 'Water temperature', group: 'Satellite', pref: 'showSST', sst: true }
+  gperiod: { name: 'Peak period (global)', title: 'Peak period', menu: 'Peak period', short: 'Global period', group: 'Global (WaveWatch III)', global: true, param: 'Tper', lo: 5, hi: 25, bands: 20, pref: 'showGPeriod', ticks: () => ['5', '10', '15', '20', '25 s'] },
+  sst: { name: 'Water temperature (satellite)', title: 'Water temp', menu: 'Water temperature', short: 'Water temp', group: 'Satellite', pref: 'showSST', sst: true }
 };
 let gridFetch = null;
 async function loadWaveGrid() {
@@ -1435,6 +1451,7 @@ function waveLayer(map, startTime, key = 'waves') {
     map.fire('wavestep');
   };
   layer.stepTime = () => { const st = steps[idx]; return st && !st.now ? st.time : null; };
+  layer.timed = true;
   /* Switching between height and period keeps the hour you were looking at. */
   layer.carryTime = t => {
     const i = t ? steps.findIndex(x => !x.now && Date.parse(x.time) >= Date.parse(t) - 60000) : 0;
@@ -1444,6 +1461,7 @@ function waveLayer(map, startTime, key = 'waves') {
     options: { position: 'bottomleft' },
     onAdd() {
       const d = L.DomUtil.create('div', 'wave-ctl');
+      d.dataset.title = `${cfg.title} · California (CDIP)`; d.dataset.short = cfg.short;
       const leg = `${WAVE_WMS}nowcast.nc?REQUEST=GetLegendGraphic&LAYERS=${cfg.param}&PALETTE=cdip&COLORSCALERANGE=${cfg.lo},${cfg.hi}&NUMCOLORBANDS=${cfg.bands}&COLORBARONLY=true&VERTICAL=false&WIDTH=220&HEIGHT=14`;
       d.innerHTML = `<div class="wrow"><button type="button" data-w="prev" aria-label="Earlier">&lsaquo;</button><span class="wt">Now</span><button type="button" data-w="next" aria-label="Later">&rsaquo;</button></div>
         <img class="wleg" alt="" src="${leg}"><div class="wticks">${cfg.ticks().map(t => `<span>${t}</span>`).join('')}</div>
@@ -1541,6 +1559,7 @@ function globalLayer(map, startTime, key) {
     map.fire('wavestep');
   };
   layer.stepTime = () => { const st = steps[idx]; return st && !st.now ? st.time : null; };
+  layer.timed = true;
   layer.carryTime = t => {
     const i = t ? steps.findIndex(x => !x.now && Date.parse(x.time) >= Date.parse(t) - 60000) : 0;
     if (i >= 0) { idx = i; if (layer._map) show(); } else { startTime = t; idx = 0; }
@@ -1549,10 +1568,11 @@ function globalLayer(map, startTime, key) {
     options: { position: 'bottomleft' },
     onAdd() {
       const d = L.DomUtil.create('div', 'wave-ctl global-ctl');
+      d.dataset.title = `${cfg.title} · global (WaveWatch III)`; d.dataset.short = cfg.short;
       const leg = `${GLOBAL_WMS}?REQUEST=GetLegendGraphic&LAYER=${cfg.param}&PALETTE=rainbow&COLORSCALERANGE=${cfg.lo},${cfg.hi}&NUMCOLORBANDS=${cfg.bands}&COLORBARONLY=true&VERTICAL=false&WIDTH=220&HEIGHT=14`;
       d.innerHTML = `<div class="wrow"><button type="button" data-w="prev" aria-label="Earlier">&lsaquo;</button><span class="wt">Now</span><button type="button" data-w="next" aria-label="Later">&rsaquo;</button></div>
         <img class="wleg" alt="" src="${leg}"><div class="wticks">${cfg.ticks().map(t => `<span>${t}</span>`).join('')}</div>
-        <div class="sub">${cfg.title} · global, 50 km grid · <button type="button" class="linkish" data-pacific>See the Pacific</button> · ${GLOBAL_CREDIT}</div>`;
+        <div class="sub keep">50 km grid · <button type="button" class="linkish" data-pacific>See the Pacific</button></div><div class="sub">${cfg.title} · global · ${GLOBAL_CREDIT}</div>`;
       L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d);
       d.addEventListener('click', e => {
         if (e.target.closest('[data-pacific]')) { map.flyToBounds(PACIFIC_BOUNDS, { duration: 0.8 }); return; }
@@ -1594,6 +1614,7 @@ function sstLayer(map) {
     options: { position: 'bottomleft' },
     onAdd() {
       const d = L.DomUtil.create('div', 'wave-ctl sst-ctl');
+      d.dataset.title = 'Water temperature · satellite'; d.dataset.short = 'Water temp';
       const ticks = prefs.units === 'm' ? ['8', '13', '18', '23', '28 °C'] : ['46', '55', '64', '73', '82 °F'];
       d.innerHTML = `<div class="wrow"><span class="wt">Water temperature</span></div>
         <div class="wleg sstleg" style="background:linear-gradient(90deg, ${SST_COLORS.join(', ')})"></div><div class="wticks">${ticks.map(t => `<span>${t}</span>`).join('')}</div>
@@ -1666,6 +1687,7 @@ function windLayer(map) {
       const t = mapTime(map) ?? Date.now();
       idx = nearestIdx(t);
       this.redraw();
+      map.fire('windchange');
     },
     redraw() {
       if (!canvas || !data) { show(); return; }
@@ -1724,6 +1746,7 @@ function windLayer(map) {
   });
   const layer = new L2();
   layer.model = WIND_DEFAULT;
+  layer.stepTime = () => { if (!data) return null; return idx === nearestIdx(Date.now()) ? null : new Date(data.T[idx]).toISOString(); };
   const nearestIdx = t => { let b = 0; data.T.forEach((x, i) => { if (Math.abs(x - t) < Math.abs(data.T[b] - t)) b = i; }); return b; };
   function follow() { if (!data) return; const t = mapTime(map); idx = nearestIdx(t ?? Date.now()); layer.redraw(); }
   function hide() { if (canvas) canvas.style.opacity = 0; }
@@ -1735,6 +1758,7 @@ function windLayer(map) {
     /* With a CDIP wave layer on, its panel sets the hour and this one just shows it. */
     const t = data.T[idx], waveOn = Object.entries(map.waveLayers || {}).some(([k, g]) => map.hasLayer(g) && !GRID_LAYERS[k].sst);
     el.querySelector('.wt').innerHTML = `${esc(new Date(t).toLocaleString([], { weekday: 'short', hour: 'numeric' }))} <span class="sub">${esc(data.model)}</span>`;
+    el.dataset.title = `Wind · ${data.model}`;
     el.querySelector('[data-w="prev"]').hidden = el.querySelector('[data-w="next"]').hidden = !!waveOn;
     /* Arrows only: the key shows arrow sizes; with shading: the color bar. */
     el.classList.toggle('arrows-only', (prefs.windStyle || 'both') === 'arrows');
@@ -1748,6 +1772,7 @@ function windLayer(map) {
     options: { position: 'bottomleft' },
     onAdd() {
       const d = L.DomUtil.create('div', 'wave-ctl wind-ctl');
+      d.dataset.title = 'Wind'; d.dataset.short = 'Wind';
       const f = windU()[0] / 1.944, u = windU()[1];
       const ticks = [0, 10, 20, 30].map(kt => `${Math.round(kt * f)}`);
       d.innerHTML = `<div class="wrow"><button type="button" data-w="prev" aria-label="Earlier">&lsaquo;</button><span class="wt">Wind</span><button type="button" data-w="next" aria-label="Later">&rsaquo;</button></div>
@@ -1760,6 +1785,8 @@ function windLayer(map) {
         const b = e.target.closest('[data-w]'); if (!b || !data) return;
         idx = Math.max(0, Math.min(data.T.length - 1, idx + (b.dataset.w === 'next' ? 1 : -1)));
         layer.redraw();
+        /* Wind sets the map time when no ocean layer does: storms and buoy labels follow. */
+        map.fire('wavestep');
       });
       return foldable(d);
     }
@@ -1907,7 +1934,7 @@ function stormLayer(map) {
       canvas = L.DomUtil.create('canvas', 'storm-canvas', map.getPane('storms'));
       map.on('moveend zoomend resize', this.redraw, this);
       map.on('zoomstart', hide);
-      map.on('wavestep overlayadd overlayremove', follow);
+      map.on('wavestep overlayadd overlayremove windchange', follow);
       map.on('click', tap);
       if (!ctl) ctl = new Ctl().addTo(map);
       loadNhcIds().then(ids => { if (!ids || !canvas || nhc) return; nhc = new NhcLayer(NHC_URL, { ids, pane: 'stormimg', maxNativeZoom: 8, maxZoom: 19, opacity: 0.9, attribution: NHC_CREDIT }).addTo(map); });
@@ -1916,7 +1943,7 @@ function stormLayer(map) {
     onRemove() {
       map.off('moveend zoomend resize', this.redraw, this);
       map.off('zoomstart', hide);
-      map.off('wavestep overlayadd overlayremove', follow);
+      map.off('wavestep overlayadd overlayremove windchange', follow);
       map.off('click', tap);
       if (nhc) { nhc.remove(); nhc = null; }
       if (canvas) canvas.remove(); canvas = null;
@@ -2023,7 +2050,7 @@ function stormLayer(map) {
   });
   const layer = new L2();
   const nearestIdx = t => { let b = 0; data.T.forEach((x, i) => { if (Math.abs(x - t) < Math.abs(data.T[b] - t)) b = i; }); return b; };
-  const following = () => Object.entries(map.waveLayers || {}).some(([k, g]) => map.hasLayer(g) && !GRID_LAYERS[k].sst);
+  const following = () => Object.values(map.waveLayers || {}).some(g => map.hasLayer(g) && g.timed) || (map.windLayer && map.hasLayer(map.windLayer));
   function follow() { if (!data) return; const i = nearestIdx(mapTime(map) ?? Date.now()); if (i !== idx || !step) { idx = i; layer.loadStep(); } else show(); }
   function hide() { if (canvas) canvas.style.opacity = 0; }
   function label(txt) { if (ctl) ctl.getContainer().querySelector('.wt').textContent = txt; }
@@ -2039,7 +2066,7 @@ function stormLayer(map) {
       const [t1, t2] = swellEta(cl.km, data.T[idx]);
       return `<li><button type="button" data-sc="${i}"><b style="color:${stormCat(cl.max)[1]}">${esc(stormCat(cl.max)[2].replace(' force', ''))} ${esc(ktText(cl.max))}</b> · ${esc(stormDistText(cl.km))} ${esc(compass(cl.from))} · swell ${esc(stormDay(t1))}–${esc(stormDay(t2))}</button></li>`;
     }).join('') : `<li class="none">No gale-force wind aimed at ${esc(home.name)} at this hour.</li>`;
-    el.querySelector('.sfoot').innerHTML = `${fol ? 'Following the ocean layer\'s hour · ' : ''}GFS run ${esc(stormDay(Date.parse(data.run.replace('Z', ':00Z'))))} · NOAA · tropical storms: ${NHC_CREDIT}`;
+    el.querySelector('.sfoot').innerHTML = `${fol ? 'Following the map time · ' : ''}GFS run ${esc(stormDay(Date.parse(data.run.replace('Z', ':00Z'))))} · NOAA · tropical storms: ${NHC_CREDIT}`;
   }
   /* Tap near strong wind or a pressure center for the details. */
   function tap(e) {
@@ -2082,6 +2109,7 @@ function stormLayer(map) {
     options: { position: 'bottomleft' },
     onAdd() {
       const d = L.DomUtil.create('div', 'wave-ctl storm-ctl');
+      d.dataset.title = 'Storms · GFS, Pacific'; d.dataset.short = 'Storms';
       const arrow = col => `<svg width="22" height="10" viewBox="-11 -5 22 10" aria-hidden="true"><path d="M-8 0 H8 M2 -4 L8 0 L2 4" fill="none" stroke="${col}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
       d.innerHTML = `<div class="wrow"><button type="button" data-w="prev" aria-label="Earlier">&lsaquo;</button><span class="wt">Storms</span><button type="button" data-w="next" aria-label="Later">&rsaquo;</button></div>
         <div class="skey">${[...STORM_CATS].reverse().map(([kt, col, nm], i) => `<span>${arrow(col)}${esc(['Gale', 'Storm', 'Hurr.'][i])} ${Math.round(kt * windU()[0] / 1.944)}+${i === 2 ? ' ' + esc(windU()[1]) : ''}</span>`).join('')}</div>
@@ -2135,19 +2163,76 @@ function openWindy(lat, lon, zoom, title, marker) {
 }
 /* Map key panels (wave, water temperature, wind) fold down to their title row with the chevron; the choice
    is remembered for all of them. */
-function foldable(d) {
-  const row = d.querySelector('.wrow');
-  const b = document.createElement('button');
-  b.type = 'button'; b.className = 'wfold';
-  const set = on => { d.classList.toggle('folded', on); b.innerHTML = on ? '&#9652;' : '&#9662;'; b.setAttribute('aria-label', on ? 'Show the color key' : 'Hide the color key'); b.setAttribute('aria-expanded', String(!on)); };
-  set(!!prefs.keysFolded);
-  b.addEventListener('click', e => {
-    e.stopPropagation();
-    const on = !d.classList.contains('folded');
-    savePrefs({ keysFolded: on });
-    document.querySelectorAll('.wave-ctl').forEach(x => { x.classList.toggle('folded', on); const y = x.querySelector('.wfold'); if (y) { y.innerHTML = on ? '&#9652;' : '&#9662;'; y.setAttribute('aria-expanded', String(!on)); } });
+function foldable(d) { return d; }
+/* ---------- Key dock ----------
+   All the key panels (ocean layer, wind, storms) live in one card at the bottom left. Folded (the default) it is
+   one row: the map time with earlier / play / later, and the layers that are on. Open, it shows each key, storms
+   first, in drawing order. The time buttons drive the layer that sets the map time (ocean layer, else wind, else
+   storms); the others follow it. Play steps through the hours and starts over at the end. */
+const PLAY_MS = 1600;
+function keyDock(map) {
+  const corner = map._controlCorners.bottomleft;
+  const Dock = L.Control.extend({
+    options: { position: 'bottomleft' },
+    onAdd() {
+      const d = L.DomUtil.create('div', 'keydock');
+      d.hidden = true;
+      d.innerHTML = `<div class="kd-row"><button type="button" data-kd="prev" aria-label="Earlier">&lsaquo;</button><button type="button" data-kd="play" aria-label="Play through time">&#9654;</button>
+        <div class="kd-l"><b class="kd-t"></b><span class="kd-n"></span></div>
+        <button type="button" data-kd="next" aria-label="Later">&rsaquo;</button><button type="button" data-kd="open" aria-expanded="false" aria-label="Show the map keys">&#9652;</button></div>
+        <div class="kd-body"></div>`;
+      L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d);
+      return d;
+    }
   });
-  row.appendChild(b);
+  const d = new Dock().addTo(map).getContainer(), body = d.querySelector('.kd-body');
+  const rank = p => p.classList.contains('storm-ctl') ? 1 : p.classList.contains('wind-ctl') ? 2 : 3;
+  const panels = () => [...body.children].filter(p => p.classList.contains('wave-ctl')).sort((a, b) => rank(a) - rank(b));
+  /* The layer setting the map time is the one whose own time buttons aren't hidden: ocean, then wind, then storms. */
+  const leader = () => panels().filter(p => { const b = p.querySelector('[data-w="prev"]'); return b && !b.hidden; }).sort((a, b) => rank(b) - rank(a))[0] || null;
+  let open = !!prefs.keysOpen, timer = null, queued = false;
+  const playBtn = d.querySelector('[data-kd="play"]');
+  const stop = () => { if (timer) clearInterval(timer); timer = null; playBtn.innerHTML = '&#9654;'; playBtn.setAttribute('aria-label', 'Play through time'); d.classList.remove('playing'); };
+  const refresh = () => {
+    queued = false;
+    const ps = panels();
+    d.hidden = !ps.length;
+    if (!ps.length) { stop(); return; }
+    const L0 = leader();
+    /* Just the time: model names and the like are in each key's title. */
+    const wt = L0 && L0.querySelector('.wt').cloneNode(true);
+    if (wt) wt.querySelectorAll('.sub').forEach(x => x.remove());
+    d.querySelector('.kd-t').textContent = wt ? wt.textContent.replace(/\s+/g, ' ').trim() : 'Latest';
+    d.querySelector('.kd-n').textContent = ps.map(p => p.dataset.short).join(' · ');
+    for (const k of ['prev', 'next']) { const b = d.querySelector(`[data-kd="${k}"]`), lb = L0 && L0.querySelector(`[data-w="${k}"]`); b.hidden = !L0; b.disabled = !lb || lb.disabled; }
+    playBtn.hidden = !L0;
+    if (!L0) stop();
+    d.classList.toggle('open', open);
+    const ob = d.querySelector('[data-kd="open"]');
+    ob.innerHTML = open ? '&#9662;' : '&#9652;'; ob.setAttribute('aria-expanded', String(open)); ob.setAttribute('aria-label', open ? 'Hide the map keys' : 'Show the map keys');
+  };
+  const later = () => { if (!queued) { queued = true; requestAnimationFrame(refresh); } };
+  const step = k => { const L0 = leader(), b = L0 && L0.querySelector(`[data-w="${k}"]`); if (b && !b.disabled) { b.click(); return true; } return false; };
+  d.addEventListener('click', e => {
+    const b = e.target.closest('[data-kd]'); if (!b) return;
+    const k = b.dataset.kd;
+    if (k === 'open') { open = !open; savePrefs({ keysOpen: open }); refresh(); return; }
+    if (k === 'play') {
+      if (timer) { stop(); return; }
+      playBtn.innerHTML = '&#10074;&#10074;'; playBtn.setAttribute('aria-label', 'Pause'); d.classList.add('playing');
+      timer = setInterval(() => {
+        if (!d.isConnected || d.hidden) { stop(); return; }
+        if (!step('next')) { let n = 0; while (step('prev') && n++ < 200); }
+      }, PLAY_MS);
+      return;
+    }
+    stop(); step(k);
+  });
+  const adopt = () => { for (const el of [...corner.children]) if (el !== d && el.classList.contains('wave-ctl')) body.appendChild(el); later(); };
+  new MutationObserver(adopt).observe(corner, { childList: true });
+  new MutationObserver(later).observe(body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['disabled', 'hidden'] });
+  map.on('unload', stop);
+  adopt();
   return d;
 }
 function funColor(a) { return a == null ? '#8a9a9f' : a < 2.5 ? '#c8553d' : a < 3.75 ? '#e0a526' : '#1f9d8f'; }
@@ -2416,7 +2501,10 @@ function buoyLayer() {
 }
 /* The hour picked on the CDIP time panel, or null when it is on Now (or no CDIP layer is on). */
 function mapTime(map) {
-  for (const g of Object.values(map.waveLayers || {})) if (map.hasLayer(g) && g.stepTime()) return Date.parse(g.stepTime());
+  /* One time for the whole map: a timed ocean layer sets it; otherwise the wind layer does. Null means now. */
+  const ocean = Object.values(map.waveLayers || {}).filter(g => map.hasLayer(g) && g.timed);
+  if (ocean.length) { const t = ocean[0].stepTime(); return t ? Date.parse(t) : null; }
+  if (map.windLayer && map.hasLayer(map.windLayer)) { const t = map.windLayer.stepTime(); if (t) return Date.parse(t); }
   return null;
 }
 /* Buoy forecasts for many buoys at once, for map labels at a future hour: CDIP's model file for CDIP buoys,
@@ -4811,8 +4899,9 @@ function viewHelp() {
       <li>Tap the <strong>magnifier</strong> (top left) to search: matching surf spots show first as you type, then press Search for towns and addresses.</li>
       <li>Turn on <strong>Surf rating (spots)</strong> in the layers list to color the spots by a 0–5 rating from swell size and period, swell direction, wind (offshore or onshore) and, once you've rated a few sessions there, the tide. It follows the hour on the CDIP time panel. It's a rough guess from forecast models, often off, so take it with a grain of salt.</li>
       <li>The <strong>layers</strong> button opens menus for the base map, the CDIP wave model (wave height or peak period) and the spot style (my sessions, surf rating, swell pulse, rating + pulse or shore hazard), plus a switch for buoys.</li>
-      <li><strong>Layers panel</strong>: listed in drawing order, top of the list on top (buoys, spots, storms, wind, ocean layer, base map). The color keys at the bottom left stack the same way. Only one shaded layer shows at a time: turning on an ocean layer switches wind to arrows, and choosing shaded wind turns the ocean layer off.</li>
+      <li><strong>Layers panel</strong>: listed in drawing order, top of the list on top (buoys, spots, storms, wind, ocean layer, base map). Only one shaded layer shows at a time: turning on an ocean layer switches wind to arrows, and choosing shaded wind turns the ocean layer off.</li>
       <li><strong>Ocean layer</strong> (layers button): CDIP wave height or peak period for California (detailed), <strong>global</strong> wave height or peak period from the WaveWatch III model (every 6 hours, about 6 days ahead; use See the Pacific to zoom out), or <strong>water temperature</strong> from satellites (latest day, usually 1–2 days old). Spot forecasts show the current water temperature in the Now box.</li>
+      <li><strong>Map time and keys</strong>: one card at the bottom left. Folded, it is a single row: the map time with ‹ and › to step, ▶ to play through the hours (it starts over at the end; tap again to pause), and the layers that are on. ▴ opens every key in one list, storms first. The whole map shares one time: the ocean layer sets it when one is on, otherwise wind, otherwise storms; the rest (and buoy labels) follow.</li>
       <li><strong>Storms</strong> (layers button): the GFS model's pressure and wind over the Pacific every 6 hours for 7 days. Lines are isobars every 4 hPa with H and L centers; the orange outline and arrows mark gale-force wind (34 kt and up) over the ocean, colored gale, storm and hurricane force. <strong>Bold arrows blow toward your home area</strong>: that wind builds swell headed your way. The panel lists the biggest of these with distance, direction and a rough swell arrival window (13–18 s swell); tap one to fly there, or tap the map near strong wind for details. Hurricane tracks and cones come from the National Hurricane Center (latest advisory). It's a rough guide: it doesn't count islands or coastline in the way.</li>
       <li><strong>Windy</strong>: Windy map of this view (bottom of the layers panel), or the Windy button on a spot page, opens Windy.com's free map with swell, waves, wind and pressure.</li>
       <li><strong>Wind</strong> (layers button): pick a forecast model: HRRR (the default; 3 km, next 2 days, best detail) or, for longer range, GFS (5 days) or ECMWF (6 days), and a style: shaded speed, arrows pointing downwind, or both. Its panel steps through the model's hours; with the CDIP wave layer on, it follows the wave panel's hour. Covers the home area coast (Point Conception to Malibu and the islands).</li>
