@@ -451,6 +451,15 @@ details.install li { margin: 3px 0; }
 .kd-l { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; line-height: 1.15; }
 .kd-t { font-weight: 650; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .kd-n { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.kd-bar { padding: 2px 4px 0; }
+.kd-bar[hidden] { display: none; }
+.kd-bar input { width: 100%; height: 18px; margin: 0; -webkit-appearance: none; appearance: none; background: transparent; touch-action: none; }
+.kd-bar input::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--brand, #1f7fb8) var(--pct, 0%), var(--line, rgba(0,0,0,.15)) var(--pct, 0%)); }
+.kd-bar input::-moz-range-track { height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--brand, #1f7fb8) var(--pct, 0%), var(--line, rgba(0,0,0,.15)) var(--pct, 0%)); }
+.kd-bar input::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; margin-top: -6px; border-radius: 50%; background: var(--brand, #1f7fb8); border: 2px solid var(--surface, #fff); box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+.kd-bar input::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--brand, #1f7fb8); border: 2px solid var(--surface, #fff); }
+.keydock.loading .kd-bar input::-webkit-slider-thumb { opacity: .55; }
+.kd-ends { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--muted); margin-top: -1px; }
 .kd-body { display: none; max-height: min(42vh, 340px); overflow-y: auto; overscroll-behavior: contain; }
 .keydock.open .kd-body { display: flex; flex-direction: column; }
 .kd-body > .wave-ctl { order: 3; width: auto; background: none; box-shadow: none; border-radius: 0; padding: 6px 2px; margin: 0 !important; border-top: 1px solid var(--line, rgba(0,0,0,.1)); }
@@ -592,7 +601,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 17 (one key dock with shared map time and play; Relief default base map)';
+const BUILD = 'Build 17.1 (dates on the map time, timeline bar, no flashing between hours)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -1420,33 +1429,67 @@ function waveSteps(grid) {
 }
 function waveStepLabel(st) {
   const when = st.time ? new Date(st.time).toLocaleString([], { weekday: 'short', hour: 'numeric' }) : '';
-  return st.now ? `Now${when ? ` <span class="sub">(${esc(when)})</span>` : ''}` : esc(when);
+  return st.now ? `Now${when ? ` <span class="sub">(${esc(when)})</span>` : ''}` : esc(fmtWhen(st.time));
 }
 function waveLegendTicks() {
   return prefs.units === 'm' ? ['0', '1.5', '3', '4.6', '6.1 m'] : ['0', '5', '10', '15', '20 ft'];
 }
+/* Map time labels with the date: "Wed 11/18 noon", "Thu 11/19 6 PM". */
+function fmtWhen(t) {
+  const d = new Date(t), h = d.getHours(), m = d.getMinutes();
+  const hr = !m && h === 12 ? 'noon' : !m && h === 0 ? 'midnight' : d.toLocaleTimeString([], m ? { hour: 'numeric', minute: '2-digit' } : { hour: 'numeric' });
+  return `${d.toLocaleDateString([], { weekday: 'short' })} ${d.getMonth() + 1}/${d.getDate()} ${hr}`;
+}
+/* Draw a new hour without a blank flash: its images load hidden on top of the old ones, then replace them.
+   busy(true/false) tells the key dock (play waits for it). */
+function tileSwapper(group, opacity) {
+  let cur = null, pending = null, timer = null;
+  return (next, busy) => {
+    if (pending) { group.removeLayer(pending); pending = null; }
+    clearTimeout(timer);
+    if (!group._map || !cur) {
+      if (cur) group.removeLayer(cur);
+      cur = next; next.setOpacity(opacity); group.addLayer(next);
+      if (group._map) { busy(true); next.once('load', () => busy(false)); setTimeout(() => busy(false), 12000); }
+      return;
+    }
+    pending = next; next.setOpacity(0); group.addLayer(next); busy(true);
+    const done = () => {
+      if (pending !== next) return;
+      clearTimeout(timer); next.setOpacity(opacity); group.removeLayer(cur); cur = next; pending = null; busy(false);
+    };
+    next.once('load', done);
+    timer = setTimeout(done, 12000);
+    /* Nothing to load (e.g. the layer's area is out of view): swap right away. */
+    setTimeout(() => { if (pending === next && next._noTilesToLoad && next._noTilesToLoad() && !next._loading) done(); }, 60);
+  };
+}
+/* Range info for the key dock's timeline: position, count and the first and last labels. */
+function setRange(el, idx, n, from, to) { Object.assign(el.dataset, { idx: String(idx), n: String(n), from, to }); }
 function waveLayer(map, startTime, key = 'waves') {
   const cfg = GRID_LAYERS[key];
   if (!map.getPane('waves')) { const p = map.createPane('waves'); p.style.zIndex = 350; p.style.pointerEvents = 'none'; }
-  const layer = L.tileLayer.wms(WAVE_WMS + 'nowcast.nc', {
+  const tiles = (kind, time) => L.tileLayer.wms(WAVE_WMS + kind + '.nc', {
     layers: cfg.param, styles: 'raster/cdip', format: 'image/png', transparent: true, version: '1.3.0',
     colorscalerange: `${cfg.lo},${cfg.hi}`, numcolorbands: cfg.bands, abovemaxcolor: 'extend', belowmincolor: 'extend',
     opacity: 0.7, pane: 'waves', bounds: L.latLngBounds(WAVE_BOUNDS), maxZoom: 19,
-    attribution: '<a href="https://cdip.ucsd.edu/" target="_blank" rel="noopener">CDIP</a>'
+    attribution: '<a href="https://cdip.ucsd.edu/" target="_blank" rel="noopener">CDIP</a>', ...(time ? { time } : {})
   });
+  const layer = L.layerGroup(), swap = tileSwapper(layer, 0.7);
   let steps = waveSteps(null), idx = 0, ctl = null;
+  const busy = on => { if (ctl) ctl.getContainer().dataset.busy = on ? '1' : ''; };
   const show = () => {
     const st = steps[idx] || steps[0];
-    layer.setUrl(WAVE_WMS + st.kind + '.nc', true);
     /* Now: no time, so CDIP serves its latest hour. Asking for a listed hour fails once that hour drops out of
        CDIP's file, which happens whenever the GitHub job that lists the hours runs late. */
-    if (st.time && !st.now) layer.wmsParams.time = st.time; else delete layer.wmsParams.time;
-    layer.redraw();
+    swap(tiles(st.kind, st.time && !st.now ? st.time : null), busy);
     if (ctl) {
       const c = ctl.getContainer();
       c.querySelector('.wt').innerHTML = waveStepLabel(st);
       c.querySelector('[data-w="prev"]').disabled = idx <= 0;
       c.querySelector('[data-w="next"]').disabled = idx >= steps.length - 1;
+      const last = steps[steps.length - 1];
+      setRange(c, idx, steps.length, 'Now', last && !last.now && last.time ? fmtWhen(last.time) : 'Now');
     }
     map.fire('wavestep');
   };
@@ -1472,6 +1515,7 @@ function waveLayer(map, startTime, key = 'waves') {
         idx = Math.max(0, Math.min(steps.length - 1, idx + (b.dataset.w === 'next' ? 1 : -1)));
         show();
       });
+      d.addEventListener('seek', e => { idx = Math.max(0, Math.min(steps.length - 1, e.detail)); show(); });
       return foldable(d);
     }
   });
@@ -1539,22 +1583,25 @@ function globalSteps(g) {
 function globalLayer(map, startTime, key) {
   const cfg = GRID_LAYERS[key];
   if (!map.getPane('waves')) { const p = map.createPane('waves'); p.style.zIndex = 350; p.style.pointerEvents = 'none'; }
-  const layer = L.tileLayer.wms(GLOBAL_WMS, {
+  const tiles = time => L.tileLayer.wms(GLOBAL_WMS, {
     layers: cfg.param, styles: 'boxfill/rainbow', format: 'image/png', transparent: true, version: '1.3.0',
     colorscalerange: `${cfg.lo},${cfg.hi}`, numcolorbands: cfg.bands, abovemaxcolor: 'extend', belowmincolor: 'extend',
-    opacity: 0.7, pane: 'waves', maxNativeZoom: 7, maxZoom: 19, attribution: GLOBAL_CREDIT
+    opacity: 0.7, pane: 'waves', maxNativeZoom: 7, maxZoom: 19, attribution: GLOBAL_CREDIT, ...(time ? { time } : {})
   });
+  const layer = L.layerGroup(), swap = tileSwapper(layer, 0.7);
   let steps = globalSteps(null), idx = 0, ctl = null;
+  const busy = on => { if (ctl) ctl.getContainer().dataset.busy = on ? '1' : ''; };
   const show = () => {
     const st = steps[idx] || steps[0];
     /* Now: no time, so the server gives its current hour. */
-    if (st.time) layer.wmsParams.time = st.time; else delete layer.wmsParams.time;
-    layer.redraw();
+    swap(tiles(st.time), busy);
     if (ctl) {
       const c = ctl.getContainer();
-      c.querySelector('.wt').innerHTML = st.now ? 'Now' : esc(new Date(st.time).toLocaleString([], { weekday: 'short', hour: 'numeric' }));
+      c.querySelector('.wt').innerHTML = st.now ? 'Now' : esc(fmtWhen(st.time));
       c.querySelector('[data-w="prev"]').disabled = idx <= 0;
       c.querySelector('[data-w="next"]').disabled = idx >= steps.length - 1;
+      const last = steps[steps.length - 1];
+      setRange(c, idx, steps.length, 'Now', last.time ? fmtWhen(last.time) : 'Now');
     }
     map.fire('wavestep');
   };
@@ -1580,6 +1627,7 @@ function globalLayer(map, startTime, key) {
         idx = Math.max(0, Math.min(steps.length - 1, idx + (b.dataset.w === 'next' ? 1 : -1)));
         show();
       });
+      d.addEventListener('seek', e => { idx = Math.max(0, Math.min(steps.length - 1, e.detail)); show(); });
       return foldable(d);
     }
   });
@@ -1757,7 +1805,8 @@ function windLayer(map) {
     if (!data) return;
     /* With a CDIP wave layer on, its panel sets the hour and this one just shows it. */
     const t = data.T[idx], waveOn = Object.entries(map.waveLayers || {}).some(([k, g]) => map.hasLayer(g) && !GRID_LAYERS[k].sst);
-    el.querySelector('.wt').innerHTML = `${esc(new Date(t).toLocaleString([], { weekday: 'short', hour: 'numeric' }))} <span class="sub">${esc(data.model)}</span>`;
+    el.querySelector('.wt').innerHTML = `${esc(fmtWhen(t))} <span class="sub">${esc(data.model)}</span>`;
+    setRange(el, idx, data.T.length, fmtWhen(data.T[0]), fmtWhen(data.T[data.T.length - 1]));
     el.dataset.title = `Wind · ${data.model}`;
     el.querySelector('[data-w="prev"]').hidden = el.querySelector('[data-w="next"]').hidden = !!waveOn;
     /* Arrows only: the key shows arrow sizes; with shading: the color bar. */
@@ -1788,6 +1837,7 @@ function windLayer(map) {
         /* Wind sets the map time when no ocean layer does: storms and buoy labels follow. */
         map.fire('wavestep');
       });
+      d.addEventListener('seek', e => { if (!data) return; idx = Math.max(0, Math.min(data.T.length - 1, e.detail)); layer.redraw(); map.fire('wavestep'); });
       return foldable(d);
     }
   });
@@ -1958,9 +2008,11 @@ function stormLayer(map) {
       await this.loadStep();
     },
     async loadStep() {
-      const my = ++token, i = idx;
+      const my = ++token, i = idx, el = ctl && ctl.getContainer();
+      if (el) el.dataset.busy = '1';
       try { const s = await loadStormStep(data, i); if (my !== token) return; step = s; }
-      catch (e) { step = null; label("Couldn't load this hour."); return; }
+      catch (e) { step = null; label("Couldn't load this hour."); if (el) el.dataset.busy = ''; return; }
+      if (el) el.dataset.busy = '';
       this.redraw();
       /* Fetch the next hour ahead so stepping is quick. */
       if (i + 1 < data.files.length) loadStormStep(data, i + 1).catch(() => {});
@@ -2057,7 +2109,8 @@ function stormLayer(map) {
   function show() {
     if (!ctl || !data) return;
     const el = ctl.getContainer(), fol = following(), home = homePoint();
-    el.querySelector('.wt').innerHTML = `${esc(stormDay(data.T[idx]))} <span class="sub">GFS</span>`;
+    el.querySelector('.wt').innerHTML = `${esc(fmtWhen(data.T[idx]))} <span class="sub">GFS</span>`;
+    setRange(el, idx, data.T.length, fmtWhen(data.T[0]), fmtWhen(data.T[data.T.length - 1]));
     el.querySelector('[data-w="prev"]').hidden = el.querySelector('[data-w="next"]').hidden = fol;
     el.querySelector('[data-w="prev"]').disabled = idx <= 0;
     el.querySelector('[data-w="next"]').disabled = idx >= data.T.length - 1;
@@ -2130,6 +2183,7 @@ function stormLayer(map) {
         idx = Math.max(0, Math.min(data.T.length - 1, idx + (b.dataset.w === 'next' ? 1 : -1)));
         show(); layer.loadStep();
       });
+      d.addEventListener('seek', e => { if (!data) return; idx = Math.max(0, Math.min(data.T.length - 1, e.detail)); show(); layer.loadStep(); });
       return foldable(d);
     }
   });
@@ -2169,7 +2223,7 @@ function foldable(d) { return d; }
    one row: the map time with earlier / play / later, and the layers that are on. Open, it shows each key, storms
    first, in drawing order. The time buttons drive the layer that sets the map time (ocean layer, else wind, else
    storms); the others follow it. Play steps through the hours and starts over at the end. */
-const PLAY_MS = 1600;
+const PLAY_MS = 1200;
 function keyDock(map) {
   const corner = map._controlCorners.bottomleft;
   const Dock = L.Control.extend({
@@ -2180,6 +2234,7 @@ function keyDock(map) {
       d.innerHTML = `<div class="kd-row"><button type="button" data-kd="prev" aria-label="Earlier">&lsaquo;</button><button type="button" data-kd="play" aria-label="Play through time">&#9654;</button>
         <div class="kd-l"><b class="kd-t"></b><span class="kd-n"></span></div>
         <button type="button" data-kd="next" aria-label="Later">&rsaquo;</button><button type="button" data-kd="open" aria-expanded="false" aria-label="Show the map keys">&#9652;</button></div>
+        <div class="kd-bar"><input type="range" min="0" max="0" step="1" value="0" aria-label="Map time"><div class="kd-ends"><span class="kd-from"></span><span class="kd-to"></span></div></div>
         <div class="kd-body"></div>`;
       L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d);
       return d;
@@ -2190,9 +2245,10 @@ function keyDock(map) {
   const panels = () => [...body.children].filter(p => p.classList.contains('wave-ctl')).sort((a, b) => rank(a) - rank(b));
   /* The layer setting the map time is the one whose own time buttons aren't hidden: ocean, then wind, then storms. */
   const leader = () => panels().filter(p => { const b = p.querySelector('[data-w="prev"]'); return b && !b.hidden; }).sort((a, b) => rank(b) - rank(a))[0] || null;
-  let open = !!prefs.keysOpen, timer = null, queued = false;
-  const playBtn = d.querySelector('[data-kd="play"]');
-  const stop = () => { if (timer) clearInterval(timer); timer = null; playBtn.innerHTML = '&#9654;'; playBtn.setAttribute('aria-label', 'Play through time'); d.classList.remove('playing'); };
+  let open = !!prefs.keysOpen, timer = null, playing = false, queued = false, dragging = false;
+  const playBtn = d.querySelector('[data-kd="play"]'), range = d.querySelector('.kd-bar input');
+  const stop = () => { playing = false; clearTimeout(timer); timer = null; playBtn.innerHTML = '&#9654;'; playBtn.setAttribute('aria-label', 'Play through time'); d.classList.remove('playing'); };
+  const busy = () => !!body.querySelector('.wave-ctl[data-busy="1"]');
   const refresh = () => {
     queued = false;
     const ps = panels();
@@ -2207,6 +2263,17 @@ function keyDock(map) {
     for (const k of ['prev', 'next']) { const b = d.querySelector(`[data-kd="${k}"]`), lb = L0 && L0.querySelector(`[data-w="${k}"]`); b.hidden = !L0; b.disabled = !lb || lb.disabled; }
     playBtn.hidden = !L0;
     if (!L0) stop();
+    /* Timeline: the whole range of the layer setting the time, with its first and last dates. */
+    const bar = d.querySelector('.kd-bar'), n = L0 ? +L0.dataset.n || 0 : 0;
+    bar.hidden = n < 2;
+    if (n >= 2) {
+      range.max = String(n - 1);
+      if (!dragging) range.value = L0.dataset.idx || '0';
+      range.style.setProperty('--pct', `${(+range.value / (n - 1)) * 100}%`);
+      d.querySelector('.kd-from').textContent = L0.dataset.from || '';
+      d.querySelector('.kd-to').textContent = L0.dataset.to || '';
+    }
+    d.classList.toggle('loading', busy());
     d.classList.toggle('open', open);
     const ob = d.querySelector('[data-kd="open"]');
     ob.innerHTML = open ? '&#9662;' : '&#9652;'; ob.setAttribute('aria-expanded', String(open)); ob.setAttribute('aria-label', open ? 'Hide the map keys' : 'Show the map keys');
@@ -2218,19 +2285,30 @@ function keyDock(map) {
     const k = b.dataset.kd;
     if (k === 'open') { open = !open; savePrefs({ keysOpen: open }); refresh(); return; }
     if (k === 'play') {
-      if (timer) { stop(); return; }
+      if (playing) { stop(); return; }
+      playing = true;
       playBtn.innerHTML = '&#10074;&#10074;'; playBtn.setAttribute('aria-label', 'Pause'); d.classList.add('playing');
-      timer = setInterval(() => {
+      /* Each hour stays up at least PLAY_MS and until its images have loaded (up to 10 s), then the next.
+         The last hour holds a little longer before starting over. */
+      const tick = t0 => {
+        if (!playing) return;
         if (!d.isConnected || d.hidden) { stop(); return; }
-        if (!step('next')) { let n = 0; while (step('prev') && n++ < 200); }
-      }, PLAY_MS);
+        const L0 = leader(), atEnd = L0 && L0.querySelector('[data-w="next"]').disabled, wait = Date.now() - t0;
+        if (wait < (atEnd ? PLAY_MS * 2 : PLAY_MS) || (busy() && wait < 10000)) { timer = setTimeout(() => tick(t0), 150); return; }
+        if (!step('next') && L0) L0.dispatchEvent(new CustomEvent('seek', { detail: 0 }));
+        timer = setTimeout(() => tick(Date.now()), 150);
+      };
+      if (!step('next')) { const L0 = leader(); if (L0) L0.dispatchEvent(new CustomEvent('seek', { detail: 0 })); }
+      tick(Date.now());
       return;
     }
     stop(); step(k);
   });
+  range.addEventListener('input', () => { dragging = true; stop(); range.style.setProperty('--pct', `${(+range.value / Math.max(1, +range.max)) * 100}%`); });
+  range.addEventListener('change', () => { dragging = false; const L0 = leader(); if (L0) L0.dispatchEvent(new CustomEvent('seek', { detail: +range.value })); });
   const adopt = () => { for (const el of [...corner.children]) if (el !== d && el.classList.contains('wave-ctl')) body.appendChild(el); later(); };
   new MutationObserver(adopt).observe(corner, { childList: true });
-  new MutationObserver(later).observe(body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['disabled', 'hidden'] });
+  new MutationObserver(later).observe(body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['disabled', 'hidden', 'data-busy', 'data-idx'] });
   map.on('unload', stop);
   adopt();
   return d;
@@ -4901,7 +4979,7 @@ function viewHelp() {
       <li>The <strong>layers</strong> button opens menus for the base map, the CDIP wave model (wave height or peak period) and the spot style (my sessions, surf rating, swell pulse, rating + pulse or shore hazard), plus a switch for buoys.</li>
       <li><strong>Layers panel</strong>: listed in drawing order, top of the list on top (buoys, spots, storms, wind, ocean layer, base map). Only one shaded layer shows at a time: turning on an ocean layer switches wind to arrows, and choosing shaded wind turns the ocean layer off.</li>
       <li><strong>Ocean layer</strong> (layers button): CDIP wave height or peak period for California (detailed), <strong>global</strong> wave height or peak period from the WaveWatch III model (every 6 hours, about 6 days ahead; use See the Pacific to zoom out), or <strong>water temperature</strong> from satellites (latest day, usually 1–2 days old). Spot forecasts show the current water temperature in the Now box.</li>
-      <li><strong>Map time and keys</strong>: one card at the bottom left. Folded, it is a single row: the map time with ‹ and › to step, ▶ to play through the hours (it starts over at the end; tap again to pause), and the layers that are on. ▴ opens every key in one list, storms first. The whole map shares one time: the ocean layer sets it when one is on, otherwise wind, otherwise storms; the rest (and buoy labels) follow.</li>
+      <li><strong>Map time and keys</strong>: one card at the bottom left. Folded, it is a single row: the map time (with the date) with ‹ and › to step, ▶ to play through the hours (each hour waits for its images to load; it starts over at the end; tap again to pause), and a timeline bar across the whole forecast range with its first and last dates (drag it to jump), and the layers that are on. ▴ opens every key in one list, storms first. The whole map shares one time: the ocean layer sets it when one is on, otherwise wind, otherwise storms; the rest (and buoy labels) follow.</li>
       <li><strong>Storms</strong> (layers button): the GFS model's pressure and wind over the Pacific every 6 hours for 7 days. Lines are isobars every 4 hPa with H and L centers; the orange outline and arrows mark gale-force wind (34 kt and up) over the ocean, colored gale, storm and hurricane force. <strong>Bold arrows blow toward your home area</strong>: that wind builds swell headed your way. The panel lists the biggest of these with distance, direction and a rough swell arrival window (13–18 s swell); tap one to fly there, or tap the map near strong wind for details. Hurricane tracks and cones come from the National Hurricane Center (latest advisory). It's a rough guide: it doesn't count islands or coastline in the way.</li>
       <li><strong>Windy</strong>: Windy map of this view (bottom of the layers panel), or the Windy button on a spot page, opens Windy.com's free map with swell, waves, wind and pressure.</li>
       <li><strong>Wind</strong> (layers button): pick a forecast model: HRRR (the default; 3 km, next 2 days, best detail) or, for longer range, GFS (5 days) or ECMWF (6 days), and a style: shaded speed, arrows pointing downwind, or both. Its panel steps through the model's hours; with the CDIP wave layer on, it follows the wave panel's hour. Covers the home area coast (Point Conception to Malibu and the islands).</li>
