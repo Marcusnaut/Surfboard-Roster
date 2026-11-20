@@ -1,0 +1,36 @@
+name: probe
+on: workflow_dispatch
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - run: |
+          mkdir out; cd out
+          W='https://pae-paha.pacioos.hawaii.edu/thredds/wms/ww3_global/WaveWatch_III_Global_Wave_Model_best.ncd'
+          curl -sS -m 60 -D cap.h "$W?service=WMS&version=1.3.0&request=GetCapabilities" -o cap.xml || true
+          head -c 300 cap.xml; echo; wc -c cap.xml
+          curl -sS -m 60 -D map.h -H 'Origin: https://marcusnaut.github.io' "$W?service=WMS&version=1.1.1&request=GetMap&layers=Thgt&styles=boxfill/rainbow&srs=EPSG:3857&bbox=-20037508,0,0,20037508&width=256&height=256&format=image/png&transparent=true&colorscalerange=0,10" -o map.png || true
+          file map.png
+          curl -sS -m 60 "$W?service=WMS&version=1.1.1&request=GetMetadata&item=layerDetails&layerName=Thgt" -o meta.json || true
+          head -c 3000 meta.json; echo
+          curl -sS -m 60 -D gl.h -H 'Origin: https://marcusnaut.github.io' "$W?service=WMS&version=1.1.1&request=GetLegendGraphic&layer=Thgt&palette=rainbow&colorbaronly=true&width=20&height=200" -o leg.png || true
+          file leg.png
+          N='https://mapservices.weather.noaa.gov/tropical/rest/services/tropical/NHC_tropical_weather/MapServer'
+          curl -sS -m 60 -D nhc.h -H 'Origin: https://marcusnaut.github.io' "$N?f=json" -o nhc.json || true
+          python3 -c "import json;d=json.load(open('nhc.json'));[print(l['id'],l['name'],l.get('parentLayerId')) for l in d['layers']]" || head -c 500 nhc.json
+          curl -sS -m 60 "$N/export?bbox=-180,-10,-60,60&bboxSR=4326&imageSR=3857&size=256,256&format=png32&transparent=true&f=image" -o nhc.png || true; file nhc.png
+          D=$(date -u +%Y%m%d); H=$(( ($(date -u +%H) / 6 * 6 + 18) % 24 )); [ $H -ge 18 ] && D=$(date -u -d yesterday +%Y%m%d)
+          H=$(printf %02d $H)
+          curl -sS -m 60 "https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_1p00.pl?dir=%2Fgfs.$D%2F$H%2Fatmos&file=gfs.t${H}z.pgrb2.1p00.f024&var_PRMSL=on&var_UGRD=on&var_VGRD=on&lev_10_m_above_ground=on&lev_mean_sea_level=on" -o gfs.grb -w "%{http_code} %{size_download}\n" || true
+          pip install -q pygrib numpy && python3 -c "
+          import pygrib
+          g=pygrib.open('gfs.grb')
+          for m in g: print(m.shortName, m.level, m.values.shape, float(m.values.min()), float(m.values.max()))
+          " || true
+          grep -i -E 'access-control|content-type' *.h
+          grep -o '<Dimension[^>]*>[^<]\{0,300\}' cap.xml | head -3
+          grep -o '<Name>[^<]*</Name>' cap.xml | head -40
+          grep -o '<Style><Name>[^<]*' cap.xml | sort -u | head -30
+      - uses: actions/upload-artifact@v4
+        with: { name: out, path: out }
