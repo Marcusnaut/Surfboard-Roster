@@ -601,7 +601,7 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 17.1 (dates on the map time, timeline bar, no flashing between hours)';
+const BUILD = 'Build 17.2 (spot style: plain points)';
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -1217,6 +1217,9 @@ function makeMap(el, opts = {}) {
     overlays[PULSE_NAME] = map.pulseLayer;
     map.hazardLayer = L.layerGroup();
     overlays[HAZARD_NAME] = map.hazardLayer;
+    /* Plain points: every spot the same small dot, no session colors or sizes. */
+    map.plainLayer = L.layerGroup();
+    overlays[PLAIN_NAME] = map.plainLayer;
     map.on('overlayadd', e => {
       const key = Object.keys(map.waveLayers).find(k => map.waveLayers[k] === e.layer);
       if (!key) return;
@@ -1242,7 +1245,7 @@ function makeMap(el, opts = {}) {
        Changes go through the same overlayadd / overlayremove / baselayerchange events the rest of the map listens to. */
     const fireOv = (layer, name, on) => map.fire(on ? 'overlayadd' : 'overlayremove', { layer, name });
     const setOv = (layer, name, on) => { if (!layer || on === map.hasLayer(layer)) return; on ? map.addLayer(layer) : map.removeLayer(layer); fireOv(layer, name, on); };
-    const styleOf = () => { const r = map.ratingLayer && map.hasLayer(map.ratingLayer), p = map.pulseLayer && map.hasLayer(map.pulseLayer), h = map.hazardLayer && map.hasLayer(map.hazardLayer); return h ? 'hazard' : r && p ? 'both' : r ? 'rating' : p ? 'pulse' : 'sessions'; };
+    const styleOf = () => { if (map.plainLayer && map.hasLayer(map.plainLayer)) return 'plain'; const r = map.ratingLayer && map.hasLayer(map.ratingLayer), p = map.pulseLayer && map.hasLayer(map.pulseLayer), h = map.hazardLayer && map.hasLayer(map.hazardLayer); return h ? 'hazard' : r && p ? 'both' : r ? 'rating' : p ? 'pulse' : 'sessions'; };
     const gridOf = () => Object.keys(map.waveLayers || {}).find(k => map.hasLayer(map.waveLayers[k])) || 'off';
     const Ctl = L.Control.extend({
       options: { position: 'topright' },
@@ -1253,7 +1256,7 @@ function makeMap(el, opts = {}) {
             <div class="lc-head"><span>Map layers</span><button type="button" class="lc-close" aria-label="Close layer list">&times;</button></div>
             <div class="lyr-hint">Listed in drawing order: top of the list draws on top.</div>
             ${overlays['Buoys'] ? '<label class="lyr-row lyr-sw"><span>Buoys</span><input type="checkbox" role="switch" data-lyr="buoys"></label>' : ''}
-            ${map.ratingLayer ? `<label class="lyr-row"><span>Spot style</span><select data-lyr="style"><option value="sessions">My sessions</option><option value="rating">Surf rating</option>${pulseOn() ? '<option value="pulse">Swell pulse</option><option value="both">Rating + pulse</option>' : ''}${hazardOn() ? '<option value="hazard">Shore hazard</option>' : ''}</select></label>` : ''}
+            ${map.ratingLayer ? `<label class="lyr-row"><span>Spot style</span><select data-lyr="style"><option value="plain">Plain points</option><option value="sessions">My sessions</option><option value="rating">Surf rating</option>${pulseOn() ? '<option value="pulse">Swell pulse</option><option value="both">Rating + pulse</option>' : ''}${hazardOn() ? '<option value="hazard">Shore hazard</option>' : ''}</select></label>` : ''}
             ${map.stormLayer ? '<label class="lyr-row lyr-sw"><span>Storms <small>Pacific, 7 days</small></span><input type="checkbox" role="switch" data-lyr="storms"></label>' : ''}
             ${map.windLayer ? `<label class="lyr-row"><span>Wind <small>forecast model</small></span><select data-lyr="wind"><option value="">Off</option>${[...new Set(Object.values(WIND_MODELS).map(w => w.group))].map(gr => `<optgroup label="${esc(gr)}">${Object.entries(WIND_MODELS).filter(([, w]) => w.group === gr).map(([k, w]) => `<option value="${k}">${esc(w.label)}</option>`).join('')}</optgroup>`).join('')}</select></label>
             <label class="lyr-row"><span>Wind style</span><select data-lyr="windStyle"><option value="both">Shaded + arrows</option><option value="shade">Shaded speed</option><option value="arrows">Arrows</option></select></label>` : ''}
@@ -1290,6 +1293,7 @@ function makeMap(el, opts = {}) {
         });
         if (q('style')) q('style').addEventListener('change', e => {
           const v = e.target.value;
+          setOv(map.plainLayer, PLAIN_NAME, v === 'plain');
           setOv(map.hazardLayer, HAZARD_NAME, v === 'hazard');
           setOv(map.ratingLayer, RATING_NAME, v === 'rating' || v === 'both');
           setOv(map.pulseLayer, PULSE_NAME, v === 'pulse' || v === 'both');
@@ -1332,6 +1336,7 @@ function makeMap(el, opts = {}) {
       if (e.name === RATING_NAME) savePrefs({ showRating: e.type === 'overlayadd' });
       if (e.name === PULSE_NAME) savePrefs({ showPulse: e.type === 'overlayadd' });
       if (e.name === HAZARD_NAME) savePrefs({ showHazard: e.type === 'overlayadd' });
+      if (e.name === PLAIN_NAME) savePrefs({ showPlain: e.type === 'overlayadd' });
     });
   }
   map.setView(DEFAULT_VIEW.center, DEFAULT_VIEW.zoom);
@@ -3189,6 +3194,8 @@ function swellAt(sp, t) {
      it grows and shrinks once every 0.7 × the period (12 s swell: about 4 s out, 4 s back).
    While either is on, the colors and sizes for past sessions are set aside. */
 const PULSE_NAME = 'Swell pulse (spots)';
+const PLAIN_NAME = 'Plain points (spots)';
+const PLAIN_STYLE = { radius: 4.5, color: '#fff', weight: 1.2, opacity: 1, fillColor: '#46555b', fillOpacity: 0.95 };
 const HAZARD_NAME = 'Shoreline hazard (spots)';
 /* Shoreline hazard at one time for a spot from the map's combined Open-Meteo data (all waves, plus tide). */
 function hazardAt(sp, t) {
@@ -3212,16 +3219,26 @@ function setupRating(map, items) {
      graphics chip) in their own layer under the tappable spot dots, which go see-through while pulsing. */
   if (!map.getPane('pulse')) { const pn = map.createPane('pulse'); pn.style.zIndex = 395; pn.style.pointerEvents = 'none'; }
   const dots = L.layerGroup().addTo(map);
-  const hOn = () => !!hLayer && map.hasLayer(hLayer);
-  const rOn = () => map.hasLayer(rLayer) && !hOn(), pOn = () => map.hasLayer(pLayer), anyOn = () => rOn() || pOn() || hOn(), colorOn = () => rOn() || hOn();
+  const plOn = () => !!map.plainLayer && map.hasLayer(map.plainLayer);
+  const hOn = () => !!hLayer && map.hasLayer(hLayer) && !plOn();
+  const rOn = () => map.hasLayer(rLayer) && !hOn() && !plOn(), pOn = () => map.hasLayer(pLayer) && !plOn(), anyOn = () => rOn() || pOn() || hOn() || plOn(), colorOn = () => rOn() || hOn();
+  /* Model data is only needed for rating, pulse and hazard; plain points just restyle. */
+  const needData = () => rOn() || pOn() || hOn();
   const legend = () => {
     const a = $('#legFun'), b = $('#legRate'), c = $('#legPulse'), d = $('#legHaz');
-    if (a) a.hidden = anyOn(); if (b) b.hidden = !rOn(); if (c) c.hidden = !pOn(); if (d) d.hidden = !hOn();
+    if (a) a.hidden = anyOn();
+    const s2 = $('#legFun'); if (s2 && plOn()) s2.hidden = true; if (b) b.hidden = !rOn(); if (c) c.hidden = !pOn(); if (d) d.hidden = !hOn();
   };
   const restore = () => { dots.clearLayers(); items.forEach(it => { it.pulse = null; it.m.setStyle(it.orig); }); };
-  const when = () => { for (const g of Object.values(map.waveLayers || {})) if (map.hasLayer(g) && g.stepTime()) return Date.parse(g.stepTime()); return Date.now(); };
+  const when = () => mapTime(map) ?? Date.now();
   const paint = () => {
     if (!anyOn()) return;
+    if (plOn()) {
+      dots.clearLayers();
+      items.forEach(it => { it.pulse = null; it.rating = null; it.m.setStyle(PLAIN_STYLE); });
+      if (map.redrawLabels) map.redrawLabels();
+      return;
+    }
     const t = when();
     dots.clearLayers();
     for (const it of items) {
@@ -3252,6 +3269,7 @@ function setupRating(map, items) {
     clearTimeout(timer);
     timer = setTimeout(async () => {
       if (!anyOn()) return;
+      if (!needData()) { paint(); return; }
       const my = ++token, b = map.getBounds().pad(0.2), c = map.getCenter();
       /* Load the home area's spots first; outside it, only primary spots (plus favorites and surfed spots),
          so the model service gets few requests. Other spots stay gray. */
@@ -3272,7 +3290,7 @@ function setupRating(map, items) {
     map.getContainer().classList.toggle('pulsing', pOn() && !reducedMotion());
     if (anyOn()) refresh(); else { restore(); if (map.redrawLabels) map.redrawLabels(); }
   };
-  [rLayer, pLayer, hLayer].filter(Boolean).forEach(l => { l.on('add', changed); l.on('remove', changed); });
+  [rLayer, pLayer, hLayer, map.plainLayer].filter(Boolean).forEach(l => { l.on('add', changed); l.on('remove', changed); });
   map.on('moveend spotschange', () => { if (anyOn()) refresh(); });
   map.on('wavestep overlayadd overlayremove', () => { if (anyOn()) paint(); });
 }
@@ -4440,6 +4458,7 @@ function spotsMap(el, sessions, { small, showAll, mode, state } = {}) {
     if (map.ratingLayer && (state && state.overlays ? state.overlays.has('rating') : prefs.showRating)) map.ratingLayer.addTo(map);
     if (map.pulseLayer && pulseOn() && (state && state.overlays ? state.overlays.has('pulse') : prefs.showPulse)) map.pulseLayer.addTo(map);
     if (map.hazardLayer && hazardOn() && (state && state.overlays ? state.overlays.has('hazard') : prefs.showHazard)) map.hazardLayer.addTo(map);
+    if (map.plainLayer && (state && state.overlays ? state.overlays.has('plain') : prefs.showPlain)) map.plainLayer.addTo(map);
   }
   const hb = !small && homeBounds();
   if (state && state.center) map.setView(state.center, state.zoom ?? 11, { animate: false });
@@ -4614,6 +4633,7 @@ function mapLink(map) {
   if (map.ratingLayer && map.hasLayer(map.ratingLayer)) on.push('rating');
   if (map.pulseLayer && map.hasLayer(map.pulseLayer)) on.push('pulse');
   if (map.hazardLayer && map.hasLayer(map.hazardLayer)) on.push('hazard');
+  if (map.plainLayer && map.hasLayer(map.plainLayer)) on.push('plain');
   if (map.stormLayer && map.hasLayer(map.stormLayer)) on.push('storms');
   p.push(`l=${on.join(',') || 'none'}`, `spots=${map.spotsMode || 'all'}`);
   if (map.windLayer && map.hasLayer(map.windLayer)) p.push(`wind=${map.windLayer.model}`);
@@ -4629,7 +4649,7 @@ function viewMap(q = new URLSearchParams()) {
   setTop('Map', null, `<div class="map-legend">
       <span><strong>${n}</strong> session${n === 1 ? '' : 's'} · <strong>${surfed}</strong> spot${surfed === 1 ? '' : 's'}</span>
       <span id="legHaz" class="legset" ${hazardOn() && (st.overlays ? st.overlays.has('hazard') : prefs.showHazard) ? '' : 'hidden'}><button type="button" class="infobtn" data-act="hazardHelp" aria-label="How shoreline hazard works">Shore ⓘ</button> ${HAZARD_SCALE.map(([, c, l]) => `<span><span class="dot" style="background:${c}"></span>${l.toLowerCase()}</span>`).join('')}</span>
-      <span id="legFun" class="legset" ${(st.overlays ? st.overlays.has('rating') || (pulseOn() && st.overlays.has('pulse')) || (hazardOn() && st.overlays.has('hazard')) : prefs.showRating || (pulseOn() && prefs.showPulse) || (hazardOn() && prefs.showHazard)) ? 'hidden' : ''}><span><span class="dot" style="background:#1f9d8f"></span>fun</span><span><span class="dot" style="background:#e0a526"></span>ok</span><span><span class="dot" style="background:#c8553d"></span>meh</span></span>
+      <span id="legFun" class="legset" ${(st.overlays ? st.overlays.has('plain') : prefs.showPlain) || (st.overlays ? st.overlays.has('rating') || (pulseOn() && st.overlays.has('pulse')) || (hazardOn() && st.overlays.has('hazard')) : prefs.showRating || (pulseOn() && prefs.showPulse) || (hazardOn() && prefs.showHazard)) ? 'hidden' : ''}><span><span class="dot" style="background:#1f9d8f"></span>fun</span><span><span class="dot" style="background:#e0a526"></span>ok</span><span><span class="dot" style="background:#c8553d"></span>meh</span></span>
       <span id="legPulse" class="legset" ${pulseOn() && (st.overlays ? st.overlays.has('pulse') : prefs.showPulse) ? '' : 'hidden'}><span><span class="dot pulsedot"></span>pulse: size = swell height, pace = period</span></span>
       <span id="legRate" class="legset" ${(st.overlays ? st.overlays.has('rating') : prefs.showRating) ? '' : 'hidden'}><button type="button" class="infobtn" data-act="ratingHelp" aria-label="How the rating works">Approx. rating ⓘ</button> ${RATING_SCALE.map(([, c, l]) => `<span title="${l}"><span class="dot" style="background:${c}"></span>${l.toLowerCase()}</span>`).join('')}</span>
       <span class="lbuoy cdip">${BUOY_SVG}CDIP</span><span class="lbuoy">${BUOY_SVG}NOAA</span><span id="legBuoyT" class="lbt">buoys: latest</span>
@@ -4976,7 +4996,7 @@ function viewHelp() {
       <li>With a CDIP layer on, the panel at the bottom steps from Now through the forecast hours.</li>
       <li>Tap the <strong>magnifier</strong> (top left) to search: matching surf spots show first as you type, then press Search for towns and addresses.</li>
       <li>Turn on <strong>Surf rating (spots)</strong> in the layers list to color the spots by a 0–5 rating from swell size and period, swell direction, wind (offshore or onshore) and, once you've rated a few sessions there, the tide. It follows the hour on the CDIP time panel. It's a rough guess from forecast models, often off, so take it with a grain of salt.</li>
-      <li>The <strong>layers</strong> button opens menus for the base map, the CDIP wave model (wave height or peak period) and the spot style (my sessions, surf rating, swell pulse, rating + pulse or shore hazard), plus a switch for buoys.</li>
+      <li>The <strong>layers</strong> button opens menus for the base map, the CDIP wave model (wave height or peak period) and the spot style (plain points, my sessions, surf rating, swell pulse, rating + pulse or shore hazard; plain points draws every spot as the same small dot), plus a switch for buoys.</li>
       <li><strong>Layers panel</strong>: listed in drawing order, top of the list on top (buoys, spots, storms, wind, ocean layer, base map). Only one shaded layer shows at a time: turning on an ocean layer switches wind to arrows, and choosing shaded wind turns the ocean layer off.</li>
       <li><strong>Ocean layer</strong> (layers button): CDIP wave height or peak period for California (detailed), <strong>global</strong> wave height or peak period from the WaveWatch III model (every 6 hours, about 6 days ahead; use See the Pacific to zoom out), or <strong>water temperature</strong> from satellites (latest day, usually 1–2 days old). Spot forecasts show the current water temperature in the Now box.</li>
       <li><strong>Map time and keys</strong>: one card at the bottom left. Folded, it is a single row: the map time (with the date) with ‹ and › to step, ▶ to play through the hours (each hour waits for its images to load; it starts over at the end; tap again to pause), and a timeline bar across the whole forecast range with its first and last dates (drag it to jump), and the layers that are on. ▴ opens every key in one list, storms first. The whole map shares one time: the ocean layer sets it when one is on, otherwise wind, otherwise storms; the rest (and buoy labels) follow.</li>
