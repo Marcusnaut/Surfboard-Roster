@@ -355,7 +355,8 @@ form.rset h4 small { text-transform: none; letter-spacing: 0; font-weight: 400; 
 .rs-srchead { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
 .rs-srchead select { flex: 1; }
 .rs-live { margin-bottom: 8px; }
-.rs-weights { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.rs-weights { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.rs-weights input { width: 100%; box-sizing: border-box; }
 .rs-weights label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
 #tabs a.has-alert { position: relative; }
 #tabs a.has-alert::after { content: ''; position: absolute; top: 6px; left: calc(50% + 8px); width: 9px; height: 9px; border-radius: 50%; background: var(--danger); border: 2px solid var(--surface); }
@@ -650,9 +651,9 @@ svg.chart .warrow { fill: #5b7fa6; }
 <script>
 'use strict';
 const APP_ID = 'surfboard-tracker';
-const BUILD = 'Build 19 (your own surf ratings, alerts, hide spots)';
+const BUILD = 'Build 19.1 (optional tide in your ratings)';
 /* Shown with the "new version" notice and under How to use. Keep it on one line of valid JSON: the running app reads it from the new file. */
-const WHATS_NEW = {"summary":"Surf ratings are now yours to set up per spot, from forecasts, buoys and wind, with alerts for good hours coming up.","notes":["Automatic ratings are gone. A spot is rated only after you add a rating on its page (Your ratings → Add a rating).","Each rating can read this spot's forecast and any number of buoys, each with its own swell windows, height range and period.","Set your own weights for height, period and wind.","Duplicate a rating and tweak it, for example one for longboarding.","Turn on alerts to see good hours coming up on the Spots tab. They are worked out on your phone when you open the app.","Hide spot on a spot page turns a spot off on the map, lists and alerts.","The update notice now says what changed."]};
+const WHATS_NEW = {"summary":"Your ratings can now include an optional tide range, and since Build 19 each spot's rating is yours to set up from forecasts, buoys and wind, with alerts for good hours coming up.","notes":["This update (19.1): a rating can include an optional tide range with its own weight.","This update: Your ratings and the Add a rating button sit near the top of the spot page.","This update: an app left open now checks for new versions and alerts every 30 minutes.","Last major upgrade (Build 19): automatic ratings are gone. A spot is rated only after you add a rating on its page (Your ratings → Add a rating).","Each rating can read this spot's forecast and any number of buoys, each with its own swell windows, height range and period.","Set your own weights for height, period, wind and tide.","Duplicate a rating and tweak it, for example one for longboarding.","Turn on alerts to see good hours coming up on the Spots tab. They are worked out on your phone when you open the app.","Hide spot on a spot page turns a spot off on the map, lists and alerts.","The update notice now says what changed."]};
 const SCHEMA = 2;
 const DB_NAME = 'surfboard-tracker';
 const STORES = ['options', 'boards', 'sessions', 'spots', 'photos', 'meta', 'fins', 'finLinks'];
@@ -3078,13 +3079,14 @@ const angDiff = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
               height) and the period (s) that scores full marks, plus a weight against the other sources.
               A buoy uses its latest reading for the current hours and its model forecast for later hours.
      wind     optional, from this spot's weather forecast: the offshore arc and a speed limit (kt)
-     w        weights for height, period and wind
+     tide     optional: the tide range that works, { lo, hi } in meters above mean sea level (the app's tide values)
+     w        weights for height, period, wind and tide
      alert    show good hours coming up (in the app); min is the score that counts (2 fair, 3 good, 4 great)
    Score = 5 × weighted average of height, period and wind scores (each 0 to 1). A source whose swell is outside
    its windows counts toward nothing: direction scales both its height and period scores.
    Swell windows stop RATE_SHORE_GAP degrees short of the shoreline: swell running along the shore can't reach it. */
 const RATE_SHORE_GAP = 10;
-const RATE_W = { h: 3, p: 2, wind: 1 };
+const RATE_W = { h: 3, p: 2, wind: 1, tide: 1 };
 const normDeg = d => ((Math.round(d) % 360) + 360) % 360;
 const inArc = (d, a) => ((d - a.from + 360) % 360) <= ((a.to - a.from + 360) % 360);
 const arcGap = (d, a) => inArc(d, a) ? 0 : Math.min(angDiff(d, a.from), angDiff(d, a.to));
@@ -3161,10 +3163,12 @@ function profileScore(sp, pr, c, t) {
   }
   if (!sw) return null;
   const wind = W.wind > 0 ? windScore(pr.wind, c) : null;
-  const tot = W.h + W.p + (wind != null ? W.wind : 0);
+  /* Tide: full marks inside the wanted range, fading over about 2.5 ft outside it. */
+  const tide = pr.tide && W.tide > 0 && c && c.tide != null ? lerp([[0, 1], [0.3, 0.5], [0.75, 0.1]], c.tide < pr.tide.lo ? pr.tide.lo - c.tide : c.tide > pr.tide.hi ? c.tide - pr.tide.hi : 0) : null;
+  const tot = W.h + W.p + (wind != null ? W.wind : 0) + (tide != null ? W.tide : 0);
   if (tot <= 0) return null;
-  const v = (W.h * sh / sw + W.p * spd / sw + (wind != null ? W.wind * wind : 0)) / tot;
-  return { score: Math.max(0, Math.min(5, Math.round(v * 50) / 10)), parts, wind };
+  const v = (W.h * sh / sw + W.p * spd / sw + (wind != null ? W.wind * wind : 0) + (tide != null ? W.tide * tide : 0)) / tot;
+  return { score: Math.max(0, Math.min(5, Math.round(v * 50) / 10)), parts, wind, tide };
 }
 /* A spot's rating at one hour: the best of its setups, or null when it has none. */
 function spotRating(sp, c, tide, t = Date.now()) {
@@ -3225,12 +3229,13 @@ function fillRateNow(sp, c) {
     const r = profileScore(sp, pr, c, now);
     el.innerHTML = r ? `<span class="sub">now</span> ${ratingBadge(r.score)}` : '<span class="sub">no data now</span>';
     if (r && pe) pe.innerHTML = r.parts.map(p => `<span class="rl-part">${esc(p.src === 'spot' ? 'Forecast' : srcName(p.src))}: ${p.missing ? 'no data' : `${esc(fmtHeight(p.h))}${p.p != null ? ` · ${Math.round(p.p)} s` : ''}${p.d != null ? ` · ${esc(dirDeg(p.d))}` : ''}${p.obs ? ' · observed' : ''} ${p.dir >= 0.99 ? '' : '<b class="rl-off">outside window</b>'}`}</span>`).join('')
-      + (r.wind != null && c && c.wS != null ? `<span class="rl-part">Wind: ${esc(fmtWind(c.wS))}${c.wD != null ? ` ${esc(compass(c.wD))}` : ''}</span>` : '') + (pr.alert ? `<span class="rl-part">Alerts: ${esc((RATE_MIN.find(m => m[0] === (pr.min || 3)) || RATE_MIN[1])[1].toLowerCase())}</span>` : '');
+      + (r.wind != null && c && c.wS != null ? `<span class="rl-part">Wind: ${esc(fmtWind(c.wS))}${c.wD != null ? ` ${esc(compass(c.wD))}` : ''}</span>` : '')
+      + (r.tide != null ? `<span class="rl-part">Tide: ${esc(fmtHeight(c.tide))} ${r.tide >= 0.99 ? '' : '<b class="rl-off">outside range</b>'}</span>` : '') + (pr.alert ? `<span class="rl-part">Alerts: ${esc((RATE_MIN.find(m => m[0] === (pr.min || 3)) || RATE_MIN[1])[1].toLowerCase())}</span>` : '');
   }
 }
 function rateEditorHTML(sp, pr) {
   const m = prefs.units === 'm', hU = m ? 'm' : 'ft', toU = ft => ft == null ? '' : m ? +(ft / 3.281).toFixed(2) : ft;
-  const wU = windU(), W = { ...RATE_W, ...(pr.w || {}) };
+  const wU = windU(), W = { ...RATE_W, ...(pr.w || {}) }, toT = v => m ? +v.toFixed(2) : +(v * 3.281).toFixed(1);
   const buoys = (((S.buoyData || S.meta.buoys || {}).buoys) || []).filter(b => b.lat != null).map(b => ({ b, km: gcDistKm(sp.lat, sp.lon, b.lat, b.lon) })).sort((a, z) => a.km - z.km);
   const used = new Set((pr.sources || []).map(s => s.src));
   const list = buoys.filter((x, i) => i < 20 || used.has(x.b.id));
@@ -3260,8 +3265,13 @@ function rateEditorHTML(sp, pr) {
       <label>Offshore wind from<span class="rs-pair">${dirIn('offFrom', pr.wind && pr.wind.offshore ? pr.wind.offshore.from : null)} to ${dirIn('offTo', pr.wind && pr.wind.offshore ? pr.wind.offshore.to : null)}</span></label>
       <label>Other wind hurts from, ${esc(wU[1])}<input type="number" step="1" min="1" data-rs="windMax" value="${Math.round(((pr.wind && pr.wind.max) || 10) * wU[0] / 1.944)}"></label>
     </div>
+    <h4>Tide <small>optional; leave empty to ignore the tide</small></h4>
+    <div class="rs-grid">
+      <label>Tide between, ${hU}<span class="rs-pair"><input type="number" step="0.1" data-rs="tideLo" value="${pr.tide ? toT(pr.tide.lo) : ''}"> and <input type="number" step="0.1" data-rs="tideHi" value="${pr.tide ? toT(pr.tide.hi) : ''}"></span></label>
+    </div>
+    <p class="sub">Use the tide heights this app shows in its forecasts (above or below mean sea level, so low tides are negative).</p>
     <h4>Weights <small>how much each counts; 0 leaves it out</small></h4>
-    <div class="rs-weights"><label>Height<input type="number" step="0.5" min="0" data-rs="wH" value="${W.h}"></label><label>Period<input type="number" step="0.5" min="0" data-rs="wP" value="${W.p}"></label><label>Wind<input type="number" step="0.5" min="0" data-rs="wW" value="${W.wind}"></label></div>
+    <div class="rs-weights"><label>Height<input type="number" step="0.5" min="0" data-rs="wH" value="${W.h}"></label><label>Period<input type="number" step="0.5" min="0" data-rs="wP" value="${W.p}"></label><label>Wind<input type="number" step="0.5" min="0" data-rs="wW" value="${W.wind}"></label><label>Tide<input type="number" step="0.5" min="0" data-rs="wT" value="${W.tide}"></label></div>
     <h4>Alerts</h4>
     <label class="check"><input type="checkbox" data-rs="alert" ${pr.alert ? 'checked' : ''}> Tell me in the app when this is coming up</label>
     <label class="rs-name">Count it from<select data-rs="min">${RATE_MIN.map(([v, l]) => `<option value="${v}" ${(pr.min || 3) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
@@ -3293,7 +3303,8 @@ function bindRatings(sp) {
       });
       const of = parseDir(box.querySelector('[data-rs="offFrom"]').value), ot = parseDir(box.querySelector('[data-rs="offTo"]').value), wm = num(box, 'windMax');
       return { name: box.querySelector('[data-rs="name"]').value.trim(), sources, wind: { offshore: of != null && ot != null ? { from: of, to: ot } : null, max: Math.max(1, Math.round((wm || 10) * 1.944 / wU[0])) },
-        w: { h: num(box, 'wH') ?? RATE_W.h, p: num(box, 'wP') ?? RATE_W.p, wind: num(box, 'wW') ?? RATE_W.wind }, alert: box.querySelector('[data-rs="alert"]').checked, min: +box.querySelector('[data-rs="min"]').value };
+        tide: (() => { const lo = num(box, 'tideLo'), hi = num(box, 'tideHi'); return lo == null && hi == null ? null : { lo: lo == null ? null : m ? lo : lo / 3.281, hi: hi == null ? null : m ? hi : hi / 3.281 }; })(),
+        w: { h: num(box, 'wH') ?? RATE_W.h, p: num(box, 'wP') ?? RATE_W.p, wind: num(box, 'wW') ?? RATE_W.wind, tide: num(box, 'wT') ?? RATE_W.tide }, alert: box.querySelector('[data-rs="alert"]').checked, min: +box.querySelector('[data-rs="min"]').value };
     };
     const redraw = () => {
       const r = read();
@@ -3328,7 +3339,9 @@ function bindRatings(sp) {
             s.windows = cw.windows;
           }
         }
-        if (r.w.h + r.w.p + r.w.wind <= 0) return fail('Give at least one weight a value above 0.');
+        if (r.tide && (r.tide.lo == null || r.tide.hi == null || r.tide.hi <= r.tide.lo)) return fail('Tide needs a low and a higher high value (or leave both empty).');
+        if (r.tide) r.tide = { lo: Math.round(r.tide.lo * 100) / 100, hi: Math.round(r.tide.hi * 100) / 100 };
+        if (r.w.h + r.w.p + r.w.wind <= 0) return fail('Give height, period or wind a weight above 0.');
         const next = { id: pr.id, ...r, name: r.name || 'Rating' }, cur = spotProfiles(spotById(sp.id));
         await save(cur.some(x => x.id === pr.id) ? cur.map(x => x.id === pr.id ? next : x) : [...cur, next]);
         toast(clipped ? `Saved. Swell windows now stop ${RATE_SHORE_GAP}° short of the shoreline.` : 'Rating saved');
@@ -3530,11 +3543,12 @@ function ratingGuideHTML(full) {
     <ul>
       <li><strong>Swell sources</strong>: this spot's forecast, one or more buoys, or both. For each one, set the swell directions that work (one or more windows), the swell height you want and the period that scores full marks. A buoy uses its live reading for the current hours and its model forecast for later hours. Each source has its own weight against the others.</li>
       <li><strong>Wind</strong>: from this spot's weather forecast. Set which directions are offshore and the speed where other wind starts to hurt.</li>
-      <li><strong>Weights</strong>: how much height, period and wind count. Height 3, period 2 and wind 0.5 means height matters six times as much as wind. A weight of 0 leaves that part out.</li>
+      <li><strong>Tide</strong> (optional): the tide range that works, using the tide heights this app shows (above or below mean sea level). Leave it empty to ignore the tide.</li>
+      <li><strong>Weights</strong>: how much height, period, wind and tide count. Height 3, period 2 and wind 0.5 means height matters six times as much as wind. A weight of 0 leaves that part out.</li>
       <li><strong>Alerts</strong>: switch on to see good hours coming up, and choose whether fair, good or great counts.</li>
     </ul>
     <h4>How the score works</h4>
-    <p>Each hour gets a score from 0 to 5, shown as a word: poor, poor+, fair, good or great. Hover over a rating (or tap it on a phone) to see the score. Height, period and wind each score from 0 to 1 and are averaged by your weights. When a source's swell comes from outside its windows, that source's height and period count for little or nothing. Swell windows stop ${RATE_SHORE_GAP}° short of the shoreline, because swell running along the shore can't reach the break.</p>
+    <p>Each hour gets a score from 0 to 5, shown as a word: poor, poor+, fair, good or great. Hover over a rating (or tap it on a phone) to see the score. Height, period, wind and (when set) tide each score from 0 to 1 and are averaged by your weights. When a source's swell comes from outside its windows, that source's height and period count for little or nothing. Swell windows stop ${RATE_SHORE_GAP}° short of the shoreline, because swell running along the shore can't reach the break.</p>
     <p><strong>More than one rating:</strong> use <em>Duplicate</em> to copy a setup and tweak it, for example one for longboarding. Badges and the map show the spot's best setup; the spot page lists each one with what its sources read right now.</p>
     <p><strong>Alerts</strong> are worked out on your phone when you open the app: the next 5 days of daylight (6 am to 6 pm). They appear under <em>Coming up</em> on the Spots tab, and a dot on the tab marks new ones. The app can't check while it is closed.</p>
     <p class="sub">Daily ratings show the best daylight hour (6 am to 6 pm). Forecast parts are model estimates.</p>
@@ -5275,12 +5289,13 @@ function viewSpotPage(id) {
     <div class="sub" style="margin-bottom:10px">${esc(sp.region || 'Your spot')}</div>
     <div class="actions-row" style="margin-top:0"><a class="btn primary" href="#/sessions/new?spot=${encodeURIComponent(id)}">Log a session here</a><a class="btn" href="#/map?c=${sp.lat.toFixed(4)},${sp.lon.toFixed(4)}&z=14">Map</a><button type="button" class="btn" data-act="windy" data-lat="${sp.lat}" data-lon="${sp.lon}" data-name="${esc(sp.name)}">Windy</button><button type="button" class="btn" data-act="toggleSpot" data-id="${esc(id)}">${sp.hidden ? 'Show spot' : 'Hide spot'}</button></div>
     ${sp.hidden ? '<p class="note">This spot is hidden: it is off the map, the spot lists and alerts. Your sessions here are kept.</p>' : ''}
+    ${ratingsCardHTML(sp)}
     <h2 class="sec">Board pick for right now</h2>
     ${ratedCond.length >= MIN_PICK && boardsWithRated >= 2 ? '<div class="card pick"><div id="pickBody"><span class="sub">Checking the swell, tide and wind…</span></div></div>'
       : lockedCard('Board pick for right now', 'rated sessions with swell data', ratedCond.length, MIN_PICK)}
     <h2 class="sec">Forecast</h2>
     <div class="card" id="spotFc" style="padding:10px 12px"><span class="sub">Loading the 5-day forecast…</span></div>
-    ${ratingsCardHTML(sp)}
+
     <h2 class="sec">Your sessions here</h2>
     ${list.length ? `<div class="stats">
         <div class="stat"><div class="v">${st.count}</div><div class="k">Sessions</div></div>
@@ -5306,7 +5321,8 @@ function viewSpotPage(id) {
         bindForecast(box, f.model, picked, t => { picked = t; });
         /* Each rating setup's score right now, with what its sources read. */
         const now = Date.now(), pn = nearestPt(swellPoints(fc, ex), now), wn = ex && ex.wind ? nearestPt(ex.wind, now) : null;
-        fillRateNow(sp, pn ? { h: pn.h, p: pn.p, d: pn.d, o: pn.o, wS: wn && Math.abs(wn.t - now) < 3 * 3600000 ? wn.s : null, wD: wn && wn.d } : null);
+        const tn = ex && ex.tide && ex.tide.length ? tideAt(ex.tide, now) : null;
+        fillRateNow(sp, pn ? { h: pn.h, p: pn.p, d: pn.d, o: pn.o, wS: wn && Math.abs(wn.t - now) < 3 * 3600000 ? wn.s : null, wD: wn && wn.d, tide: tn && tn.h } : null);
       };
       draw(null, true);
       draw(await exP);
@@ -5925,6 +5941,8 @@ document.addEventListener('visibilitychange', () => {
     measure();
     route();
     setTimeout(() => checkAlerts(), 1500);
+    /* An app left open (a desktop window, say) still looks for new versions and alerts every half hour. */
+    setInterval(() => { if (document.visibilityState === 'visible') { checkForUpdate(); checkAlerts(); } }, 30 * 60 * 1000);
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
     checkForUpdate();
